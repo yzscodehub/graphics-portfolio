@@ -1,0 +1,47 @@
+---
+import BaseLayout from "./BaseLayout.astro";
+import PageHero from "../components/PageHero.astro";
+import type { Locale } from "../lib/i18n";
+
+interface Props {
+  locale: Locale;
+  title: string;
+  description: string;
+  eyebrow: string;
+  handle: string;
+  meta?: Array<[string, string]>;
+  paper?: boolean;
+}
+const { locale, title, description, eyebrow, handle, meta = [], paper = false } = Astro.props;
+---
+
+<BaseLayout locale={locale} title={title} description={description} handle={handle}>
+  <PageHero eyebrow={eyebrow} title={title} description={description} />
+  {
+    paper ? (
+      <article class="article-paper">
+        <div class="prose">
+          <slot />
+        </div>
+      </article>
+    ) : (
+      <section class="section">
+        <div class="section-inner detail-layout">
+          <article class="prose">
+            <slot />
+          </article>
+          <aside class="detail-aside" aria-label="Metadata">
+            <dl>
+              {meta.map(([label, value]) => (
+                <div>
+                  <dt>{label}</dt>
+                  <dd>{value}</dd>
+                </div>
+              ))}
+            </dl>
+          </aside>
+        </div>
+      </section>
+    )
+  }
+</BaseLayout>

@@ -1,0 +1,51 @@
+---
+import { getCollection, type CollectionEntry } from "astro:content";
+import BaseLayout from "../layouts/BaseLayout.astro";
+import PageHero from "../components/PageHero.astro";
+import ProjectCard from "../components/ProjectCard.astro";
+import { profile } from "../data/profile";
+import type { Locale } from "../lib/i18n";
+import { localePath } from "../lib/i18n";
+import { withBase } from "../lib/urls";
+interface Props {
+  locale: Locale;
+}
+const { locale } = Astro.props;
+const isEn = locale === "en";
+const allEntries = (await getCollection("projects")) as CollectionEntry<"projects">[];
+const entries = allEntries.filter((entry) => entry.data.locale === locale && !entry.data.draft);
+const slugOf = (entry: (typeof entries)[number]) => entry.data.routeSlug;
+---
+
+<BaseLayout
+  locale={locale}
+  title={isEn ? "Work" : "项目"}
+  description={isEn ? "Public graphics systems projects." : "公开的图形系统项目。"}
+  handle={profile.displayName}
+>
+  <PageHero
+    eyebrow="WORK / SYSTEMS"
+    title={isEn ? "Systems, made observable." : "让系统变得可观察。"}
+    description={isEn
+      ? "Four personal projects connect architecture, rendering, GPU compute and neural graphics through runnable evidence."
+      : "四个个人项目通过可运行证据连接架构、渲染、GPU Compute 与神经图形。"}
+  />
+  <section class="section">
+    <div class="section-inner">
+      <div class="work-grid">
+        {
+          entries.map((entry, index) => (
+            <ProjectCard
+              index={index + 1}
+              title={entry.data.title}
+              description={entry.data.summary}
+              tags={entry.data.technologies}
+              status={entry.data.status}
+              href={withBase(localePath(`/work/${slugOf(entry)}/`, locale))}
+            />
+          ))
+        }
+      </div>
+    </div>
+  </section>
+</BaseLayout>

@@ -1,0 +1,29 @@
+# Dependencies and Astro build state
+node_modules/
+.astro/
+dist/
+
+# Local environment configuration
+.env
+.env.*
+!.env.example
+
+# Test artifacts
+coverage/
+playwright-report/
+test-results/
+blob-report/
+
+# Editor and operating system files
+.DS_Store
+Thumbs.db
+.vscode/
+
+# Local caches and temporary training outputs
+.cache/
+.venv/
+__pycache__/
+*.py[cod]
+tmp/
+training/output/
+training/checkpoints/

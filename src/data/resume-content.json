@@ -1,0 +1,70 @@
+{
+  "summary": {
+    "zh-CN": "图形系统工程师，专注实时渲染、引擎架构、GPU Compute、跨平台图形接口与多媒体系统，并通过可复现实验持续学习神经图形。",
+    "en": "Graphics systems engineer focused on real-time rendering, engine architecture, GPU compute, cross-platform graphics interfaces, and multimedia systems, while exploring neural graphics through reproducible experiments."
+  },
+  "skills": [
+    {
+      "label": { "zh-CN": "图形接口", "en": "Graphics APIs" },
+      "items": ["Vulkan", "DirectX 11/12", "Metal", "OpenGL", "WebGPU"]
+    },
+    {
+      "label": { "zh-CN": "渲染", "en": "Rendering" },
+      "items": ["PBR", "IBL", "Shadow", "SSAO", "Post-processing", "Render Graph"]
+    },
+    {
+      "label": { "zh-CN": "系统", "en": "Systems" },
+      "items": ["Modern C++", "RHI", "ECS", "GPU Compute", "Resource Lifetime", "Profiling"]
+    },
+    {
+      "label": { "zh-CN": "多媒体与学习", "en": "Media & Learning" },
+      "items": ["FFmpeg", "A/V Sync", "Zero-copy", "Python", "PyTorch", "ONNX"]
+    }
+  ],
+  "experience": [
+    {
+      "title": { "zh-CN": "图形与引擎系统开发", "en": "Graphics and engine systems development" },
+      "period": { "zh-CN": "专业经历（匿名）", "en": "Professional experience (anonymous)" },
+      "bullets": {
+        "zh-CN": [
+          "围绕跨平台 RHI、资源绑定、管线状态和 GPU 同步设计可维护的运行时边界。",
+          "参与渲染管线、几何处理和性能分析，以帧时间、带宽和资源生命周期定位瓶颈。",
+          "在高分辨率多媒体场景中处理数据移动、线程协作和音视频同步。"
+        ],
+        "en": [
+          "Designed maintainable runtime boundaries around cross-platform RHI, resource binding, pipeline state, and GPU synchronization.",
+          "Worked on rendering pipelines, geometry processing, and performance analysis using frame time, bandwidth, and resource lifetime.",
+          "Handled data movement, thread coordination, and A/V synchronization in high-resolution multimedia systems."
+        ]
+      },
+      "technologies": ["C++", "Vulkan", "DirectX", "Metal", "GPU Profiling", "Multimedia"]
+    },
+    {
+      "title": { "zh-CN": "独立图形实验室", "en": "Independent graphics lab" },
+      "period": { "zh-CN": "持续进行", "en": "Ongoing" },
+      "bullets": {
+        "zh-CN": [
+          "用 Three.js、原生 WebGPU 和 WGSL 将底层图形概念整理成可运行、可降级的公开 Demo。",
+          "使用 PyTorch 与 ONNX Runtime Web 学习从图形数据生成、训练到浏览器推理的完整链路。"
+        ],
+        "en": [
+          "Turned low-level graphics concepts into runnable, fallback-safe public demos with Three.js, raw WebGPU, and WGSL.",
+          "Studied the path from graphics-data generation to training and browser inference with PyTorch and ONNX Runtime Web."
+        ]
+      },
+      "technologies": ["TypeScript", "Three.js", "WebGPU", "WGSL", "PyTorch", "ONNX"]
+    }
+  ],
+  "highlights": {
+    "zh-CN": [
+      "Render Graph 与资源生命周期",
+      "GPU Compute 与渐进式路径追踪",
+      "浏览器神经降噪部署实验"
+    ],
+    "en": [
+      "Render graphs and resource lifetime",
+      "GPU compute and progressive path tracing",
+      "Browser neural-denoising deployment"
+    ]
+  }
+}

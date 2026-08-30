@@ -1,0 +1,66 @@
+---
+import { getCollection, type CollectionEntry } from "astro:content";
+import BaseLayout from "../layouts/BaseLayout.astro";
+import PageHero from "../components/PageHero.astro";
+import DemoCard from "../components/DemoCard.astro";
+import { profile } from "../data/profile";
+import type { Locale } from "../lib/i18n";
+import { localePath } from "../lib/i18n";
+import { withBase } from "../lib/urls";
+interface Props {
+  locale: Locale;
+}
+const { locale } = Astro.props;
+const isEn = locale === "en";
+const allEntries = (await getCollection("demos")) as CollectionEntry<"demos">[];
+const entries = allEntries.filter((entry) => entry.data.locale === locale && !entry.data.draft);
+const slugOf = (entry: (typeof entries)[number]) => entry.data.routeSlug;
+const categories = ["all", "rendering", "engine", "gpu", "machine-learning"];
+---
+
+<BaseLayout
+  locale={locale}
+  title={isEn ? "Demos" : "演示"}
+  description={isEn ? "Seven runnable graphics demonstrations." : "七个可运行的图形技术演示。"}
+  handle={profile.displayName}
+>
+  <PageHero
+    eyebrow="DEMOS / RUNTIME"
+    title={isEn ? "Evidence you can run." : "可以运行的技术证据。"}
+    description={isEn
+      ? "Every demo exposes its backend, controls, limitations and fallback path."
+      : "每个 Demo 都公开后端、控制项、限制与降级路径。"}
+  />
+  <section class="section">
+    <div class="section-inner">
+      <div class="filter-bar" data-filter-group aria-label={isEn ? "Filter demos" : "筛选演示"}>
+        {
+          categories.map((category, index) => (
+            <button
+              class="filter-chip"
+              type="button"
+              data-filter={category}
+              aria-pressed={index === 0 ? "true" : "false"}
+            >
+              {category}
+            </button>
+          ))
+        }
+      </div>
+      <div class="demo-grid">
+        {
+          entries.map((entry) => (
+            <DemoCard
+              title={entry.data.title}
+              description={entry.data.summary}
+              backend={entry.data.backend}
+              category={entry.data.category}
+              status={entry.data.status}
+              href={withBase(localePath(`/demos/${slugOf(entry)}/`, locale))}
+            />
+          ))
+        }
+      </div>
+    </div>
+  </section>
+</BaseLayout>

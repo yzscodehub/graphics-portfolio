@@ -1,0 +1,23 @@
+---
+interface Props {
+  index: number;
+  title: string;
+  description: string;
+  tags: string[];
+  href: string;
+  status?: string;
+}
+const { index, title, description, tags, href, status = "PUBLIC LAB" } = Astro.props;
+---
+
+<article class="card work-card reveal">
+  <div class="work-card-number">
+    <span>{String(index).padStart(2, "0")}</span><span>{status}</span>
+  </div>
+  <h3>{title}</h3>
+  <p>{description}</p>
+  <ul class="tag-list" aria-label="Technologies">
+    {tags.map((tag) => <li class="tag">{tag}</li>)}
+  </ul>
+  <a class="card-link" href={href} aria-label={title}><span>OPEN ↗</span></a>
+</article>

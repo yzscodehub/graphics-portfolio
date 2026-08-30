@@ -1,0 +1,190 @@
+---
+interface Props {
+  slug: string;
+  title?: string;
+  description?: string;
+  forceLive?: boolean;
+  quality?: "auto" | "low" | "high";
+  class?: string;
+}
+
+const {
+  slug,
+  title = "Interactive technical demo",
+  description = "A local, self-contained rendering study.",
+  forceLive = false,
+  quality = "auto",
+} = Astro.props;
+---
+
+<section
+  class:list={["demo-shell", Astro.props.class]}
+  data-demo-shell
+  data-demo-slug={slug}
+  data-force-live={String(forceLive)}
+  data-quality={quality}
+  aria-label={title}
+>
+  <div class="demo-shell__header">
+    <div>
+      <p class="demo-shell__eyebrow">LOCAL DEMO / {slug}</p>
+      <h2>{title}</h2>
+      <p>{description}</p>
+    </div>
+    <p class="demo-shell__state" data-demo-state data-state="loading" aria-live="polite">
+      INITIALIZING
+    </p>
+  </div>
+  <div class="demo-shell__stage" data-demo-stage>
+    <canvas aria-label={`${title} visual output`} role="img"></canvas>
+    <div class="demo-shell__fallback" data-demo-fallback hidden>
+      <span>LOCAL PREVIEW</span>
+      <strong>Interactive renderer is unavailable in this environment.</strong>
+      <p>The technical notes and control surface remain available without external media.</p>
+    </div>
+  </div>
+  <div class="demo-shell__meta">
+    <p data-demo-status role="status">Preparing the demonstration…</p>
+    <output data-demo-metrics aria-live="off"></output>
+  </div>
+  <div class="demo-shell__controls" data-demo-controls aria-label={`${title} controls`}></div>
+</section>
+
+<script>
+  import { mountAllDemoShells } from "../demos/core/demo-shell";
+  mountAllDemoShells();
+</script>
+
+<style>
+  .demo-shell {
+    border: 1px solid var(--color-border, #31433f);
+    background: var(--color-surface, #10191a);
+    color: var(--color-text, #e8e6dc);
+  }
+  .demo-shell__header {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 1rem;
+    border-bottom: 1px solid var(--color-border, #31433f);
+  }
+  .demo-shell__header h2,
+  .demo-shell__header p {
+    margin: 0;
+  }
+  .demo-shell__header h2 {
+    font-size: clamp(1.25rem, 3vw, 1.8rem);
+  }
+  .demo-shell__header > div > p:last-child {
+    max-width: 54ch;
+    margin-top: 0.4rem;
+    color: var(--color-muted, #aeb8b4);
+  }
+  .demo-shell__eyebrow,
+  .demo-shell__state,
+  .demo-shell__meta,
+  .demo-shell__controls {
+    font-family: var(--font-mono, ui-monospace, monospace);
+    font-size: 0.72rem;
+    letter-spacing: 0.08em;
+  }
+  .demo-shell__eyebrow {
+    color: var(--color-accent, #57e3c2);
+  }
+  .demo-shell__state {
+    align-self: start;
+    color: var(--color-muted, #aeb8b4);
+  }
+  .demo-shell__stage {
+    position: relative;
+    min-height: 280px;
+    overflow: hidden;
+    background: #071011;
+  }
+  .demo-shell canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+    min-height: 280px;
+  }
+  .demo-shell__fallback {
+    display: grid;
+    min-height: 280px;
+    place-content: center;
+    gap: 0.7rem;
+    padding: 2rem;
+    text-align: center;
+    background: repeating-linear-gradient(
+      135deg,
+      #0c1515,
+      #0c1515 14px,
+      #0f1a19 14px,
+      #0f1a19 28px
+    );
+  }
+  .demo-shell__fallback span {
+    color: var(--color-accent, #57e3c2);
+    font: 0.7rem var(--font-mono, ui-monospace, monospace);
+    letter-spacing: 0.15em;
+  }
+  .demo-shell__fallback strong {
+    max-width: 32ch;
+  }
+  .demo-shell__fallback p {
+    max-width: 50ch;
+    margin: 0;
+    color: var(--color-muted, #aeb8b4);
+  }
+  .demo-shell__meta {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    min-height: 2.8rem;
+    padding: 0.8rem 1rem;
+    color: var(--color-muted, #aeb8b4);
+    border-top: 1px solid var(--color-border, #31433f);
+  }
+  .demo-shell__meta p {
+    margin: 0;
+  }
+  .demo-shell__controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.55rem;
+    padding: 0.8rem 1rem;
+    border-top: 1px solid var(--color-border, #31433f);
+  }
+  :global(.demo-control) {
+    min-height: 2rem;
+    padding: 0.35rem 0.65rem;
+    color: inherit;
+    border: 1px solid currentColor;
+    border-radius: 2px;
+    background: transparent;
+    font: inherit;
+    cursor: pointer;
+  }
+  :global(.demo-control[aria-pressed="true"]) {
+    color: #071011;
+    background: var(--color-accent, #57e3c2);
+  }
+  :global(.demo-range) {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--color-muted, #aeb8b4);
+  }
+  :global(.demo-range input) {
+    accent-color: var(--color-accent, #57e3c2);
+  }
+  @media (max-width: 42rem) {
+    .demo-shell__header,
+    .demo-shell__meta {
+      display: grid;
+    }
+    .demo-shell__stage,
+    .demo-shell canvas {
+      min-height: 220px;
+    }
+  }
+</style>

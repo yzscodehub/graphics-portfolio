@@ -1,0 +1,30 @@
+---
+import { getCollection, render, type CollectionEntry } from "astro:content";
+import DetailLayout from "../../../layouts/DetailLayout.astro";
+import { profile } from "../../../data/profile";
+export async function getStaticPaths() {
+  const allEntries = (await getCollection("projects")) as CollectionEntry<"projects">[];
+  const entries = allEntries.filter((entry) => entry.data.locale === "en" && !entry.data.draft);
+  return entries.map((entry) => ({ params: { slug: entry.data.routeSlug }, props: { entry } }));
+}
+interface Props {
+  entry: CollectionEntry<"projects">;
+}
+const { entry } = Astro.props;
+const { Content } = await render(entry);
+const meta: Array<[string, string]> = [
+  ["STATUS", entry.data.status],
+  ["ROLE", entry.data.role],
+  ["PLATFORM", entry.data.platforms.join(" / ")],
+  ["STACK", entry.data.technologies.join(" / ")],
+];
+---
+
+<DetailLayout
+  locale="en"
+  title={entry.data.title}
+  description={entry.data.summary}
+  eyebrow="WORK / CASE STUDY"
+  handle={profile.displayName}
+  meta={meta}><Content /></DetailLayout
+>

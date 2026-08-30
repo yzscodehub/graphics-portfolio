@@ -1,0 +1,298 @@
+---
+import { getCollection, type CollectionEntry } from "astro:content";
+import BaseLayout from "../layouts/BaseLayout.astro";
+import SectionHeading from "../components/SectionHeading.astro";
+import ProjectCard from "../components/ProjectCard.astro";
+import DemoCard from "../components/DemoCard.astro";
+import ArticleCard from "../components/ArticleCard.astro";
+import DemoShell from "../components/DemoShell.astro";
+import { profile } from "../data/profile";
+import type { Locale } from "../lib/i18n";
+import { localePath } from "../lib/i18n";
+import { withBase } from "../lib/urls";
+
+interface Props {
+  locale: Locale;
+}
+const { locale } = Astro.props;
+const isEn = locale === "en";
+const allProjects = (await getCollection("projects")) as CollectionEntry<"projects">[];
+const allDemos = (await getCollection("demos")) as CollectionEntry<"demos">[];
+const allWriting = (await getCollection("writing")) as CollectionEntry<"writing">[];
+const projects = allProjects
+  .filter((entry) => entry.data.locale === locale && !entry.data.draft)
+  .slice(0, 4);
+const demos = allDemos
+  .filter((entry) => entry.data.locale === locale && !entry.data.draft)
+  .slice(0, 7);
+const writing = allWriting
+  .filter((entry) => entry.data.locale === "zh-CN" && !entry.data.draft)
+  .slice(0, 4);
+type RoutedEntry =
+  CollectionEntry<"projects"> | CollectionEntry<"demos"> | CollectionEntry<"writing">;
+const slugOf = (entry: RoutedEntry) => entry.data.routeSlug;
+
+const copy = isEn
+  ? {
+      heroEyebrow: "Graphics Systems Engineer / Public Lab",
+      heroTitle: "I build the systems behind real-time graphics.",
+      heroLede:
+        "Rendering, engine architecture, GPU compute and multimedia systems — with neural graphics explored through reproducible experiments.",
+      primary: "Explore work",
+      secondary: "Open résumé",
+      workLabel: "Selected work",
+      workTitle: "Systems, made observable.",
+      workDescription:
+        "Four public projects turn low-level graphics concepts into inspectable, runnable case studies.",
+      demoLabel: "Runnable evidence",
+      demoTitle: "Seven focused demos.",
+      demoDescription:
+        "Each demo states its backend, limitations and fallback instead of hiding unsupported hardware.",
+      evidenceLabel: "Professional evidence",
+      evidenceTitle: "Experience without disclosure.",
+      evidenceDescription:
+        "Anonymous, reviewable capability signals grounded in real graphics systems work.",
+      writingLabel: "Technical writing",
+      writingTitle: "Decisions, not recipes.",
+      writingDescription:
+        "Long-form notes connect abstractions, measurements, tradeoffs and failure modes.",
+      labLabel: "Current lab",
+      labTitle: "Learning in public.",
+      labDescription:
+        "Neural graphics work stays clearly labeled as an experiment until it earns stronger evidence.",
+      contactTitle: "Let’s talk about the hard parts of graphics systems.",
+      copyEmail: "Copy email",
+      github: "GitHub",
+    }
+  : {
+      heroEyebrow: "图形系统工程师 / 公开实验室",
+      heroTitle: "构建实时图形背后的系统。",
+      heroLede: "专注渲染、引擎架构、GPU Compute 与多媒体系统，并以可复现实验探索神经图形。",
+      primary: "查看项目",
+      secondary: "打开简历",
+      workLabel: "精选项目",
+      workTitle: "让系统变得可观察。",
+      workDescription: "四个公开项目把底层图形概念整理为可检查、可运行、可复盘的案例。",
+      demoLabel: "可运行证据",
+      demoTitle: "七个聚焦的技术演示。",
+      demoDescription: "每个 Demo 明确说明后端、限制和降级路径，不用不透明动画掩盖兼容问题。",
+      evidenceLabel: "职业能力证据",
+      evidenceTitle: "脱敏，但不空泛。",
+      evidenceDescription: "以匿名、可审核的能力线索呈现真实图形系统经验。",
+      writingLabel: "技术写作",
+      writingTitle: "记录判断，而不只是步骤。",
+      writingDescription: "长文把抽象、测量、取舍和失败路径连接起来。",
+      labLabel: "当前实验室",
+      labTitle: "公开学习过程。",
+      labDescription: "神经图形在证据成熟前始终明确标记为实验，而不是包装成专家能力。",
+      contactTitle: "一起讨论图形系统中真正困难的部分。",
+      copyEmail: "复制邮箱",
+      github: "GitHub",
+    };
+---
+
+<BaseLayout
+  locale={locale}
+  title={profile.role[locale]}
+  description={profile.bio[locale]}
+  handle={profile.displayName}
+>
+  <section class="hero">
+    <div class="hero-grid">
+      <div class="hero-copy-panel">
+        <div>
+          <span class="eyebrow">{copy.heroEyebrow}</span>
+          <h1>{copy.heroTitle}</h1>
+          <p class="hero-lede">{copy.heroLede}</p>
+          <div class="hero-actions">
+            <a class="button button-primary" href={withBase(localePath("/work/", locale))}
+              >{copy.primary}</a
+            >
+            <a class="button button-secondary" href={withBase(localePath("/resume/", locale))}
+              >{copy.secondary}</a
+            >
+          </div>
+        </div>
+        <div class="hero-meta">
+          <span>RHI / PIPELINE</span><span>GPU / COMPUTE</span><span>MEDIA / SYNC</span>
+        </div>
+      </div>
+      <div class="hero-demo-panel">
+        <div class="hero-demo-poster" aria-hidden="true"><div class="calibration-orb"></div></div>
+        <div class="demo-hud">
+          <span>DEMO_01</span><strong>MATERIAL / LIGHTING</strong><span>AUTO BACKEND</span>
+        </div>
+        <DemoShell
+          slug="material-lighting"
+          title="Material & Lighting"
+          description={isEn ? "Interactive PBR calibration scene." : "交互式 PBR 校准场景。"}
+        />
+      </div>
+    </div>
+  </section>
+
+  <div class="signal-rail" aria-label="Focus areas">
+    <div class="signal-track">{profile.focus.map((item) => <span>{item}</span>)}</div>
+  </div>
+
+  <section class="section">
+    <div class="section-inner">
+      <SectionHeading
+        index="01"
+        label={copy.workLabel}
+        title={copy.workTitle}
+        description={copy.workDescription}
+      />
+      <div class="work-grid">
+        {
+          projects.map((entry, index) => (
+            <ProjectCard
+              index={index + 1}
+              title={entry.data.title}
+              description={entry.data.summary}
+              tags={entry.data.technologies.slice(0, 5)}
+              status={entry.data.status}
+              href={withBase(localePath(`/work/${slugOf(entry)}/`, locale))}
+            />
+          ))
+        }
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="section-inner">
+      <SectionHeading
+        index="02"
+        label={copy.demoLabel}
+        title={copy.demoTitle}
+        description={copy.demoDescription}
+      />
+      <div class="demo-grid">
+        {
+          demos.map((entry) => (
+            <DemoCard
+              title={entry.data.title}
+              description={entry.data.summary}
+              backend={entry.data.backend}
+              category={entry.data.category}
+              status={entry.data.status}
+              href={withBase(localePath(`/demos/${slugOf(entry)}/`, locale))}
+            />
+          ))
+        }
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="section-inner">
+      <SectionHeading
+        index="03"
+        label={copy.evidenceLabel}
+        title={copy.evidenceTitle}
+        description={copy.evidenceDescription}
+      />
+      <div class="evidence-grid">
+        <article class="card evidence-card reveal">
+          <span class="data-label">ENGINE</span><strong>RHI</strong><p>
+            {
+              isEn
+                ? "Cross-API boundaries, resource lifetime and pipeline-state ownership."
+                : "跨 API 边界、资源生命周期与管线状态所有权。"
+            }
+          </p>
+        </article>
+        <article class="card evidence-card reveal">
+          <span class="data-label">GPU</span><strong>FRAME</strong><p>
+            {
+              isEn
+                ? "Measure frame time, bandwidth, synchronization and data layout before optimizing."
+                : "在优化前先测量帧时间、带宽、同步与数据布局。"
+            }
+          </p>
+        </article>
+        <article class="card evidence-card reveal">
+          <span class="data-label">MEDIA</span><strong>A/V</strong><p>
+            {
+              isEn
+                ? "High-resolution media paths with explicit clocks, queues and copy boundaries."
+                : "以显式时钟、队列和拷贝边界组织高分辨率媒体链路。"
+            }
+          </p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="section-inner">
+      <SectionHeading
+        index="04"
+        label={copy.writingLabel}
+        title={copy.writingTitle}
+        description={copy.writingDescription}
+      />
+      <div class="article-grid">
+        {
+          writing.map((entry) => (
+            <ArticleCard
+              title={isEn ? entry.data.englishTitle : entry.data.title}
+              description={isEn ? entry.data.englishDescription : entry.data.description}
+              category={entry.data.category}
+              date={entry.data.publishedAt?.getFullYear().toString() ?? "2026"}
+              href={withBase(`/writing/${slugOf(entry)}/`)}
+            />
+          ))
+        }
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="section-inner">
+      <SectionHeading
+        index="05"
+        label={copy.labLabel}
+        title={copy.labTitle}
+        description={copy.labDescription}
+      />
+      <div class="lab-grid">
+        <article class="card lab-card reveal">
+          <span class="status-badge">IN PROGRESS</span><h3>Neural denoising / ONNX Web</h3><p>
+            {
+              isEn
+                ? "A small residual network, a constrained model card, and explicit WebGPU → WASM → precomputed fallback."
+                : "小型残差网络、明确的模型卡，以及 WebGPU → WASM → 预计算降级链。"
+            }
+          </p>
+        </article>
+        <article class="card lab-card reveal">
+          <span class="status-badge">READING</span><h3>Deep learning foundations</h3><p>
+            {
+              isEn
+                ? "Course notes and reproductions remain learning records, never presented as original research."
+                : "课程笔记与复现只作为学习记录，不包装成原创研究。"
+            }
+          </p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="section-inner contact-panel reveal">
+      <div><span class="kicker">CONTACT / OPEN CHANNEL</span><h2>{copy.contactTitle}</h2></div>
+      <div class="contact-actions">
+        <a class="button button-primary" href={`mailto:${profile.publicEmail}`}
+          >{profile.publicEmail}</a
+        >
+        <button class="button button-secondary" type="button" data-copy-email={profile.publicEmail}
+          >{copy.copyEmail}</button
+        >
+        <a class="button button-secondary" href={profile.githubUrl} rel="me">{copy.github}</a>
+        <span class="copy-status" data-copy-status role="status" aria-live="polite"></span>
+      </div>
+    </div>
+  </section>
+</BaseLayout>

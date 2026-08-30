@@ -1,0 +1,52 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import PageHero from "../components/PageHero.astro";
+import { profile } from "../data/profile";
+import type { Locale } from "../lib/i18n";
+interface Props {
+  locale: Locale;
+}
+const { locale } = Astro.props;
+const isEn = locale === "en";
+---
+
+<BaseLayout
+  locale={locale}
+  title={isEn ? "Lab" : "实验室"}
+  description={profile.bio[locale]}
+  handle={profile.displayName}
+>
+  <PageHero
+    eyebrow="LAB / IN PROGRESS"
+    title={isEn ? "Learning, with the labels left on." : "保留标签的学习过程。"}
+    description={isEn
+      ? "Experiments show what is implemented, what is reproduced, and what remains uncertain."
+      : "实验会明确标记已经实现、正在复现和仍不确定的部分。"}
+  />
+  <section class="section">
+    <div class="section-inner lab-grid">
+      <article class="card lab-card">
+        <span class="status-badge">IN PROGRESS</span><h3>Neural denoising pipeline</h3><p>
+          {
+            isEn
+              ? "Small residual CNN, ONNX export, WebGPU/WASM inference and a precomputed safety net."
+              : "小型残差 CNN、ONNX 导出、WebGPU/WASM 推理和预计算安全网。"
+          }
+        </p><ul class="tag-list">
+          <li class="tag">PyTorch</li><li class="tag">ONNX</li><li class="tag">WebGPU</li>
+        </ul>
+      </article>
+      <article class="card lab-card">
+        <span class="status-badge">COURSE NOTES</span><h3>Deep learning foundations</h3><p>
+          {
+            isEn
+              ? "Course exercises are linked as study records, never rebranded as original research."
+              : "课程练习只作为学习记录，不重新包装成原创研究。"
+          }
+        </p><ul class="tag-list">
+          <li class="tag">CNN</li><li class="tag">Optimization</li><li class="tag">Reproduction</li>
+        </ul>
+      </article>
+    </div>
+  </section>
+</BaseLayout>

@@ -1,0 +1,59 @@
+name: Verify
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Build and test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v5
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Type-check Astro and TypeScript
+        run: pnpm run check
+
+      - name: Lint source
+        run: pnpm run lint
+
+      - name: Check formatting
+        run: pnpm run format
+
+      - name: Run unit tests
+        run: pnpm run test
+
+      - name: Build static site
+        env:
+          SITE_URL: https://${{ github.repository_owner }}.github.io
+        run: pnpm run build
+
+      - name: Validate content contract
+        run: pnpm run test:content
+
+      - name: Check built internal links
+        run: pnpm run test:links
+
+      - name: Install Chromium
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Run static browser checks
+        run: pnpm run test:e2e

@@ -1,0 +1,97 @@
+---
+import type { Locale } from "../lib/i18n";
+import { localePath, otherLocale, otherLocalePath } from "../lib/i18n";
+import { withBase } from "../lib/urls";
+
+interface Props {
+  locale: Locale;
+  currentPath: string;
+  handle: string;
+}
+
+const { locale, currentPath, handle } = Astro.props;
+const labels =
+  locale === "en"
+    ? {
+        work: "Work",
+        demos: "Demos",
+        writing: "Writing",
+        lab: "Lab",
+        about: "About",
+        resume: "Résumé",
+        menu: "Open navigation",
+      }
+    : {
+        work: "项目",
+        demos: "演示",
+        writing: "文章",
+        lab: "实验室",
+        about: "关于",
+        resume: "简历",
+        menu: "打开导航",
+      };
+
+const navItems = [
+  ["/work/", labels.work],
+  ["/demos/", labels.demos],
+  ["/writing/", labels.writing],
+  ["/lab/", labels.lab],
+  ["/about/", labels.about],
+  ["/resume/", labels.resume],
+] as const;
+
+const normalize = (value: string) => value.replace(/\/+/g, "/").replace(/\/$/, "") || "/";
+const isActive = (route: string) => {
+  const target = normalize(withBase(localePath(route, locale)));
+  const current = normalize(currentPath);
+  return route === "/" ? current === target : current.startsWith(target);
+};
+const homeHref = withBase(localePath("/", locale));
+const normalizedCurrent = normalize(currentPath);
+const isWritingDetail =
+  normalizedCurrent.includes("/writing/") && !normalizedCurrent.endsWith("/writing");
+const isErrorPage = normalizedCurrent.endsWith("/404") || normalizedCurrent.endsWith("/404.html");
+const alternateRoute = isErrorPage
+  ? localePath("/", otherLocale[locale])
+  : isWritingDetail
+    ? localePath("/writing/", otherLocale[locale])
+    : otherLocalePath(currentPath, locale);
+const otherHref = withBase(alternateRoute);
+---
+
+<header class="site-header">
+  <div class="header-inner">
+    <a class="brand" href={homeHref} aria-label={locale === "en" ? "Home" : "首页"}>
+      <span class="brand-mark" aria-hidden="true">G</span>
+      <span class="brand-name">{handle} / Graphics Systems</span>
+    </a>
+    <nav
+      class="site-nav"
+      data-site-nav
+      aria-label={locale === "en" ? "Primary navigation" : "主导航"}
+    >
+      {
+        navItems.map(([route, label]) => (
+          <a
+            href={withBase(localePath(route, locale))}
+            aria-current={isActive(route) ? "page" : undefined}
+          >
+            {label}
+          </a>
+        ))
+      }
+    </nav>
+    <div class="header-actions">
+      <a class="locale-link" href={otherHref} lang={locale === "en" ? "zh-CN" : "en"}>
+        {locale === "en" ? "中" : "EN"}
+      </a>
+      <button
+        class="nav-toggle"
+        type="button"
+        data-nav-toggle
+        aria-expanded="false"
+        aria-label={labels.menu}>MENU</button
+      >
+    </div>
+  </div>
+</header>

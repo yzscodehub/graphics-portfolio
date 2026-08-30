@@ -1,0 +1,21 @@
+---
+interface Props {
+  title: string;
+  description: string;
+  backend: string;
+  category: string;
+  href: string;
+  status?: string;
+}
+const { title, description, backend, category, href, status = "READY" } = Astro.props;
+---
+
+<article class="card demo-card reveal" data-category={category}>
+  <div class="demo-preview" data-backend={backend}>
+    <span class="preview-glyph" aria-hidden="true"></span>
+  </div>
+  <h3>{title}</h3>
+  <p>{description}</p>
+  <footer><span>{category}</span><span class="status-badge">{status}</span></footer>
+  <a class="card-link" href={href} aria-label={title}><span>RUN ↗</span></a>
+</article>

@@ -1,0 +1,49 @@
+{
+  "name": "graphics-portfolio",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@11.0.0",
+  "engines": {
+    "node": ">=24.0.0",
+    "pnpm": ">=11.0.0"
+  },
+  "scripts": {
+    "dev": "astro dev",
+    "preview": "astro preview",
+    "build": "astro build",
+    "build:release": "astro build && node tests/verify-production.mjs && node tests/validate-content.mjs && node tests/check-links.mjs",
+    "check": "astro check",
+    "lint": "eslint .",
+    "format": "prettier --check .",
+    "format:write": "prettier --write .",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:content": "node tests/validate-content.mjs",
+    "test:links": "node tests/check-links.mjs",
+    "test:e2e": "playwright test",
+    "resume:pdf": "python scripts/resume/generate_resumes.py",
+    "verify:release": "node tests/verify-production.mjs"
+  },
+  "dependencies": {
+    "@astrojs/mdx": "^7.0.6",
+    "@astrojs/sitemap": "^3.7.3",
+    "astro": "^7.2.9",
+    "onnxruntime-web": "^1.29.0",
+    "three": "^0.185.1"
+  },
+  "devDependencies": {
+    "@astrojs/check": "^0.9.10",
+    "@playwright/test": "^1.62.1",
+    "@types/node": "^24.0.0",
+    "@types/three": "^0.185.3",
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.9.1",
+    "eslint-plugin-astro": "^3.1.0",
+    "prettier": "^3.9.6",
+    "prettier-plugin-astro": "^0.14.1",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.67.0",
+    "vitest": "^4.1.11"
+  }
+}

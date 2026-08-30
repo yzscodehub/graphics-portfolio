@@ -1,0 +1,51 @@
+---
+import { getCollection, type CollectionEntry } from "astro:content";
+import BaseLayout from "../layouts/BaseLayout.astro";
+import PageHero from "../components/PageHero.astro";
+import ArticleCard from "../components/ArticleCard.astro";
+import { profile } from "../data/profile";
+import type { Locale } from "../lib/i18n";
+import { withBase } from "../lib/urls";
+interface Props {
+  locale: Locale;
+}
+const { locale } = Astro.props;
+const isEn = locale === "en";
+const allEntries = (await getCollection("writing")) as CollectionEntry<"writing">[];
+const entries = allEntries.filter((entry) => entry.data.locale === "zh-CN" && !entry.data.draft);
+const slugOf = (entry: (typeof entries)[number]) => entry.data.routeSlug;
+---
+
+<BaseLayout
+  locale={locale}
+  title={isEn ? "Writing" : "文章"}
+  description={isEn
+    ? "Engineering notes with English abstracts."
+    : "记录工程判断、证据和取舍的技术文章。"}
+  handle={profile.displayName}
+>
+  <PageHero
+    eyebrow="WRITING / DECISIONS"
+    title={isEn ? "Decisions, not recipes." : "记录判断，而不只是步骤。"}
+    description={isEn
+      ? "Articles are published in Chinese with English titles and abstracts. Code, diagrams, boundaries and failure modes stay readable in either language."
+      : "文章连接代码、架构图、边界和失败路径；不是脱离上下文的技巧清单。"}
+  />
+  <section class="section">
+    <div class="section-inner">
+      <div class="article-grid">
+        {
+          entries.map((entry) => (
+            <ArticleCard
+              title={isEn ? entry.data.englishTitle : entry.data.title}
+              description={isEn ? entry.data.englishDescription : entry.data.description}
+              category={entry.data.category}
+              date={entry.data.publishedAt?.getFullYear().toString() ?? "2026"}
+              href={withBase(`/writing/${slugOf(entry)}/`)}
+            />
+          ))
+        }
+      </div>
+    </div>
+  </section>
+</BaseLayout>

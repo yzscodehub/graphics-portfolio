@@ -1,0 +1,216 @@
+import { clearElement, drawStageBackdrop, makeButton, resizeCanvas } from "./core/canvas";
+import type { DemoContext, DemoController } from "./core/types";
+
+type BufferView = "final" | "normal" | "depth" | "velocity" | "lighting" | "ssao";
+const VIEWS: BufferView[] = ["final", "normal", "depth", "velocity", "lighting", "ssao"];
+
+export function createDemo(): DemoController {
+  let context: DemoContext;
+  let ctx: CanvasRenderingContext2D;
+  let width = 1;
+  let height = 1;
+  let active: BufferView = "final";
+  let running = false;
+  const draw = () => {
+    drawStageBackdrop(ctx, width, height);
+    const columns = width > 540 ? 3 : 2;
+    const gap = 10;
+    const cellWidth = (width - gap * (columns + 1)) / columns;
+    const cellHeight = (height - gap * 3) / 2;
+    VIEWS.forEach((view, index) => {
+      const x = gap + (index % columns) * (cellWidth + gap);
+      const y = gap + Math.floor(index / columns) * (cellHeight + gap);
+      drawBuffer(ctx, view, x, y, cellWidth, cellHeight, view === active);
+    });
+    const activeIndex = VIEWS.indexOf(active);
+    const x = gap + (activeIndex % columns) * (cellWidth + gap);
+    const y = gap + Math.floor(activeIndex / columns) * (cellHeight + gap);
+    ctx.strokeStyle = "#f0b84b";
+    ctx.lineWidth = 2;
+    ctx.strokeRect(x - 1, y - 1, cellWidth + 2, cellHeight + 2);
+    ctx.fillStyle = "rgba(232,230,220,.72)";
+    ctx.font = "11px ui-monospace, monospace";
+    ctx.fillText(`ACTIVE ATTACHMENT: ${active.toUpperCase()}`, 16, height - 13);
+  };
+  const select = (view: BufferView) => {
+    active = view;
+    context.setMetrics({ backend: "Canvas buffer inspector", status: view.toUpperCase() });
+    context.setStatus(
+      `${view.toUpperCase()} attachment selected. This preview uses a procedural scene, not captured production data.`,
+      "success",
+    );
+    draw();
+  };
+  return {
+    async init(next) {
+      context = next;
+      ctx = resizeCanvas(context.canvas, width, height);
+      clearElement(context.controls);
+      VIEWS.forEach((view) => {
+        const button = makeButton(view.toUpperCase(), view === active);
+        button.addEventListener(
+          "click",
+          () => {
+            select(view);
+            context.controls
+              .querySelectorAll("button")
+              .forEach((entry) => entry.setAttribute("aria-pressed", String(entry === button)));
+          },
+          { signal: context.signal },
+        );
+        context.controls.append(button);
+      });
+      context.canvas.addEventListener(
+        "click",
+        (event) => {
+          const rect = context.canvas.getBoundingClientRect();
+          const columns = width > 540 ? 3 : 2;
+          const gap = 10;
+          const cellWidth = (width - gap * (columns + 1)) / columns;
+          const cellHeight = (height - gap * 3) / 2;
+          const col = Math.floor((event.clientX - rect.left - gap) / (cellWidth + gap));
+          const row = Math.floor((event.clientY - rect.top - gap) / (cellHeight + gap));
+          const index = row * columns + col;
+          if (VIEWS[index]) select(VIEWS[index]);
+        },
+        { signal: context.signal },
+      );
+      select(active);
+    },
+    resize(nextWidth, nextHeight) {
+      width = nextWidth;
+      height = nextHeight;
+      ctx = resizeCanvas(context.canvas, width, height);
+      if (running) draw();
+    },
+    pause() {
+      running = false;
+    },
+    resume() {
+      running = true;
+      draw();
+    },
+    dispose() {
+      running = false;
+    },
+  };
+}
+
+function drawBuffer(
+  ctx: CanvasRenderingContext2D,
+  view: BufferView,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  selected: boolean,
+): void {
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(x, y, width, height);
+  ctx.clip();
+  const centerX = x + width * 0.5;
+  const centerY = y + height * 0.56;
+  const radius = Math.min(width, height) * 0.25;
+  if (view === "final") {
+    const bg = ctx.createLinearGradient(x, y, x + width, y + height);
+    bg.addColorStop(0, "#17312e");
+    bg.addColorStop(1, "#271e16");
+    ctx.fillStyle = bg;
+    ctx.fillRect(x, y, width, height);
+    drawSphere(ctx, centerX, centerY, radius, "#57e3c2");
+  } else if (view === "normal") {
+    const gradient = ctx.createRadialGradient(
+      centerX - radius * 0.4,
+      centerY - radius * 0.4,
+      1,
+      centerX,
+      centerY,
+      radius,
+    );
+    gradient.addColorStop(0, "#b7a8f1");
+    gradient.addColorStop(0.45, "#75c8ab");
+    gradient.addColorStop(1, "#2853af");
+    ctx.fillStyle = "#10172b";
+    ctx.fillRect(x, y, width, height);
+    ctx.fillStyle = gradient;
+    ctx.beginPath();
+    ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+    ctx.fill();
+  } else if (view === "depth") {
+    const gradient = ctx.createLinearGradient(x, y, x, y + height);
+    gradient.addColorStop(0, "#f4f0da");
+    gradient.addColorStop(1, "#152221");
+    ctx.fillStyle = gradient;
+    ctx.fillRect(x, y, width, height);
+    ctx.fillStyle = "#263b39";
+    ctx.beginPath();
+    ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+    ctx.fill();
+  } else if (view === "velocity") {
+    ctx.fillStyle = "#11131c";
+    ctx.fillRect(x, y, width, height);
+    ctx.strokeStyle = "#f0b84b";
+    ctx.lineWidth = 2;
+    for (let row = 0; row < 5; row += 1)
+      for (let col = 0; col < 8; col += 1) {
+        const ax = x + 15 + (col * (width - 30)) / 7;
+        const ay = y + 16 + (row * (height - 32)) / 4;
+        ctx.beginPath();
+        ctx.moveTo(ax, ay);
+        ctx.lineTo(ax + 7 + row * 2, ay - 2 + (col % 3) * 3);
+        ctx.stroke();
+      }
+  } else if (view === "lighting") {
+    ctx.fillStyle = "#1d1710";
+    ctx.fillRect(x, y, width, height);
+    const bloom = ctx.createRadialGradient(
+      centerX,
+      centerY - radius * 0.4,
+      1,
+      centerX,
+      centerY - radius * 0.4,
+      radius * 2.1,
+    );
+    bloom.addColorStop(0, "#fff1ad");
+    bloom.addColorStop(0.2, "#f0b84b");
+    bloom.addColorStop(1, "rgba(240,184,75,0)");
+    ctx.fillStyle = bloom;
+    ctx.fillRect(x, y, width, height);
+    drawSphere(ctx, centerX, centerY, radius, "#975f1f");
+  } else {
+    ctx.fillStyle = "#e0ded1";
+    ctx.fillRect(x, y, width, height);
+    ctx.fillStyle = "#4b5550";
+    ctx.beginPath();
+    ctx.arc(centerX, centerY, radius * 1.24, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "#aeb6ad";
+    ctx.beginPath();
+    ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.restore();
+  ctx.strokeStyle = selected ? "#57e3c2" : "rgba(232,230,220,.23)";
+  ctx.lineWidth = 1;
+  ctx.strokeRect(x, y, width, height);
+  ctx.fillStyle = selected ? "#57e3c2" : "rgba(232,230,220,.72)";
+  ctx.font = "10px ui-monospace, monospace";
+  ctx.fillText(view.toUpperCase(), x + 8, y + 16);
+}
+function drawSphere(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  radius: number,
+  color: string,
+): void {
+  const gradient = ctx.createRadialGradient(x - radius * 0.35, y - radius * 0.4, 1, x, y, radius);
+  gradient.addColorStop(0, "#f5f3e8");
+  gradient.addColorStop(0.45, color);
+  gradient.addColorStop(1, "#08201d");
+  ctx.fillStyle = gradient;
+  ctx.beginPath();
+  ctx.arc(x, y, radius, 0, Math.PI * 2);
+  ctx.fill();
+}

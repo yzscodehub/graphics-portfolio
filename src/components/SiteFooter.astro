@@ -1,0 +1,25 @@
+---
+import type { Locale } from "../lib/i18n";
+
+interface Props {
+  locale: Locale;
+  handle: string;
+}
+
+const { locale, handle } = Astro.props;
+const year = new Date().getFullYear();
+---
+
+<footer class="site-footer">
+  <div class="footer-inner">
+    <span>© {year} {handle}</span>
+    <span
+      >{
+        locale === "en"
+          ? "Built as a graphics systems workbench."
+          : "一座持续更新的图形系统工作台。"
+      }</span
+    >
+    <span>ASTRO / WEBGPU / WGSL</span>
+  </div>
+</footer>

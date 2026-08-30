@@ -1,0 +1,17 @@
+---
+interface Props {
+  title: string;
+  description: string;
+  category: string;
+  href: string;
+  date?: string;
+}
+const { title, description, category, href, date = "2026" } = Astro.props;
+---
+
+<article class="card article-card reveal" data-category={category}>
+  <time>{date} / {category}</time>
+  <h3>{title}</h3>
+  <p>{description}</p>
+  <a class="card-link" href={href} aria-label={title}><span>READ ↗</span></a>
+</article>

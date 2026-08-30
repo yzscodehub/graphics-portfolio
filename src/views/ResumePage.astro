@@ -1,0 +1,93 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import PageHero from "../components/PageHero.astro";
+import { profile } from "../data/profile";
+import { resume } from "../data/resume";
+import type { Locale } from "../lib/i18n";
+import { withBase } from "../lib/urls";
+interface Props {
+  locale: Locale;
+  print?: boolean;
+}
+const { locale, print = false } = Astro.props;
+const isEn = locale === "en";
+const pdfPath = withBase(`/resume/resume-${locale}.pdf`);
+---
+
+<BaseLayout
+  locale={locale}
+  title={isEn ? "Résumé" : "简历"}
+  description={resume.summary[locale]}
+  handle={profile.displayName}
+  noindex={print}
+>
+  {
+    !print && (
+      <PageHero
+        eyebrow="RÉSUMÉ / PUBLIC"
+        title={profile.role[locale]}
+        description={resume.summary[locale]}
+      />
+    )
+  }
+  <section class="section">
+    <div class="section-inner resume-layout">
+      <aside class="resume-sidebar">
+        <span class="eyebrow">{profile.displayName}</span>
+        <p>{profile.publicEmail}</p>
+        <p>{profile.githubUrl}</p>
+        <h3>{isEn ? "Focus" : "方向"}</h3>
+        <ul class="tag-list">{profile.focus.map((item) => <li class="tag">{item}</li>)}</ul>
+        {
+          !print && (
+            <div class="button-row">
+              <a class="button button-primary" href={pdfPath} download>
+                {isEn ? "Download PDF" : "下载 PDF"}
+              </a>
+            </div>
+          )
+        }
+      </aside>
+      <article class="resume-main">
+        <section>
+          <span class="kicker">PROFILE</span><h2>{profile.headline[locale]}</h2><p>
+            {resume.summary[locale]}
+          </p>
+        </section>
+        <section>
+          <span class="kicker">EXPERIENCE</span><ol class="timeline">
+            {
+              resume.experience.map((entry) => (
+                <li>
+                  <>
+                    <time>{entry.period[locale]}</time>
+                    <div>
+                      <>
+                        <h3>{entry.title[locale]}</h3>
+                        <ul>
+                          {entry.bullets.map((item) => (
+                            <li>{item[locale]}</li>
+                          ))}
+                        </ul>
+                        <ul class="tag-list">
+                          {entry.technologies.map((tech) => (
+                            <li class="tag">{tech}</li>
+                          ))}
+                        </ul>
+                      </>
+                    </div>
+                  </>
+                </li>
+              ))
+            }
+          </ol>
+        </section>
+        <section>
+          <span class="kicker">SELECTED TOPICS</span><ul>
+            {resume.portfolioHighlights.map((item) => <li>{item[locale]}</li>)}
+          </ul>
+        </section>
+      </article>
+    </div>
+  </section>
+</BaseLayout>

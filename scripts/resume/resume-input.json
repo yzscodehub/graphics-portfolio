@@ -1,0 +1,24 @@
+{
+  "source": "src/data/resume.ts",
+  "releaseGuard": {
+    "enabled": true,
+    "requiredPlaceholders": ["YOUR_HANDLE", "PUBLIC_EMAIL", "GITHUB_USERNAME"],
+    "forbiddenPublicFields": ["phone", "salary", "streetAddress", "privateEmployerMaterial"]
+  },
+  "locales": ["zh-CN", "en"],
+  "outputs": {
+    "zh-CN": "public/resume/resume-zh-CN.pdf",
+    "en": "public/resume/resume-en.pdf"
+  },
+  "render": {
+    "pageSize": "A4",
+    "printBackground": true,
+    "fontFallback": "system-cjk",
+    "includeLinks": true
+  },
+  "notes": [
+    "The TypeScript data file is the source of truth; this file is generator input and release policy.",
+    "The generator must fail when a placeholder remains in a production build.",
+    "Do not generate or commit a PDF until the public identity values are intentionally filled in."
+  ]
+}

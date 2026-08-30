@@ -1,0 +1,23 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import { profile } from "../data/profile";
+import { withBase } from "../lib/urls";
+---
+
+<BaseLayout
+  locale="zh-CN"
+  title="404"
+  description="页面不存在"
+  handle={profile.displayName}
+  noindex
+>
+  <section class="page-hero">
+    <div class="page-hero-inner">
+      <div><span class="eyebrow">ERROR / 404</span><h1>资源未绑定。</h1></div><div>
+        <p class="page-hero-copy">请求的页面不存在，或仍处于未发布状态。</p><div class="button-row">
+          <a class="button button-primary" href={withBase("/")}>返回首页</a>
+        </div>
+      </div>
+    </div>
+  </section>
+</BaseLayout>

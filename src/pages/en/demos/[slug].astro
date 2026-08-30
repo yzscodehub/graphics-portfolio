@@ -1,0 +1,53 @@
+---
+import { getCollection, render, type CollectionEntry } from "astro:content";
+import BaseLayout from "../../../layouts/BaseLayout.astro";
+import PageHero from "../../../components/PageHero.astro";
+import DemoShell from "../../../components/DemoShell.astro";
+import { profile } from "../../../data/profile";
+export async function getStaticPaths() {
+  const allEntries = (await getCollection("demos")) as CollectionEntry<"demos">[];
+  const entries = allEntries.filter((entry) => entry.data.locale === "en" && !entry.data.draft);
+  return entries.map((entry) => ({ params: { slug: entry.data.routeSlug }, props: { entry } }));
+}
+interface Props {
+  entry: CollectionEntry<"demos">;
+}
+const { entry } = Astro.props;
+const { Content } = await render(entry);
+---
+
+<BaseLayout
+  locale="en"
+  title={entry.data.title}
+  description={entry.data.summary}
+  handle={profile.displayName}
+>
+  <PageHero
+    eyebrow={`DEMO / ${entry.data.backend}`}
+    title={entry.data.title}
+    description={entry.data.summary}
+  />
+  <section class="section">
+    <div class="section-inner">
+      <DemoShell
+        slug={entry.data.routeSlug}
+        title={entry.data.title}
+        description={entry.data.summary}
+        forceLive
+      />
+    </div>
+  </section>
+  <section class="section">
+    <div class="section-inner detail-layout">
+      <article class="prose"><Content /></article><aside class="detail-aside">
+        <dl>
+          <div><dt>BACKEND</dt><dd>{entry.data.backend}</dd></div><div>
+            <dt>STATUS</dt><dd>{entry.data.status}</dd>
+          </div><div>
+            <dt>CAPABILITY</dt><dd>{entry.data.capabilities.join(" / ") || "BASELINE"}</dd>
+          </div><div><dt>CONTROLS</dt><dd>{entry.data.controls.join(" / ") || "NONE"}</dd></div>
+        </dl>
+      </aside>
+    </div>
+  </section>
+</BaseLayout>

@@ -1,0 +1,82 @@
+---
+import { getCollection, type CollectionEntry } from "astro:content";
+import BaseLayout from "../layouts/BaseLayout.astro";
+import PageHero from "../components/PageHero.astro";
+import { profile } from "../data/profile";
+import type { Locale } from "../lib/i18n";
+interface Props {
+  locale: Locale;
+}
+const { locale } = Astro.props;
+const isEn = locale === "en";
+const allExperience = (await getCollection("experience")) as CollectionEntry<"experience">[];
+const experience = allExperience.filter(
+  (entry) => entry.data.locale === locale && !entry.data.draft,
+);
+---
+
+<BaseLayout
+  locale={locale}
+  title={isEn ? "About" : "关于"}
+  description={profile.bio[locale]}
+  handle={profile.displayName}
+>
+  <PageHero
+    eyebrow="ABOUT / PRACTICE"
+    title={profile.headline[locale]}
+    description={profile.bio[locale]}
+  />
+  <section class="section">
+    <div class="section-inner detail-layout">
+      <article class="prose">
+        <h2>{isEn ? "Working method" : "工作方法"}</h2>
+        <p>
+          {
+            isEn
+              ? "Start with observable boundaries: ownership, lifetime, synchronization, data movement and frame cost. Build the smallest reproducible system, measure it, then widen the abstraction."
+              : "从可观察的边界开始：所有权、生命周期、同步、数据移动和帧成本。先构造最小可复现系统，测量，再扩大抽象。"
+          }
+        </p>
+        <h2>{isEn ? "Anonymous experience" : "匿名职业经历"}</h2>
+        <ol class="timeline">
+          {
+            experience.map((entry) => (
+              <li>
+                <>
+                  <time>
+                    {entry.data.startYear}—{entry.data.endYear ?? (isEn ? "Now" : "至今")}
+                  </time>
+                  <div>
+                    <>
+                      <h3>{entry.data.title}</h3>
+                      <p>{entry.data.summary}</p>
+                      <ul>
+                        {entry.data.responsibilities.map((item: string) => (
+                          <li>{item}</li>
+                        ))}
+                      </ul>
+                    </>
+                  </div>
+                </>
+              </li>
+            ))
+          }
+        </ol>
+      </article>
+      <aside class="detail-aside">
+        <dl>
+          {
+            profile.focus.map((item, index) => (
+              <div>
+                <>
+                  <dt>{String(index + 1).padStart(2, "0")}</dt>
+                  <dd>{item}</dd>
+                </>
+              </div>
+            ))
+          }
+        </dl>
+      </aside>
+    </div>
+  </section>
+</BaseLayout>

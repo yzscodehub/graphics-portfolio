@@ -1,0 +1,40 @@
+{
+  "model": "ResidualDenoiser-8conv",
+  "modelBytes": 62986,
+  "dataset": {
+    "renderer": "procedural-cornell-mc-v1",
+    "trainScenes": 64,
+    "validationScenes": 16,
+    "resolution": [256, 256],
+    "noisySamplesPerPixel": 1,
+    "referenceSamplesPerPixel": 64,
+    "trainSeedRange": [7301, 7364],
+    "validationSeedRange": [91103, 91118]
+  },
+  "training": {
+    "features": 16,
+    "epochs": 50,
+    "learningRate": 0.0002,
+    "loss": "L1",
+    "seed": 7
+  },
+  "validation": {
+    "samples": 16,
+    "noisy": {
+      "l1": 0.001053628987296662,
+      "mse": 0.000028864977962676325,
+      "psnrDb": 45.396287697327054
+    },
+    "denoised": {
+      "l1": 0.000643527367111337,
+      "mse": 0.00000821846506288617,
+      "psnrDb": 50.852092867136605
+    }
+  },
+  "onnxParity": {
+    "meanAbsoluteDifference": 1.2294532799235942e-9,
+    "maxAbsoluteDifference": 8.940696716308594e-8,
+    "tolerance": 0.0001,
+    "passed": true
+  }
+}

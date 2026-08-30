@@ -1,0 +1,80 @@
+---
+import "../styles/global.css";
+import SiteHeader from "../components/SiteHeader.astro";
+import SiteFooter from "../components/SiteFooter.astro";
+import { localePath, otherLocale, type Locale } from "../lib/i18n";
+import { withBase } from "../lib/urls";
+
+interface Props {
+  locale?: Locale;
+  title?: string;
+  description?: string;
+  handle: string;
+  image?: string;
+  noindex?: boolean;
+}
+
+const {
+  locale = "zh-CN",
+  title = "Graphics Systems Workbench",
+  description = "Rendering, engine architecture, GPU compute, multimedia and neural graphics.",
+  handle,
+  image,
+  noindex = false,
+} = Astro.props;
+const pageTitle = title.includes(handle) ? title : `${title} · ${handle}`;
+const canonical = new URL(Astro.url.pathname, Astro.site ?? Astro.url.origin);
+const isWritingDetail =
+  Astro.url.pathname.includes("/writing/") &&
+  !Astro.url.pathname.replace(/\/$/, "").endsWith("/writing");
+const alternateRoute =
+  title === "404"
+    ? localePath("/", otherLocale[locale])
+    : isWritingDetail
+      ? localePath("/writing/", otherLocale[locale])
+      : localePath(Astro.url.pathname, otherLocale[locale]);
+const alternate = new URL(withBase(alternateRoute), Astro.site ?? Astro.url.origin);
+const socialImage = image ?? withBase("/og-default.svg");
+---
+
+<!doctype html>
+<html lang={locale} class="no-js">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="generator" content={Astro.generator} />
+    <meta name="description" content={description} />
+    <meta name="theme-color" content="#080b0d" />
+    {noindex && <meta name="robots" content="noindex,nofollow" />}
+    <link rel="icon" href={withBase("/favicon.svg")} type="image/svg+xml" />
+    <link rel="alternate" href={alternate} hreflang={otherLocale[locale]} />
+    <link rel="alternate" href={canonical} hreflang={locale} />
+    <link
+      rel="alternate"
+      href={withBase("/rss.xml")}
+      type="application/rss+xml"
+      title="Graphics Systems Workbench"
+    />
+    <link rel="canonical" href={canonical} />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content={pageTitle} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonical} />
+    <meta property="og:image" content={new URL(socialImage, canonical)} />
+    <meta name="twitter:card" content="summary_large_image" />
+    <title>{pageTitle}</title>
+  </head>
+  <body>
+    <a class="skip-link" href="#main-content"
+      >{locale === "en" ? "Skip to content" : "跳到主要内容"}</a
+    >
+    <div class="site-shell">
+      <SiteHeader locale={locale} currentPath={Astro.url.pathname} handle={handle} />
+      <main id="main-content"><slot /></main>
+      <SiteFooter locale={locale} handle={handle} />
+    </div>
+    <script>
+      import "../scripts/site.ts";
+    </script>
+  </body>
+</html>
