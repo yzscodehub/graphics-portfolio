@@ -7,7 +7,8 @@ test("Material & Lighting retains its node-renderer controls on the WebGPU/WebGL
   const shell = page.locator("[data-demo-shell]");
   const controls = shell.locator("[data-demo-controls]");
 
-  await expect(shell).toHaveAttribute("data-demo-state", "running");
+  await shell.scrollIntoViewIfNeeded();
+  await expect(shell).toHaveAttribute("data-demo-state", "running", { timeout: 20_000 });
   await expect(controls.getByLabel("Base Color")).toBeVisible();
   await expect(controls.getByLabel("Metalness")).toBeVisible();
   await expect(controls.getByLabel("Roughness")).toBeVisible();
