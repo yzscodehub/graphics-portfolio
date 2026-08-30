@@ -71,8 +71,20 @@ jobs:
       - name: Run unit tests
         run: pnpm run test
 
-      - name: Build guarded public preview
-        run: pnpm run build:preview
+      - name: Build public preview
+        run: pnpm run build
+
+      - name: Validate content contract
+        run: pnpm run test:content
+
+      - name: Check built links
+        run: pnpm run test:links
+
+      - name: Verify Preview privacy and artifacts
+        run: pnpm run verify:preview
+
+      - name: Enforce performance budgets
+        run: pnpm run test:performance
 
       - name: Install Chromium
         run: pnpm exec playwright install --with-deps chromium
