@@ -6,12 +6,14 @@ const routes = [
   ["work/", "zh"],
   ["demos/", "zh"],
   ["writing/", "zh"],
+  ["writing/modules/rendering/", "zh"],
   ["lab/", "zh"],
   ["about/", "zh"],
   ["en/", "en"],
   ["en/work/", "en"],
   ["en/demos/", "en"],
   ["en/writing/", "en"],
+  ["en/writing/modules/rendering/", "en"],
   ["en/lab/", "en"],
   ["en/about/", "en"],
 ] as const;
@@ -93,6 +95,7 @@ test("project case studies expose architecture, runtime, environment, and reprod
     await expect(evidence.getByRole("heading", { name: "测试环境" })).toBeVisible();
     await expect(evidence.getByRole("heading", { name: "复现方法" })).toBeVisible();
     await expect(evidence.getByRole("heading", { name: "当前边界" })).toBeVisible();
+    await expect(page.locator("[data-related-writing] .article-card").first()).toBeVisible();
   }
 });
 

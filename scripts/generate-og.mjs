@@ -36,8 +36,8 @@ const articleFiles = (await readdir(path.join(root, "src/content/writing"))).fil
 const articles = await Promise.all(
   articleFiles.map(async (file) => {
     const source = await readFile(path.join(root, "src/content/writing", file), "utf8");
-    const slug = source.match(/^routeSlug:\s*(.+)$/m)?.[1]?.trim();
-    const title = source.match(/^englishTitle:\s*(.+)$/m)?.[1]?.trim();
+    const slug = frontmatterScalar(source, "routeSlug");
+    const title = frontmatterScalar(source, "englishTitle");
     if (!slug || !title) throw new Error(`Missing routeSlug or englishTitle in ${file}`);
     return [slug, title, "TECHNICAL WRITING / GRAPHICS SYSTEMS"];
   }),
@@ -135,4 +135,11 @@ function wrapTitle(value, maxCharacters) {
 
 function escapeXml(value) {
   return value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
+}
+
+function frontmatterScalar(source, field) {
+  const value = source.match(new RegExp(`^${field}:\\s*(.+)$`, "m"))?.[1]?.trim();
+  if (!value) return undefined;
+  const quote = value[0];
+  return (quote === '"' || quote === "'") && value.at(-1) === quote ? value.slice(1, -1) : value;
 }

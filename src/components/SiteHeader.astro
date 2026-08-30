@@ -32,7 +32,9 @@ const isActive = (route: string) => {
 const homeHref = withBase(localePath("/", locale));
 const normalizedCurrent = normalize(currentPath);
 const isWritingDetail =
-  normalizedCurrent.includes("/writing/") && !normalizedCurrent.endsWith("/writing");
+  normalizedCurrent.includes("/writing/") &&
+  !normalizedCurrent.includes("/writing/modules/") &&
+  !normalizedCurrent.endsWith("/writing");
 const isErrorPage = normalizedCurrent.endsWith("/404") || normalizedCurrent.endsWith("/404.html");
 const alternateRoute = isErrorPage
   ? localePath("/", otherLocale[locale])
@@ -40,6 +42,13 @@ const alternateRoute = isErrorPage
     ? localePath("/writing/", otherLocale[locale])
     : otherLocalePath(currentPath, locale);
 const otherHref = withBase(alternateRoute);
+const localeControlLabel = isWritingDetail
+  ? locale === "en"
+    ? "中文全文"
+    : "EN ABSTRACTS"
+  : locale === "en"
+    ? "中"
+    : "EN";
 ---
 
 <header class="site-header">
@@ -73,8 +82,13 @@ const otherHref = withBase(alternateRoute);
       }
     </nav>
     <div class="header-actions">
-      <a class="locale-link" href={otherHref} lang={locale === "en" ? "zh-CN" : "en"}>
-        {locale === "en" ? "中" : "EN"}
+      <a
+        class:list={["locale-link", isWritingDetail && "locale-link--writing-detail"]}
+        href={otherHref}
+        lang={locale === "en" ? "zh-CN" : "en"}
+        aria-label={localeControlLabel}
+      >
+        {localeControlLabel}
       </a>
       <button
         class="nav-toggle"

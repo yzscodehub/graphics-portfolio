@@ -3,6 +3,7 @@ import { getCollection, render, type CollectionEntry } from "astro:content";
 import BaseLayout from "../../../layouts/BaseLayout.astro";
 import PageHero from "../../../components/PageHero.astro";
 import DemoShell from "../../../components/DemoShell.astro";
+import RelatedWriting from "../../../components/RelatedWriting.astro";
 import { profile } from "../../../data/profile";
 import { withBase } from "../../../lib/urls";
 export async function getStaticPaths() {
@@ -75,4 +76,5 @@ const pageUrl = new URL(
       </aside>
     </div>
   </section>
+  <RelatedWriting locale="en" slugs={entry.data.relatedArticles} />
 </BaseLayout>

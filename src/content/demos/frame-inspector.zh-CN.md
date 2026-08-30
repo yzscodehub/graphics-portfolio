@@ -52,6 +52,8 @@ relatedProjects:
   - real-time-rendering-lab
 relatedArticles:
   - render-graph-lifetime
+  - frame-inspector-observability
+  - shadow-temporal-aa
 draft: false
 ---
 

@@ -1,6 +1,7 @@
 import { defineCollection } from "astro:content";
 import { glob } from "astro/loaders";
 import { z } from "astro/zod";
+import { writingModuleIds } from "./data/writing-modules";
 
 const locale = z.enum(["zh-CN", "en"]);
 const contentStatus = z.enum(["idea", "in-progress", "completed", "archived"]);
@@ -184,12 +185,21 @@ const writing = defineCollection({
         "multimedia",
         "deep-learning",
       ]),
+      module: z.enum(writingModuleIds),
+      moduleOrder: z.number().int().positive(),
+      articleOrder: z.number().int().positive(),
+      level: z.enum(["foundation", "intermediate", "advanced"]),
+      prerequisites: z.array(z.string().min(1)),
+      learningOutcomes: z.array(z.string().min(1)).min(1),
+      relatedArticles: z.array(z.string().min(1)),
+      relatedProjects: z.array(z.string().min(1)),
+      relatedDemos: z.array(z.string().min(1)),
       tags: z.array(z.string()).min(1),
       readingMinutes: z.number().int().positive(),
-      relatedProject: z.string().optional(),
-      relatedDemo: z.string().optional(),
       englishTitle: z.string().min(1),
       englishDescription: z.string().min(1),
+      publishedAt: z.coerce.date(),
+      updatedAt: z.coerce.date(),
     })
     .loose(),
 });

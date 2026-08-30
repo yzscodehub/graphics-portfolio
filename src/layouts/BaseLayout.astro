@@ -34,6 +34,7 @@ const pageTitle = title.includes(handle) ? title : `${title} · ${handle}`;
 const canonical = new URL(Astro.url.pathname, Astro.site ?? Astro.url.origin);
 const isWritingDetail =
   Astro.url.pathname.includes("/writing/") &&
+  !Astro.url.pathname.includes("/writing/modules/") &&
   !Astro.url.pathname.replace(/\/$/, "").endsWith("/writing");
 const alternateRoute = isNotFound
   ? localePath("/", otherLocale[locale])

@@ -44,7 +44,9 @@ demoSlugs:
   - frame-inspector
 articleSlugs:
   - rhi-abstraction-boundaries
-  - compute-geometry-performance
+  - material-lighting-color-pipeline
+  - shadow-temporal-aa
+  - frame-inspector-observability
 evidence: verified
 backends:
   - id: three-webgpu

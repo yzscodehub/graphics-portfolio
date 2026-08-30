@@ -7,8 +7,26 @@ const contentRoot = path.join(projectRoot, "src", "content");
 const expectedChineseEntries = {
   projects: 4,
   demos: 7,
-  writing: 6,
+  writing: 10,
 };
+const writingModules = new Set([
+  "rendering",
+  "engine-systems",
+  "gpu-compute",
+  "ray-tracing",
+  "debugging",
+  "neural-graphics",
+  "multimedia",
+]);
+const expectedWritingModules = new Map([
+  ["rendering", { order: 1, articles: 2 }],
+  ["engine-systems", { order: 2, articles: 2 }],
+  ["gpu-compute", { order: 3, articles: 2 }],
+  ["ray-tracing", { order: 4, articles: 1 }],
+  ["debugging", { order: 5, articles: 1 }],
+  ["neural-graphics", { order: 6, articles: 1 }],
+  ["multimedia", { order: 7, articles: 1 }],
+]);
 
 function walk(directory) {
   if (!existsSync(directory)) return [];
@@ -30,7 +48,7 @@ function parseFrontmatter(source, file) {
     if (field) {
       const value = field[2].replace(/^['"]|['"]$/g, "");
       activeArray = value === "" ? field[1] : undefined;
-      values[field[1]] = value === "" ? [] : value;
+      values[field[1]] = value === "" || value === "[]" ? [] : value;
       continue;
     }
     const item = activeArray ? line.match(/^\s{2}-\s+(.+)$/) : undefined;
@@ -42,10 +60,14 @@ function parseFrontmatter(source, file) {
 
 function validateCollection(name) {
   const files = walk(path.join(contentRoot, name));
-  const entries = files.map((file) => ({
-    file: path.relative(projectRoot, file).replaceAll(path.sep, "/"),
-    meta: parseFrontmatter(readFileSync(file, "utf8"), file),
-  }));
+  const entries = files.map((file) => {
+    const source = readFileSync(file, "utf8");
+    return {
+      file: path.relative(projectRoot, file).replaceAll(path.sep, "/"),
+      meta: parseFrontmatter(source, file),
+      source,
+    };
+  });
   const errors = [];
   const seen = new Set();
 
@@ -71,6 +93,44 @@ function validateCollection(name) {
       (!entry.meta.englishTitle || !entry.meta.englishDescription)
     ) {
       errors.push(`${entry.file}: published writing needs englishTitle and englishDescription.`);
+    }
+    if (name === "writing" && draft !== "true") {
+      if (!writingModules.has(entry.meta.module))
+        errors.push(`${entry.file}: unknown writing module ${entry.meta.module || "<missing>"}.`);
+      if (!/^\d+$/.test(entry.meta.moduleOrder ?? ""))
+        errors.push(`${entry.file}: moduleOrder must be a positive integer.`);
+      if (!/^\d+$/.test(entry.meta.articleOrder ?? ""))
+        errors.push(`${entry.file}: articleOrder must be a positive integer.`);
+      if (!new Set(["foundation", "intermediate", "advanced"]).has(entry.meta.level))
+        errors.push(`${entry.file}: invalid or missing level.`);
+      if (!Array.isArray(entry.meta.prerequisites) || entry.meta.prerequisites.length < 2)
+        errors.push(`${entry.file}: at least two prerequisites are required.`);
+      if (!Array.isArray(entry.meta.learningOutcomes) || entry.meta.learningOutcomes.length < 3)
+        errors.push(`${entry.file}: at least three learning outcomes are required.`);
+      for (const field of ["relatedArticles", "relatedProjects", "relatedDemos"])
+        if (!Array.isArray(entry.meta[field]))
+          errors.push(`${entry.file}: ${field} must be an array.`);
+      const expectedModule = expectedWritingModules.get(entry.meta.module);
+      if (expectedModule && Number(entry.meta.moduleOrder) !== expectedModule.order)
+        errors.push(
+          `${entry.file}: moduleOrder must be ${expectedModule.order} for ${entry.meta.module}.`,
+        );
+      if (!entry.meta.publishedAt || !entry.meta.updatedAt)
+        errors.push(`${entry.file}: publishedAt and updatedAt are required.`);
+      const readingMinutes = Number(entry.meta.readingMinutes);
+      if (!Number.isInteger(readingMinutes) || readingMinutes < 12 || readingMinutes > 25)
+        errors.push(`${entry.file}: readingMinutes must be an integer between 12 and 25.`);
+      const body = entry.source.replace(/^---\s*\r?\n[\s\S]*?\r?\n---\s*/, "");
+      if (Buffer.byteLength(body, "utf8") < 6_000)
+        errors.push(`${entry.file}: article body must contain at least 6000 UTF-8 bytes.`);
+      if ((body.match(/^## /gm) ?? []).length < 7)
+        errors.push(`${entry.file}: article needs at least seven H2 sections.`);
+      if ((body.match(/^```/gm) ?? []).length < 2)
+        errors.push(`${entry.file}: article needs at least one fenced diagram or code block.`);
+      if (!body.includes("可复现"))
+        errors.push(`${entry.file}: article needs a reproducible experiment.`);
+      if (!/(?:边界|限制|检查表)/.test(body))
+        errors.push(`${entry.file}: article needs an explicit boundary, limitation, or checklist.`);
     }
   }
 
@@ -155,6 +215,27 @@ function main() {
       if (!projectSlugs.has(slug)) errors.push(`${file}: unknown related project ${slug}.`);
     for (const slug of meta.relatedArticles ?? [])
       if (!articleSlugs.has(slug)) errors.push(`${file}: unknown related article ${slug}.`);
+  }
+  const writingOrder = new Set();
+  const writingModuleCounts = new Map();
+  for (const { file, meta } of collections.writing.entries.filter(
+    ({ meta }) => meta.draft !== "true",
+  )) {
+    const orderKey = `${meta.module}:${meta.articleOrder}`;
+    if (writingOrder.has(orderKey)) errors.push(`${file}: duplicate writing order ${orderKey}.`);
+    writingOrder.add(orderKey);
+    writingModuleCounts.set(meta.module, (writingModuleCounts.get(meta.module) ?? 0) + 1);
+    for (const slug of meta.relatedProjects ?? [])
+      if (!projectSlugs.has(slug)) errors.push(`${file}: unknown related project ${slug}.`);
+    for (const slug of meta.relatedDemos ?? [])
+      if (!demoSlugs.has(slug)) errors.push(`${file}: unknown related Demo ${slug}.`);
+    for (const slug of meta.relatedArticles ?? [])
+      if (!articleSlugs.has(slug)) errors.push(`${file}: unknown related article ${slug}.`);
+  }
+  for (const [module, contract] of expectedWritingModules) {
+    const actual = writingModuleCounts.get(module) ?? 0;
+    if (actual !== contract.articles)
+      errors.push(`writing: ${module} expected ${contract.articles} articles, found ${actual}.`);
   }
 
   const experience = validateCollection("experience");

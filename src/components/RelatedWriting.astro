@@ -1,0 +1,68 @@
+---
+import { getCollection, type CollectionEntry } from "astro:content";
+import { writingModules } from "../data/writing-modules";
+import type { Locale } from "../lib/i18n";
+import { withBase } from "../lib/urls";
+import ArticleCard from "./ArticleCard.astro";
+
+interface Props {
+  locale: Locale;
+  slugs: string[];
+}
+
+const { locale, slugs } = Astro.props;
+const isEn = locale === "en";
+const allWriting = (await getCollection("writing")) as CollectionEntry<"writing">[];
+const entries = allWriting
+  .filter(
+    (entry) =>
+      entry.data.locale === "zh-CN" && !entry.data.draft && slugs.includes(entry.data.routeSlug),
+  )
+  .sort((left, right) => {
+    const moduleDelta = left.data.moduleOrder - right.data.moduleOrder;
+    return moduleDelta || left.data.articleOrder - right.data.articleOrder;
+  });
+const dateFormatter = new Intl.DateTimeFormat(isEn ? "en-US" : "zh-CN", {
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+});
+---
+
+{
+  entries.length > 0 && (
+    <section class="section related-writing" data-related-writing>
+      <div class="section-inner">
+        <div class="related-writing__heading">
+          <span>WRITING / MODULE EVIDENCE</span>
+          <h2>{isEn ? "Related technical articles" : "相关技术文章"}</h2>
+          <p>
+            {isEn
+              ? "English abstracts link to the canonical Chinese full text."
+              : "从项目和 Demo 进入对应的原理、实现、测量与失败路径。"}
+          </p>
+        </div>
+        <div class="article-grid">
+          {entries.map((entry) => {
+            const module = writingModules.find((candidate) => candidate.id === entry.data.module);
+            return (
+              <ArticleCard
+                title={isEn ? entry.data.englishTitle : entry.data.title}
+                description={isEn ? entry.data.englishDescription : entry.data.description}
+                category={entry.data.category}
+                date={dateFormatter.format(entry.data.publishedAt)}
+                dateTime={entry.data.publishedAt.toISOString()}
+                moduleLabel={module?.title[locale]}
+                level={entry.data.level}
+                readingMinutes={entry.data.readingMinutes}
+                locale={locale}
+                fullTextLanguage="zh-CN"
+                href={withBase(`/writing/${entry.data.routeSlug}/`)}
+              />
+            );
+          })}
+        </div>
+      </div>
+    </section>
+  )
+}

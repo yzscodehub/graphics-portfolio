@@ -4,14 +4,64 @@ interface Props {
   description: string;
   category: string;
   href: string;
-  date?: string;
+  date: string;
+  dateTime: string;
+  moduleLabel?: string;
+  level?: string;
+  readingMinutes?: number;
+  locale?: "zh-CN" | "en";
+  fullTextLanguage?: "zh-CN" | "en";
 }
-const { title, description, category, href, date = "2026" } = Astro.props;
+const {
+  title,
+  description,
+  category,
+  href,
+  date,
+  dateTime,
+  moduleLabel,
+  level,
+  readingMinutes,
+  locale = "zh-CN",
+  fullTextLanguage,
+} = Astro.props;
+
+const levelLabel =
+  level === "foundation"
+    ? locale === "en"
+      ? "Foundation"
+      : "基础"
+    : level === "advanced"
+      ? locale === "en"
+        ? "Advanced"
+        : "进阶"
+      : locale === "en"
+        ? "Intermediate"
+        : "中级";
+const readingLabel = readingMinutes
+  ? locale === "en"
+    ? `${readingMinutes} min read`
+    : `${readingMinutes} 分钟阅读`
+  : undefined;
+const languageLabel =
+  fullTextLanguage === "zh-CN" && locale === "en" ? "CHINESE FULL TEXT" : undefined;
+const actionLabel =
+  locale === "en" ? (fullTextLanguage === "zh-CN" ? "READ CHINESE" : "READ") : "阅读";
 ---
 
 <article class="card article-card reveal" data-category={category}>
-  <time>{date} / {category}</time>
+  <div class="article-card__meta">
+    <time datetime={dateTime}>{date}</time>
+    {moduleLabel && <span>{moduleLabel}</span>}
+    {level && <span>{levelLabel}</span>}
+  </div>
   <h3>{title}</h3>
   <p>{description}</p>
-  <a class="card-link" href={href} aria-label={title}><span>READ ↗</span></a>
+  <div class="article-card__footer">
+    {readingLabel && <span>{readingLabel}</span>}
+    {languageLabel && <span>{languageLabel}</span>}
+  </div>
+  <a class="card-link" href={href} aria-label={`${actionLabel}: ${title}`}
+    ><span>{actionLabel} ↗</span></a
+  >
 </article>

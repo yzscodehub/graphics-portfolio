@@ -38,10 +38,22 @@ Content collections live in `src/content/` and are validated by `src/content.con
 
 - `projects`: exactly four published Chinese entries.
 - `demos`: exactly seven published Chinese entries.
-- `writing`: exactly six published Chinese entries; each includes an English title and description.
+- `writing`: ten published Chinese technical articles organized into six graphics tracks plus one adjacent multimedia track; each includes an English title and abstract.
 - `experience`: anonymous capability entries only.
 
 Every entry needs `locale`, `translationKey`, and its collection-specific metadata. `draft: true` entries do not enter the preview inventory.
+
+Writing follows an explicit learning map:
+
+1. `rendering`
+2. `engine-systems`
+3. `gpu-compute`
+4. `ray-tracing`
+5. `debugging`
+6. `neural-graphics`
+7. `multimedia` as an adjacent systems track
+
+Each published article declares its module/order, level, prerequisites, learning outcomes, related projects/Demos/articles, reading time, and bilingual abstract metadata. The content guard also requires substantial body depth, H2 structure, code or data-flow evidence, a reproducible experiment, and an explicit boundary/limitation/checklist.
 
 For internal links, use the shared helpers rather than manually prepending the repository name:
 

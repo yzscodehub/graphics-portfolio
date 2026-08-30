@@ -54,7 +54,7 @@ describe("production privacy policy", () => {
         }),
       );
       mkdirSync(path.join(fixtureRoot, "public", "og"), { recursive: true });
-      const cards = Array.from({ length: 18 }, (_, index) => {
+      const cards = Array.from({ length: 22 }, (_, index) => {
         const relative = `/og/card-${index}.png`;
         const og = Buffer.from(`og-${index}`);
         writeFileSync(path.join(fixtureRoot, "public", relative), og);

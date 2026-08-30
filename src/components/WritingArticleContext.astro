@@ -1,0 +1,163 @@
+---
+import { getWritingModule, writingModulePath, type WritingModuleId } from "../data/writing-modules";
+import type { Locale } from "../lib/i18n";
+import { withBase } from "../lib/urls";
+
+interface TocItem {
+  depth: number;
+  slug: string;
+  text: string;
+}
+
+interface ArticleLink {
+  label: string;
+  href: string;
+  kind: "article" | "project" | "demo";
+}
+
+interface Props {
+  locale: Locale;
+  moduleId: WritingModuleId;
+  level: "foundation" | "intermediate" | "advanced";
+  readingMinutes: number;
+  updatedAt?: Date;
+  prerequisites: string[];
+  learningOutcomes: string[];
+  headings: TocItem[];
+  related: ArticleLink[];
+  previous?: ArticleLink;
+  next?: ArticleLink;
+}
+
+const {
+  locale,
+  moduleId,
+  level,
+  readingMinutes,
+  updatedAt,
+  prerequisites,
+  learningOutcomes,
+  headings,
+  related,
+  previous,
+  next,
+} = Astro.props;
+const isEn = locale === "en";
+const module = getWritingModule(moduleId);
+const levelLabels = {
+  foundation: isEn ? "Foundation" : "基础",
+  intermediate: isEn ? "Intermediate" : "中级",
+  advanced: isEn ? "Advanced" : "进阶",
+};
+const formattedDate = updatedAt
+  ? new Intl.DateTimeFormat(locale === "en" ? "en-US" : "zh-CN", {
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).format(updatedAt)
+  : undefined;
+const moduleHref = withBase(writingModulePath(moduleId, locale));
+---
+
+<aside class="writing-article-context" aria-label={isEn ? "Article context" : "文章导览"}>
+  <nav class="writing-breadcrumb" aria-label={isEn ? "Breadcrumb" : "面包屑"}>
+    <a href={withBase(locale === "en" ? "/en/writing/" : "/writing/")}>WRITING</a>
+    <span aria-hidden="true">/</span>
+    <a href={moduleHref}>{module?.title[locale] ?? moduleId}</a>
+    <span aria-hidden="true">/</span>
+    <span>{levelLabels[level]}</span>
+  </nav>
+
+  <dl class="writing-article-context__metrics">
+    <div>
+      <dt>{isEn ? "Level" : "难度"}</dt>
+      <dd>{levelLabels[level]}</dd>
+    </div>
+    <div>
+      <dt>{isEn ? "Reading time" : "阅读时间"}</dt>
+      <dd>{isEn ? `${readingMinutes} min` : `${readingMinutes} 分钟`}</dd>
+    </div>
+    {
+      formattedDate && (
+        <div>
+          <dt>{isEn ? "Updated" : "更新"}</dt>
+          <dd>{formattedDate}</dd>
+        </div>
+      )
+    }
+  </dl>
+
+  {
+    prerequisites.length > 0 && (
+      <section>
+        <h2>{isEn ? "Before you start" : "开始前"}</h2>
+        <ul>
+          {prerequisites.map((item) => (
+            <li>{item}</li>
+          ))}
+        </ul>
+      </section>
+    )
+  }
+
+  <section>
+    <h2>{isEn ? "You will learn" : "你将学会"}</h2>
+    <ul>{learningOutcomes.map((item) => <li>{item}</li>)}</ul>
+  </section>
+
+  {
+    headings.length > 0 && (
+      <section>
+        <h2>{isEn ? "In this article" : "本文内容"}</h2>
+        <ol class="writing-toc">
+          {headings.map((heading) => (
+            <li>
+              <a href={`#${heading.slug}`}>{heading.text}</a>
+            </li>
+          ))}
+        </ol>
+      </section>
+    )
+  }
+
+  {
+    related.length > 0 && (
+      <section>
+        <h2>{isEn ? "Related work" : "关联内容"}</h2>
+        <ul class="writing-related-list">
+          {related.map((item) => (
+            <li>
+              <a href={item.href} data-kind={item.kind}>
+                <span>{item.kind.toUpperCase()}</span>
+                {item.label}
+              </a>
+            </li>
+          ))}
+        </ul>
+      </section>
+    )
+  }
+
+  {
+    (previous || next) && (
+      <nav class="writing-sequence" aria-label={isEn ? "Module sequence" : "模块顺序"}>
+        {previous ? (
+          <a href={previous.href} rel="prev">
+            <span>← {isEn ? "Previous" : "上一篇"}</span>
+            {previous.label}
+          </a>
+        ) : (
+          <span />
+        )}
+        {next ? (
+          <a href={next.href} rel="next">
+            <span>{isEn ? "Next" : "下一篇"} →</span>
+            {next.label}
+          </a>
+        ) : (
+          <span />
+        )}
+      </nav>
+    )
+  }
+</aside>

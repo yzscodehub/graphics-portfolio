@@ -1,29 +1,91 @@
 ---
 import { getCollection, render, type CollectionEntry } from "astro:content";
-import DetailLayout from "../../layouts/DetailLayout.astro";
+import WritingArticleContext from "../../components/WritingArticleContext.astro";
 import { profile } from "../../data/profile";
+import DetailLayout from "../../layouts/DetailLayout.astro";
 import { withBase } from "../../lib/urls";
+
+type WritingEntry = CollectionEntry<"writing">;
+interface TocHeading {
+  depth: number;
+  slug: string;
+  text: string;
+}
+
+const articleHref = (entry: WritingEntry) => withBase(`/writing/${entry.data.routeSlug}/`);
+
 export async function getStaticPaths() {
-  const allEntries = (await getCollection("writing")) as CollectionEntry<"writing">[];
+  const allEntries = (await getCollection("writing")) as WritingEntry[];
   const entries = allEntries.filter((entry) => entry.data.locale === "zh-CN" && !entry.data.draft);
   return entries.map((entry) => ({ params: { slug: entry.data.routeSlug }, props: { entry } }));
 }
+
 interface Props {
-  entry: CollectionEntry<"writing">;
+  entry: WritingEntry;
 }
-const { entry } = Astro.props;
-const { Content } = await render(entry);
-const pageUrl = new URL(
-  withBase(`/writing/${entry.data.routeSlug}/`),
-  Astro.site ?? Astro.url.origin,
-).toString();
+
+const { entry } = Astro.props as Props;
+const { Content, headings: renderedHeadings } = await render(entry);
+const headings = renderedHeadings as TocHeading[];
+const allWriting = (await getCollection("writing")) as WritingEntry[];
+const publishedWriting = allWriting.filter(
+  (candidate) => candidate.data.locale === "zh-CN" && !candidate.data.draft,
+);
+const moduleEntries = publishedWriting
+  .filter((candidate) => candidate.data.module === entry.data.module)
+  .sort((left, right) => left.data.articleOrder - right.data.articleOrder);
+const currentIndex = moduleEntries.findIndex((candidate) => candidate.id === entry.id);
+const previousEntry = currentIndex > 0 ? moduleEntries[currentIndex - 1] : undefined;
+const nextEntry = currentIndex >= 0 ? moduleEntries[currentIndex + 1] : undefined;
+
+const allProjects = (await getCollection("projects")) as CollectionEntry<"projects">[];
+const allDemos = (await getCollection("demos")) as CollectionEntry<"demos">[];
+const relatedArticles = (entry.data.relatedArticles as string[])
+  .map((slug) => publishedWriting.find((candidate) => candidate.data.routeSlug === slug))
+  .filter((candidate): candidate is WritingEntry => Boolean(candidate))
+  .map((candidate) => ({
+    label: candidate.data.title,
+    href: articleHref(candidate),
+    kind: "article" as const,
+  }));
+const relatedProjects = (entry.data.relatedProjects as string[])
+  .map((slug) =>
+    allProjects.find(
+      (candidate) =>
+        candidate.data.locale === "zh-CN" &&
+        !candidate.data.draft &&
+        candidate.data.routeSlug === slug,
+    ),
+  )
+  .filter((candidate): candidate is CollectionEntry<"projects"> => Boolean(candidate))
+  .map((candidate) => ({
+    label: candidate.data.title,
+    href: withBase(`/work/${candidate.data.routeSlug}/`),
+    kind: "project" as const,
+  }));
+const relatedDemos = (entry.data.relatedDemos as string[])
+  .map((slug) =>
+    allDemos.find(
+      (candidate) =>
+        candidate.data.locale === "zh-CN" &&
+        !candidate.data.draft &&
+        candidate.data.routeSlug === slug,
+    ),
+  )
+  .filter((candidate): candidate is CollectionEntry<"demos"> => Boolean(candidate))
+  .map((candidate) => ({
+    label: candidate.data.title,
+    href: withBase(`/demos/${candidate.data.routeSlug}/`),
+    kind: "demo" as const,
+  }));
+const pageUrl = new URL(articleHref(entry), Astro.site ?? Astro.url.origin).toString();
 ---
 
 <DetailLayout
   locale="zh-CN"
   title={entry.data.title}
   description={entry.data.description}
-  eyebrow={`WRITING / ${entry.data.category}`}
+  eyebrow={`WRITING / ${entry.data.module.toUpperCase()}`}
   handle={profile.displayName}
   image={withBase(`/og/writing/${entry.data.routeSlug}.png`)}
   ogType="article"
@@ -39,5 +101,24 @@ const pageUrl = new URL(
     author: { "@type": "Person", name: profile.displayName, sameAs: profile.githubUrl },
     keywords: entry.data.tags,
   }}
-  paper><Content /></DetailLayout
+  paper
 >
+  <WritingArticleContext
+    locale="zh-CN"
+    moduleId={entry.data.module}
+    level={entry.data.level}
+    readingMinutes={entry.data.readingMinutes}
+    updatedAt={entry.data.updatedAt ?? entry.data.publishedAt}
+    prerequisites={entry.data.prerequisites}
+    learningOutcomes={entry.data.learningOutcomes}
+    headings={headings.filter((heading) => heading.depth === 2)}
+    related={[...relatedProjects, ...relatedDemos, ...relatedArticles]}
+    previous={previousEntry
+      ? { label: previousEntry.data.title, href: articleHref(previousEntry), kind: "article" }
+      : undefined}
+    next={nextEntry
+      ? { label: nextEntry.data.title, href: articleHref(nextEntry), kind: "article" }
+      : undefined}
+  />
+  <Content />
+</DetailLayout>

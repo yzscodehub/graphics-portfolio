@@ -57,6 +57,7 @@ relatedProjects:
   - real-time-rendering-lab
 relatedArticles:
   - rhi-abstraction-boundaries
+  - material-lighting-color-pipeline
 draft: false
 ---
 

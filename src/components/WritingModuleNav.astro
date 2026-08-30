@@ -1,0 +1,38 @@
+---
+import { writingModulePath, writingModules, type WritingModuleId } from "../data/writing-modules";
+import type { Locale } from "../lib/i18n";
+import { withBase } from "../lib/urls";
+
+interface Props {
+  locale: Locale;
+  currentModule?: WritingModuleId;
+  mode?: "anchors" | "routes";
+}
+
+const { locale, currentModule, mode = "routes" } = Astro.props;
+const isEn = locale === "en";
+const label = isEn ? "Learning path" : "学习路径";
+const adjacentLabel = isEn ? "Adjacent systems" : "相邻系统";
+const hrefFor = (moduleId: WritingModuleId) =>
+  mode === "anchors" ? `#module-${moduleId}` : withBase(writingModulePath(moduleId, locale));
+---
+
+<nav class="writing-module-nav" aria-label={label}>
+  <span class="writing-module-nav__label">{label}</span>
+  <ol>
+    {
+      writingModules.map((module) => (
+        <li data-adjacent={module.adjacent ? "true" : undefined}>
+          <a
+            href={hrefFor(module.id)}
+            aria-current={currentModule === module.id ? "page" : undefined}
+          >
+            <span class="writing-module-nav__code">{module.code}</span>
+            <span>{module.title[locale]}</span>
+            {module.adjacent && <small>{adjacentLabel}</small>}
+          </a>
+        </li>
+      ))
+    }
+  </ol>
+</nav>

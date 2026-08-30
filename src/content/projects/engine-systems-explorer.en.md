@@ -44,6 +44,7 @@ demoSlugs:
 articleSlugs:
   - rhi-abstraction-boundaries
   - render-graph-lifetime
+  - frame-inspector-observability
 evidence: measured
 backends:
   - id: svg

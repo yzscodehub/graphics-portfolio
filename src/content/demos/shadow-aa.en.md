@@ -49,6 +49,7 @@ relatedProjects:
   - real-time-rendering-lab
 relatedArticles:
   - rhi-abstraction-boundaries
+  - shadow-temporal-aa
 draft: false
 ---
 

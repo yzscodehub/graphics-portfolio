@@ -1,0 +1,125 @@
+---
+import { getCollection, type CollectionEntry } from "astro:content";
+import ArticleCard from "./ArticleCard.astro";
+import PageHero from "./PageHero.astro";
+import WritingModuleNav from "./WritingModuleNav.astro";
+import { profile } from "../data/profile";
+import { getWritingModule, type WritingModuleId } from "../data/writing-modules";
+import BaseLayout from "../layouts/BaseLayout.astro";
+import type { Locale } from "../lib/i18n";
+import { withBase } from "../lib/urls";
+
+interface Props {
+  locale: Locale;
+  moduleId: WritingModuleId;
+}
+
+const { locale, moduleId } = Astro.props;
+const isEn = locale === "en";
+const module = getWritingModule(moduleId);
+if (!module) throw new Error(`Unknown writing module: ${moduleId}`);
+const allEntries = (await getCollection("writing")) as CollectionEntry<"writing">[];
+const entries = allEntries
+  .filter(
+    (entry) => entry.data.locale === "zh-CN" && !entry.data.draft && entry.data.module === moduleId,
+  )
+  .sort((left, right) => left.data.articleOrder - right.data.articleOrder);
+const copy = isEn
+  ? {
+      title: module.title.en,
+      description: module.description.en,
+      question: "Guiding question",
+      abstract: "ENGLISH ABSTRACT / CHINESE FULL TEXT",
+      adjacent: "ADJACENT SYSTEMS",
+      returnToWriting: "All modules",
+      empty: "The first published note for this module is being prepared.",
+    }
+  : {
+      title: module.title["zh-CN"],
+      description: module.description["zh-CN"],
+      question: "引导问题",
+      abstract: "英文摘要 / 中文全文",
+      adjacent: "相邻系统",
+      returnToWriting: "全部模块",
+      empty: "该模块的首篇文章正在整理中。",
+    };
+const writingHref = withBase(isEn ? "/en/writing/" : "/writing/");
+const pageUrl = new URL(
+  withBase(`${isEn ? "/en" : ""}/writing/modules/${module.id}/`),
+  Astro.site ?? Astro.url.origin,
+).toString();
+const dateFormatter = new Intl.DateTimeFormat(isEn ? "en-US" : "zh-CN", {
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+});
+---
+
+<BaseLayout
+  locale={locale}
+  title={copy.title}
+  description={copy.description}
+  handle={profile.displayName}
+  structuredData={{
+    "@context": "https://schema.org",
+    "@type": "CollectionPage",
+    name: copy.title,
+    description: copy.description,
+    url: pageUrl,
+    inLanguage: locale,
+    hasPart: entries.map((entry) => ({
+      "@type": "BlogPosting",
+      headline: isEn ? entry.data.englishTitle : entry.data.title,
+      url: new URL(
+        withBase(`/writing/${entry.data.routeSlug}/`),
+        Astro.site ?? Astro.url.origin,
+      ).toString(),
+      inLanguage: "zh-CN",
+    })),
+  }}
+>
+  <PageHero
+    eyebrow={`WRITING / ${module.code}`}
+    title={copy.title}
+    description={copy.description}
+  />
+  <section class="writing-module-landing-intro">
+    <div class="section-inner">
+      {module.adjacent && <p class="writing-adjacent-label">{copy.adjacent}</p>}
+      <div class="writing-module-landing-intro__question">
+        <span>{copy.question}</span>
+        <p>{module.question[locale]}</p>
+      </div>
+      {isEn && <p class="writing-language-note">{copy.abstract}</p>}
+      <WritingModuleNav locale={locale} currentModule={moduleId} />
+    </div>
+  </section>
+  <section class="section writing-module-landing-content">
+    <div class="section-inner">
+      <a class="module-back-link" href={writingHref}>← {copy.returnToWriting}</a>
+      {
+        entries.length > 0 ? (
+          <div class="article-grid writing-module__grid">
+            {entries.map((entry) => (
+              <ArticleCard
+                title={isEn ? entry.data.englishTitle : entry.data.title}
+                description={isEn ? entry.data.englishDescription : entry.data.description}
+                category={entry.data.category}
+                date={dateFormatter.format(entry.data.publishedAt)}
+                dateTime={entry.data.publishedAt.toISOString()}
+                moduleLabel={module.title[locale]}
+                level={entry.data.level}
+                readingMinutes={entry.data.readingMinutes}
+                locale={locale}
+                fullTextLanguage="zh-CN"
+                href={withBase(`/writing/${entry.data.routeSlug}/`)}
+              />
+            ))}
+          </div>
+        ) : (
+          <p class="writing-module__empty">{copy.empty}</p>
+        )
+      }
+    </div>
+  </section>
+</BaseLayout>

@@ -1,0 +1,24 @@
+---
+import WritingModuleLanding from "../../../components/WritingModuleLanding.astro";
+import {
+  isWritingModuleId,
+  writingModuleIds,
+  type WritingModuleId,
+} from "../../../data/writing-modules";
+
+export function getStaticPaths() {
+  return writingModuleIds.map((moduleId) => ({
+    params: { module: moduleId },
+    props: { moduleId },
+  }));
+}
+
+interface Props {
+  moduleId: WritingModuleId;
+}
+
+const { moduleId } = Astro.props;
+if (!isWritingModuleId(moduleId)) throw new Error(`Unknown writing module: ${moduleId}`);
+---
+
+<WritingModuleLanding locale="zh-CN" moduleId={moduleId} />

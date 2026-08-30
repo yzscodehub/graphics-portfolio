@@ -1,6 +1,7 @@
 ---
 import { getCollection, render, type CollectionEntry } from "astro:content";
 import DetailLayout from "../../layouts/DetailLayout.astro";
+import RelatedWriting from "../../components/RelatedWriting.astro";
 import { profile } from "../../data/profile";
 import { withBase } from "../../lib/urls";
 
@@ -94,4 +95,5 @@ const meta: Array<[string, string]> = [
       </div>
     </div>
   </section>
+  <RelatedWriting slot="after" locale="zh-CN" slugs={entry.data.articleSlugs} />
 </DetailLayout>

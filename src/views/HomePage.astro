@@ -6,8 +6,10 @@ import ProjectCard from "../components/ProjectCard.astro";
 import DemoCard from "../components/DemoCard.astro";
 import ArticleCard from "../components/ArticleCard.astro";
 import DemoShell from "../components/DemoShell.astro";
+import WritingModuleNav from "../components/WritingModuleNav.astro";
 import { profile } from "../data/profile";
 import { site } from "../data/site";
+import { writingModules } from "../data/writing-modules";
 import type { Locale } from "../lib/i18n";
 import { localePath } from "../lib/i18n";
 import { withBase } from "../lib/urls";
@@ -24,15 +26,52 @@ const homeUrl = new URL(
 const allProjects = (await getCollection("projects")) as CollectionEntry<"projects">[];
 const allDemos = (await getCollection("demos")) as CollectionEntry<"demos">[];
 const allWriting = (await getCollection("writing")) as CollectionEntry<"writing">[];
+const projectOrder = [
+  "engine-systems-explorer",
+  "real-time-rendering-lab",
+  "webgpu-compute-lab",
+  "neural-graphics-lab",
+];
+const demoOrder = [
+  "material-lighting",
+  "render-graph",
+  "gpu-particles",
+  "shadow-aa",
+  "path-tracer",
+  "frame-inspector",
+  "neural-denoising",
+];
 const projects = allProjects
   .filter((entry) => entry.data.locale === locale && !entry.data.draft)
+  .sort(
+    (left, right) =>
+      projectOrder.indexOf(left.data.routeSlug) - projectOrder.indexOf(right.data.routeSlug),
+  )
   .slice(0, 4);
 const demos = allDemos
   .filter((entry) => entry.data.locale === locale && !entry.data.draft)
+  .sort(
+    (left, right) =>
+      demoOrder.indexOf(left.data.routeSlug) - demoOrder.indexOf(right.data.routeSlug),
+  )
   .slice(0, 7);
-const writing = allWriting
-  .filter((entry) => entry.data.locale === "zh-CN" && !entry.data.draft)
-  .slice(0, 4);
+const publishedWriting = allWriting.filter(
+  (entry) => entry.data.locale === "zh-CN" && !entry.data.draft,
+);
+const primaryWritingModules = writingModules.filter((module) => !module.adjacent);
+const writing = primaryWritingModules
+  .map(
+    (module) =>
+      publishedWriting
+        .filter((entry) => entry.data.module === module.id)
+        .sort((left, right) => left.data.articleOrder - right.data.articleOrder)[0],
+  )
+  .filter((entry): entry is CollectionEntry<"writing"> => Boolean(entry));
+const dateFormatter = new Intl.DateTimeFormat(isEn ? "en-US" : "zh-CN", {
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+});
 type RoutedEntry =
   CollectionEntry<"projects"> | CollectionEntry<"demos"> | CollectionEntry<"writing">;
 const slugOf = (entry: RoutedEntry) => entry.data.routeSlug;
@@ -60,7 +99,7 @@ const copy = isEn
       writingLabel: "Technical writing",
       writingTitle: "Decisions, not recipes.",
       writingDescription:
-        "Long-form notes connect abstractions, measurements, tradeoffs and failure modes.",
+        "Six module entry points connect abstractions, measurements, tradeoffs and failure modes.",
       labLabel: "Current lab",
       labTitle: "Learning in public.",
       labDescription:
@@ -85,7 +124,7 @@ const copy = isEn
       evidenceDescription: "以匿名、可审核的能力线索呈现真实图形系统经验。",
       writingLabel: "技术写作",
       writingTitle: "记录判断，而不只是步骤。",
-      writingDescription: "长文把抽象、测量、取舍和失败路径连接起来。",
+      writingDescription: "六条技术主线把抽象、测量、取舍和失败路径连接起来。",
       labLabel: "当前实验室",
       labTitle: "公开学习过程。",
       labDescription: "神经图形在证据成熟前始终明确标记为实验，而不是包装成专家能力。",
@@ -169,6 +208,16 @@ const copy = isEn
   <div class="signal-rail" aria-label="Focus areas">
     <div class="signal-track">{profile.focus.map((item) => <span>{item}</span>)}</div>
   </div>
+
+  <section class="home-learning-path frame" aria-labelledby="home-learning-path-title">
+    <div class="home-learning-path__heading">
+      <span>{isEn ? "TECHNICAL MODULES / READING MAP" : "技术模块 / 阅读地图"}</span>
+      <h2 id="home-learning-path-title">
+        {isEn ? "Follow the rendering system, layer by layer." : "沿着渲染系统逐层阅读。"}
+      </h2>
+    </div>
+    <WritingModuleNav locale={locale} />
+  </section>
 
   <section class="section">
     <div class="section-inner">
@@ -275,7 +324,15 @@ const copy = isEn
               title={isEn ? entry.data.englishTitle : entry.data.title}
               description={isEn ? entry.data.englishDescription : entry.data.description}
               category={entry.data.category}
-              date={entry.data.publishedAt?.getFullYear().toString() ?? "2026"}
+              date={dateFormatter.format(entry.data.publishedAt)}
+              dateTime={entry.data.publishedAt.toISOString()}
+              moduleLabel={
+                writingModules.find((module) => module.id === entry.data.module)?.title[locale]
+              }
+              level={entry.data.level}
+              readingMinutes={entry.data.readingMinutes}
+              locale={locale}
+              fullTextLanguage="zh-CN"
               href={withBase(`/writing/${slugOf(entry)}/`)}
             />
           ))

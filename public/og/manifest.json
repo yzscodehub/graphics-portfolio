@@ -103,12 +103,36 @@
       "sha256": "03f88100e532f8bcad672ffba42231d015f0c86d04e8b4e1b4e75dfc2f35bc56"
     },
     {
+      "path": "/og/writing/bvh-progressive-path-tracing.png",
+      "title": "A WebGPU Path Tracer: BVH Traversal, Material Scattering, and Linear Accumulation",
+      "width": 1200,
+      "height": 630,
+      "bytes": 62379,
+      "sha256": "38c362e6399ddba60f66ac5d5165ae9045673bc139a451c2a24c1c4f6d5732f9"
+    },
+    {
       "path": "/og/writing/compute-geometry-performance.png",
       "title": "Large-Scale Geometry Processing with Compute Shaders",
       "width": 1200,
       "height": 630,
       "bytes": 60947,
       "sha256": "08403dc10f78ff91d849317f35371d87a26a49e2c59824bf46f8ea20e99fe7e0"
+    },
+    {
+      "path": "/og/writing/frame-inspector-observability.png",
+      "title": "Frame Inspector: GBuffer Attachments, Velocity, and Frame-Level Observability",
+      "width": 1200,
+      "height": 630,
+      "bytes": 63320,
+      "sha256": "d725796dae8e8c09cd24827de2e798b395d49c278b511f32584f29b97d725afa"
+    },
+    {
+      "path": "/og/writing/material-lighting-color-pipeline.png",
+      "title": "From PBR Inputs to Display Pixels: Materials, IBL, and the Color Pipeline",
+      "width": 1200,
+      "height": 630,
+      "bytes": 61355,
+      "sha256": "bdf6abfe8c17698a87176ee048adc48cd143bdeeeef3040e6bf20b2cc754d41c"
     },
     {
       "path": "/og/writing/multimedia-data-path.png",
@@ -141,6 +165,14 @@
       "height": 630,
       "bytes": 59647,
       "sha256": "967961b2455bf5c6b5726f2217e090815b3cc1ff26d8e0c284736488d0fcde81"
+    },
+    {
+      "path": "/og/writing/shadow-temporal-aa.png",
+      "title": "From Shadow Maps to TAA: Depth, Velocity, and History Reprojection",
+      "width": 1200,
+      "height": 630,
+      "bytes": 62270,
+      "sha256": "f2659d0c4d3986c426be54edca7e280d3d4a9b308969ef68cb82f83fd8e2b0e5"
     },
     {
       "path": "/og/writing/webgpu-particles-path-tracing.png",

@@ -332,12 +332,12 @@ export function validateReleaseArtifacts(root = projectRoot) {
         line: 0,
         value: "release OG manifest must contain generated cards",
       });
-    if ((manifest.cards ?? []).length !== 18)
+    if ((manifest.cards ?? []).length !== 22)
       violations.push({
         code: "og-inventory",
         file: "public/og/manifest.json",
         line: 0,
-        value: `expected 18 cards, found ${(manifest.cards ?? []).length}`,
+        value: `expected 22 cards, found ${(manifest.cards ?? []).length}`,
       });
     for (const card of manifest.cards ?? []) {
       const file = path.join(root, "public", card.path.replace(/^\//, ""));

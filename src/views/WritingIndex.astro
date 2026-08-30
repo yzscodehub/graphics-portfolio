@@ -1,9 +1,11 @@
 ---
 import { getCollection, type CollectionEntry } from "astro:content";
-import BaseLayout from "../layouts/BaseLayout.astro";
-import PageHero from "../components/PageHero.astro";
 import ArticleCard from "../components/ArticleCard.astro";
+import PageHero from "../components/PageHero.astro";
+import WritingModuleNav from "../components/WritingModuleNav.astro";
 import { profile } from "../data/profile";
+import { writingModules } from "../data/writing-modules";
+import BaseLayout from "../layouts/BaseLayout.astro";
 import type { Locale } from "../lib/i18n";
 import { withBase } from "../lib/urls";
 
@@ -14,59 +16,132 @@ interface Props {
 const { locale } = Astro.props;
 const isEn = locale === "en";
 const allEntries = (await getCollection("writing")) as CollectionEntry<"writing">[];
-// One Chinese full-text entry is the source for each English abstract card.
 const entries = allEntries.filter((entry) => entry.data.locale === "zh-CN" && !entry.data.draft);
 const slugOf = (entry: (typeof entries)[number]) => entry.data.routeSlug;
+const dateFormatter = new Intl.DateTimeFormat(isEn ? "en-US" : "zh-CN", {
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+});
+const moduleGroups = writingModules.map((module) => ({
+  module,
+  entries: entries
+    .filter((entry) => entry.data.module === module.id)
+    .sort((left, right) => left.data.articleOrder - right.data.articleOrder),
+}));
+const pageUrl = new URL(
+  withBase(isEn ? "/en/writing/" : "/writing/"),
+  Astro.site ?? Astro.url.origin,
+).toString();
+const copy = isEn
+  ? {
+      title: "Decisions, ordered into a working path.",
+      description:
+        "A six-track graphics curriculum plus an adjacent multimedia systems track. Every English card is an abstract; full articles are published in Chinese.",
+      abstractNote: "ENGLISH ABSTRACT / CHINESE FULL TEXT",
+      question: "Key question",
+      enter: "Open module",
+      empty: "The first published note for this module is being prepared.",
+      adjacent: "ADJACENT SYSTEMS",
+    }
+  : {
+      title: "把工程判断排成可走的路径。",
+      description:
+        "六条图形系统主线，加上一条相邻的多媒体系统轨道。每篇文章都保留假设、证据、取舍与可验证的失败路径。",
+      abstractNote: "英文摘要 / 中文全文",
+      question: "关键问题",
+      enter: "进入模块",
+      empty: "该模块的首篇文章正在整理中。",
+      adjacent: "相邻系统",
+    };
 ---
 
 <BaseLayout
   locale={locale}
   title={isEn ? "Writing" : "文章"}
   description={isEn
-    ? "Chinese full-text engineering notes with English titles and abstracts."
-    : "记录工程判断、证据和取舍的技术文章。"}
+    ? "Chinese full-text engineering notes with English abstracts."
+    : "按技术模块组织的图形系统工程文章。"}
   handle={profile.displayName}
+  structuredData={{
+    "@context": "https://schema.org",
+    "@type": "CollectionPage",
+    name: isEn ? "Graphics Systems Writing" : "图形系统技术文章",
+    description: copy.description,
+    url: pageUrl,
+    inLanguage: locale,
+    hasPart: entries.map((entry) => ({
+      "@type": "BlogPosting",
+      headline: isEn ? entry.data.englishTitle : entry.data.title,
+      url: new URL(
+        withBase(`/writing/${entry.data.routeSlug}/`),
+        Astro.site ?? Astro.url.origin,
+      ).toString(),
+      inLanguage: "zh-CN",
+    })),
+  }}
 >
-  <PageHero
-    eyebrow="WRITING / DECISIONS"
-    title={isEn ? "Decisions, not recipes." : "记录判断，而不只是步骤。"}
-    description={isEn
-      ? "English titles and abstracts are provided for every article; the full text is currently published in Chinese."
-      : "每篇文章都保留代码、架构图、边界和失败路径；当前全文以中文发布。"}
-  />
-  {
-    isEn && (
-      <section class="section" style="padding-top:0; padding-bottom:0;">
-        <div class="section-inner">
-          <p
-            class="language-note"
-            style="margin:0; color:var(--muted); font:0.72rem/1.5 var(--font-mono,ui-monospace,monospace);"
-          >
-            ENGLISH ABSTRACT / CHINESE FULL TEXT
-          </p>
-        </div>
-      </section>
-    )
-  }
-  <section class="section">
+  <PageHero eyebrow="WRITING / LEARNING PATH" title={copy.title} description={copy.description} />
+  <section class="writing-index-intro" aria-label={isEn ? "Writing modules" : "文章模块"}>
     <div class="section-inner">
-      <div class="article-grid">
-        {
-          entries.map((entry) => (
-            <ArticleCard
-              title={isEn ? entry.data.englishTitle : entry.data.title}
-              description={
-                isEn
-                  ? `English abstract · ${entry.data.englishDescription}`
-                  : entry.data.description
-              }
-              category={entry.data.category}
-              date={entry.data.publishedAt?.getFullYear().toString() ?? "2026"}
-              href={withBase(`/writing/${slugOf(entry)}/`)}
-            />
-          ))
-        }
-      </div>
+      {isEn && <p class="writing-language-note">{copy.abstractNote}</p>}
+      <WritingModuleNav locale={locale} mode="anchors" />
     </div>
   </section>
+
+  <div class="writing-module-stack">
+    {
+      moduleGroups.map(({ module, entries: moduleEntries }) => (
+        <section
+          id={`module-${module.id}`}
+          class:list={["writing-module", module.adjacent && "writing-module--adjacent"]}
+          aria-labelledby={`module-heading-${module.id}`}
+        >
+          <div class="section-inner">
+            <div class="writing-module__heading">
+              <div>
+                <span class="index-mark">{module.code}</span>
+                {module.adjacent && <span class="writing-module__adjacent">{copy.adjacent}</span>}
+                <h2 id={`module-heading-${module.id}`}>{module.title[locale]}</h2>
+              </div>
+              <div class="writing-module__brief">
+                <p>{module.description[locale]}</p>
+                <p>
+                  <span>{copy.question}</span>
+                  {module.question[locale]}
+                </p>
+                <a
+                  class="module-link"
+                  href={withBase(`${isEn ? "/en" : ""}/writing/modules/${module.id}/`)}
+                >
+                  {copy.enter} <span aria-hidden="true">↗</span>
+                </a>
+              </div>
+            </div>
+            {moduleEntries.length > 0 ? (
+              <div class="article-grid writing-module__grid">
+                {moduleEntries.map((entry) => (
+                  <ArticleCard
+                    title={isEn ? entry.data.englishTitle : entry.data.title}
+                    description={isEn ? entry.data.englishDescription : entry.data.description}
+                    category={entry.data.category}
+                    date={dateFormatter.format(entry.data.publishedAt)}
+                    dateTime={entry.data.publishedAt.toISOString()}
+                    moduleLabel={module.title[locale]}
+                    level={entry.data.level}
+                    readingMinutes={entry.data.readingMinutes}
+                    locale={locale}
+                    fullTextLanguage="zh-CN"
+                    href={withBase(`/writing/${slugOf(entry)}/`)}
+                  />
+                ))}
+              </div>
+            ) : (
+              <p class="writing-module__empty">{copy.empty}</p>
+            )}
+          </div>
+        </section>
+      ))
+    }
+  </div>
 </BaseLayout>
