@@ -1,18 +1,14 @@
 import type { Locale, LocalizedText } from "./profile";
-import featureConfig from "./site-features.json";
+import { resolveSiteFeatures } from "./site-stage.mjs";
 
-export interface SiteFeatures {
-  stage: "preview" | "release";
-  resume: boolean;
-  emailContact: boolean;
-  indexing: boolean;
-}
+export { resolveSiteFeatures } from "./site-stage.mjs";
+export type SiteFeatures = ReturnType<typeof resolveSiteFeatures>;
 
 /**
  * The single source of truth for preview versus public-release behavior.
  * UI, static metadata, validation, and deployment consume this same object.
  */
-export const features = featureConfig as SiteFeatures;
+export const features = resolveSiteFeatures();
 
 export const site = {
   name: "Graphics Workbench",
@@ -52,11 +48,6 @@ export const site = {
   ],
   socialLinks: ["github"] as const,
   features,
-  releaseGuard: {
-    requiredPublicValues: ["profile.displayName", "profile.publicEmail", "profile.githubUsername"],
-    placeholderFields: ["profile.displayName", "profile.publicEmail", "profile.githubUsername"],
-    failProductionBuild: true,
-  },
 } as const;
 
 export type Site = typeof site;

@@ -1,5 +1,10 @@
 name: Deploy Public Preview
 
+# FINAL CUTOVER:
+# Main always verifies. It deploys Preview only while ENABLE_PREVIEW_PAGES is
+# not false and no v* tag exists; after the first version tag, main becomes
+# verify-only automatically so it cannot replace an indexed release.
+
 on:
   push:
     branches:
@@ -12,19 +17,35 @@ permissions:
   id-token: write
 
 concurrency:
-  group: pages-preview
-  cancel-in-progress: true
+  group: pages
+  cancel-in-progress: false
 
 jobs:
   build:
     name: Verify and build preview
     runs-on: ubuntu-latest
+    outputs:
+      deploy-pages: ${{ steps.deployment-policy.outputs.deploy }}
     env:
       SITE_URL: https://${{ github.repository_owner }}.github.io
       SITE_STAGE: preview
     steps:
       - name: Check out source
         uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Resolve preview deployment policy
+        id: deployment-policy
+        shell: bash
+        run: |
+          if [[ "${{ vars.ENABLE_PREVIEW_PAGES }}" == "false" ]]; then
+            echo "deploy=false" >> "$GITHUB_OUTPUT"
+          elif [[ -n "$(git tag --list 'v*')" ]]; then
+            echo "deploy=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "deploy=true" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Set up pnpm
         uses: pnpm/action-setup@v4
@@ -60,9 +81,11 @@ jobs:
         run: pnpm run test:e2e
 
       - name: Configure GitHub Pages
+        if: steps.deployment-policy.outputs.deploy == 'true'
         uses: actions/configure-pages@v5
 
       - name: Upload static artifact
+        if: steps.deployment-policy.outputs.deploy == 'true'
         uses: actions/upload-pages-artifact@v4
         with:
           path: ./dist
@@ -70,6 +93,7 @@ jobs:
   deploy:
     name: Deploy preview
     needs: build
+    if: needs.build.outputs.deploy-pages == 'true'
     runs-on: ubuntu-latest
     environment:
       name: github-pages

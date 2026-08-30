@@ -3,15 +3,35 @@ routeSlug: shadow-aa
 translationKey: shadow-aa
 locale: zh-CN
 title: Shadow & Anti-Aliasing Lab
-summary: 在程序化 Canvas 2D 场景中比较带标签的阴影柔化和边缘处理模式。
+summary: 使用共享的原生 WebGPU 参考帧比较阴影、G-Buffer、深度、速度和时间历史路径，并提供 Canvas 回退。
 category: rendering
-renderer: Canvas 2D 技术可视化
-backend: canvas-2d
-status: in-progress
-featured: false
-capabilities: []
+renderer: Raw WebGPU 参考帧 / Canvas 2D 回退
+backend: raw-webgpu
+status: completed
+maturity: completed
+evidence: verified
+backends:
+  - id: raw-webgpu
+    label: 共享原生 WebGPU 参考帧
+    role: primary
+    capabilities:
+      - webgpu
+  - id: canvas-2d
+    label: 带标签的 Canvas 2D 对比
+    role: fallback
+    capabilities: []
+capabilities:
+  - webgpu
 requirements:
-  - 基础 Canvas 2D
+  - label: WebGPU
+    required: false
+    capability: webgpu
+  - label: Canvas 2D 回退
+    required: false
+fallback:
+  kind: canvas-2d
+  description: 原生参考帧无法初始化时，使用带标签的 Canvas 对比保留阴影柔化和历史控件。
+  image: /media/demos/shadow-aa-poster.svg
 controls:
   - SHADOW HARD
   - SHADOW PCF
@@ -19,8 +39,12 @@ controls:
   - AA NONE
   - AA FXAA
   - AA TAA
+  - RESET HISTORY
 metrics: []
-fallbackImage: /media/placeholders/demo-shadow-aa.svg
+metricSource:
+  kind: runtime
+  description: 实时渲染器报告后端和选择的模式，不发布跨设备固定 GPU 性能数字。
+fallbackImage: /media/demos/shadow-aa-poster.svg
 relatedProjects:
   - real-time-rendering-lab
 relatedArticles:
@@ -28,10 +52,14 @@ relatedArticles:
 draft: false
 ---
 
-## 展示内容
+## 实际运行内容
 
-这个 Demo 使用 Canvas 2D 绘制、模糊和短暂历史轨迹来做带标签的视觉对比。Hard、PCF、PCSS 表示逐渐增强的柔化效果，None、FXAA、TAA 表示边缘处理方式；它们不是 WebGL 阴影贴图、GLSL 滤波器或真实时间抗锯齿 resolve 的实现。
+原生 WebGPU 参考帧在同一帧中编码阴影图、多目标 G-Buffer、线性深度、速度、HDR 光照、SSAO 和时间 resolve 历史。Hard、PCF、PCSS 选择已实现的阴影着色器分支，None、FXAA、TAA 选择对应的 resolve 路径。
 
-## 后续路线
+## 时间行为
 
-实现真实深度图、过滤核、速度 Buffer 和历史有效性后，可以沿用这些控件接入真正的 WebGL/GLSL 阴影与抗锯齿对比。
+TAA 使用抖动以及上一帧深度/速度状态。改变阴影模式、抗锯齿模式、场景版本或点击 Reset History 后，会使历史失效。Frame Inspector 提供 Freeze，通过冻结当前帧检查相同的 attachment 家族。
+
+## 回退边界
+
+WebGPU 无法初始化或设备丢失时，页面切换到明确标注的 Canvas 对比。回退保留模式名称和重置行为，但不替代原生 G-Buffer 实现。

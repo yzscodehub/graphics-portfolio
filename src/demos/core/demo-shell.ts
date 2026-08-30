@@ -1,6 +1,7 @@
-import { getCapabilities, shouldUseStaticFallback } from "./capabilities";
+import { getCapabilities, measureCapabilities, shouldUseStaticFallback } from "./capabilities";
 import { demoRegistry } from "./registry";
-import type { DemoController, DemoMetrics, DemoQuality } from "./types";
+import { DemoRuntime } from "./runtime";
+import type { DemoMetrics, DemoQuality } from "./types";
 
 const ACTIVE_SHELLS = new WeakMap<HTMLElement, MountedDemo>();
 
@@ -64,7 +65,9 @@ function metricText(metrics: DemoMetrics): string {
     metrics.inferenceMs === undefined
       ? undefined
       : `${metrics.inferenceMs.toFixed(2)} ms inference`,
+    metrics.compileMs === undefined ? undefined : `${metrics.compileMs.toFixed(2)} ms compile`,
     metrics.samples === undefined ? undefined : `${metrics.samples} spp`,
+    metrics.metricSource ? `source:${metrics.metricSource}` : undefined,
   ].filter(Boolean);
   return values.join(" · ");
 }
@@ -109,24 +112,23 @@ export function mountDemoShell(shell: HTMLElement): void {
 
   const forceLive = shell.dataset.forceLive === "true";
   const quality = (shell.dataset.quality || "auto") as DemoQuality;
-  const capabilities = getCapabilities();
-  if (shouldUseStaticFallback(forceLive, capabilities)) {
+  const capabilityHints = getCapabilities();
+  if (shouldUseStaticFallback(forceLive, capabilityHints)) {
     staticFallback(
       shell,
-      capabilities.reducedMotion
+      capabilityHints.reducedMotion
         ? copyFor(shell).reducedMotionFallback
         : copyFor(shell).coarsePointerFallback,
     );
     return;
   }
 
-  let controller: DemoController | undefined;
   let destroyed = false;
   let inViewport = false;
   let started = false;
   let documentVisible = !document.hidden;
   const abortController = new AbortController();
-  const cleanup: Array<() => void> = [];
+  const runtime = new DemoRuntime();
   const canvas = shell.querySelector<HTMLCanvasElement>("canvas");
   const stage = shell.querySelector<HTMLElement>("[data-demo-stage]");
   const controls = shell.querySelector<HTMLElement>("[data-demo-controls]");
@@ -139,17 +141,13 @@ export function mountDemoShell(shell: HTMLElement): void {
   }
 
   const resize = () => {
-    if (!controller) return;
     const bounds = stage.getBoundingClientRect();
-    controller.resize(
-      Math.max(1, Math.floor(bounds.width)),
-      Math.max(220, Math.floor(bounds.height)),
-    );
+    runtime.resize(Math.max(1, Math.floor(bounds.width)), Math.max(220, Math.floor(bounds.height)));
   };
   const updateState = () => {
-    if (!controller || destroyed) return;
-    if (inViewport && documentVisible) controller.resume();
-    else controller.pause();
+    if (destroyed) return;
+    runtime.setViewport(inViewport);
+    runtime.setDocumentVisible(documentVisible);
   };
 
   const start = () => {
@@ -157,25 +155,34 @@ export function mountDemoShell(shell: HTMLElement): void {
     started = true;
     setShellState(shell, "loading");
     setStatus(shell, copyFor(shell).loading);
-    void item
-      .load()
-      .then(async ({ createDemo }) => {
-        if (destroyed) return;
-        controller = createDemo();
-        await controller.init({
-          canvas,
-          stage,
-          controls,
-          metrics,
-          signal: abortController.signal,
-          quality,
-          setMetrics: (next) => {
-            metrics.textContent = metricText(next);
-          },
-          setStatus: (message, tone) => setStatus(shell, message, tone),
-          addCleanup: (fn) => cleanup.push(fn),
+    const context = {
+      canvas,
+      stage,
+      controls,
+      metrics,
+      quality,
+      capabilities: capabilityHints,
+      setMetrics: (next: DemoMetrics) => {
+        metrics.textContent = metricText({
+          ...next,
+          metricSource: next.metricSource ?? "unavailable",
         });
-        if (destroyed) return;
+      },
+      setStatus: (message: string, tone?: "info" | "success" | "warning" | "error") =>
+        setStatus(shell, message, tone),
+    };
+    void runtime
+      .initialize(
+        async () => {
+          context.capabilities = await measureCapabilities();
+          const { createDemo } = await item.load();
+          return createDemo();
+        },
+        context,
+        abortController.signal,
+      )
+      .then((active) => {
+        if (!active || destroyed) return;
         resize();
         setShellState(shell, "running");
         updateState();
@@ -211,11 +218,7 @@ export function mountDemoShell(shell: HTMLElement): void {
     observer.disconnect();
     resizeObserver.disconnect();
     document.removeEventListener("visibilitychange", onVisibilityChange);
-    cleanup
-      .splice(0)
-      .reverse()
-      .forEach((fn) => fn());
-    await controller?.dispose();
+    await runtime.dispose();
     ACTIVE_SHELLS.delete(shell);
   };
   ACTIVE_SHELLS.set(shell, { dispose });

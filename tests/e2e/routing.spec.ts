@@ -27,12 +27,21 @@ for (const [route, expectedLanguage] of routes) {
         "content",
         "noindex,nofollow",
       );
+    } else {
+      await expect(page.locator('meta[name="robots"]')).toHaveCount(0);
+      await expect(page.locator('link[rel="canonical"]')).toHaveAttribute(
+        "href",
+        /^https:\/\/yzscodehub\.github\.io\/graphics-portfolio\//,
+      );
+      await expect(page.locator('meta[property="og:image"]')).toHaveAttribute(
+        "content",
+        /^https:\/\/yzscodehub\.github\.io\/graphics-portfolio\/og\//,
+      );
     }
   });
 }
 
 test("deferred resume routes return 404", async ({ page }) => {
-  test.skip(!isPreview, "Resume routes are exercised by the formal release suite.");
   for (const route of ["resume/", "en/resume/"]) {
     const response = await page.goto(route);
     expect(response?.status()).toBe(404);
@@ -47,14 +56,44 @@ test("the shared 404 offers both language entry points", async ({ page }) => {
     "href",
     "/graphics-portfolio/en/",
   );
+  await expect(page.locator('link[rel="alternate"][hreflang="en"]')).toHaveAttribute(
+    "href",
+    "https://yzscodehub.github.io/graphics-portfolio/en/",
+  );
 });
 
-test("contact controls are GitHub-only during public preview", async ({ page }) => {
-  test.skip(!isPreview, "Release contact options are validated separately.");
+test("contact controls remain GitHub-only", async ({ page }) => {
   await page.goto("");
   const contactLinks = page.locator("[data-contact-link]");
   await expect(contactLinks).toHaveCount(1);
   await expect(contactLinks).toHaveAttribute("href", "https://github.com/yzscodehub");
+  if (!isPreview) await expect(page.locator(".preview-status")).toHaveCount(0);
+});
+
+test("project case studies expose architecture, runtime, environment, and reproduction evidence", async ({
+  page,
+}) => {
+  for (const slug of [
+    "engine-systems-explorer",
+    "real-time-rendering-lab",
+    "webgpu-compute-lab",
+    "neural-graphics-lab",
+  ]) {
+    await page.goto(`work/${slug}/`);
+    const evidence = page.locator(".project-evidence");
+    await expect(evidence.locator("figure img")).toHaveCount(2);
+    expect(
+      await evidence
+        .locator("figure img")
+        .evaluateAll((images) =>
+          images.every((image) => (image as HTMLImageElement).naturalWidth > 0),
+        ),
+    ).toBe(true);
+    await expect(evidence.getByRole("heading", { name: "个人贡献" })).toBeVisible();
+    await expect(evidence.getByRole("heading", { name: "测试环境" })).toBeVisible();
+    await expect(evidence.getByRole("heading", { name: "复现方法" })).toBeVisible();
+    await expect(evidence.getByRole("heading", { name: "当前边界" })).toBeVisible();
+  }
 });
 
 test("mobile layouts do not introduce horizontal overflow", async ({ page }) => {
@@ -74,7 +113,8 @@ test("interactive Demo keeps a stable stage and hides its fallback", async ({ pa
   await expect(shell.locator("[data-demo-state]")).toHaveText("运行中");
   await expect(shell.locator("[data-demo-state]")).toHaveAttribute("aria-live", "polite");
   await expect(shell.locator("[data-demo-fallback]")).toHaveCSS("display", "none");
-  await expect(shell.locator("canvas")).toHaveCSS("display", "block");
+  await expect(shell.locator('svg[aria-label^="Render graph execution plan"]')).toBeVisible();
+  await expect(shell.locator("canvas")).toBeHidden();
 
   const heights = await stage.evaluate(async (element) => {
     const first = element.getBoundingClientRect().height;
@@ -84,15 +124,15 @@ test("interactive Demo keeps a stable stage and hides its fallback", async ({ pa
   expect(heights.second).toBeCloseTo(heights.first, 0);
 });
 
-test("Frame Inspector initializes on a narrow desktop without falling back", async ({ page }) => {
+test("Frame Inspector keeps one visible output surface on a narrow desktop", async ({ page }) => {
   await page.setViewportSize({ width: 500, height: 800 });
   await page.goto("demos/frame-inspector/");
   const shell = page.locator("[data-demo-shell]");
 
   await expect(shell).toHaveAttribute("data-demo-state", "running");
   await expect(shell.locator("[data-demo-state]")).toHaveText("运行中");
-  await expect(shell.locator("[data-demo-controls] button")).toHaveCount(6);
-  await expect(shell.locator("canvas")).toBeVisible();
+  await expect(shell.locator("[data-demo-controls] button")).toHaveCount(9);
+  await expect(shell.locator("canvas:visible")).toHaveCount(1);
   await expect(shell.locator("[data-demo-fallback]")).toHaveCSS("display", "none");
 });
 
@@ -133,7 +173,7 @@ for (const [name, query] of [
     await expect(shell.locator("[data-demo-fallback]")).toHaveCSS("display", "grid");
     await expect(shell.locator(".demo-shell__fallback-image")).toHaveAttribute(
       "src",
-      "/graphics-portfolio/media/placeholders/demo-gpu-particles.svg",
+      "/graphics-portfolio/media/demos/gpu-particles-poster.svg",
     );
   });
 }

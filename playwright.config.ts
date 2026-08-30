@@ -18,10 +18,4 @@ export default defineConfig({
       use: { ...devices["Desktop Chrome"] },
     },
   ],
-  webServer: {
-    command: "pnpm exec astro preview --host 127.0.0.1 --port 4321",
-    url: "http://127.0.0.1:4321/graphics-portfolio/",
-    reuseExistingServer: !process.env.CI,
-    timeout: 30_000,
-  },
 });

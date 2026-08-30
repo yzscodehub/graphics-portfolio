@@ -3,11 +3,17 @@ import BaseLayout from "../layouts/BaseLayout.astro";
 import PageHero from "../components/PageHero.astro";
 import { profile } from "../data/profile";
 import type { Locale } from "../lib/i18n";
+import { localePath } from "../lib/i18n";
+import { withBase } from "../lib/urls";
+
 interface Props {
   locale: Locale;
 }
+
 const { locale } = Astro.props;
 const isEn = locale === "en";
+const neuralWork = withBase(localePath("/work/neural-graphics-lab/", locale));
+const neuralDemo = withBase(localePath("/demos/neural-denoising/", locale));
 ---
 
 <BaseLayout
@@ -20,30 +26,44 @@ const isEn = locale === "en";
     eyebrow="LAB / IN PROGRESS"
     title={isEn ? "Learning, with the labels left on." : "保留标签的学习过程。"}
     description={isEn
-      ? "Experiments show what is implemented, what is reproduced, and what remains uncertain."
-      : "实验会明确标记已经实现、正在复现和仍不确定的部分。"}
+      ? "This space is for unfinished research. Completed evidence stays linked as a baseline rather than being relabeled as a new experiment."
+      : "这里仅记录未完成的研究；已完成的证据作为基线链接保留，不重新包装成新的实验。"}
   />
   <section class="section">
     <div class="section-inner lab-grid">
       <article class="card lab-card">
-        <span class="status-badge">IN PROGRESS</span><h3>Neural denoising pipeline</h3><p>
+        <span class="status-badge">IN PROGRESS</span>
+        <h3>{isEn ? "Temporal and neural graphics extensions" : "时间与神经图形扩展"}</h3>
+        <p>
           {
             isEn
-              ? "Small residual CNN, ONNX export, WebGPU/WASM inference and a deterministic Canvas safety net."
-              : "小型残差 CNN、ONNX 导出、WebGPU/WASM 推理和确定性 Canvas 安全网。"
+              ? "The next experiments build on the completed denoising workflow: temporal inputs, wider scene distributions, and failure analysis remain open questions."
+              : "下一轮实验以已完成的降噪流程为基线，继续研究时间输入、更广场景分布和失败案例分析。"
           }
-        </p><ul class="tag-list">
-          <li class="tag">PyTorch</li><li class="tag">ONNX</li><li class="tag">WebGPU</li>
+        </p>
+        <ul class="tag-list">
+          <li class="tag">PyTorch</li><li class="tag">ONNX</li><li class="tag">Neural Graphics</li>
         </ul>
+        <div class="button-row" style="margin-top:18px;">
+          <a class="button button-secondary" href={neuralWork}>
+            {isEn ? "Open completed baseline" : "查看已完成基线"}
+          </a>
+          <a class="button button-secondary" href={neuralDemo}>
+            {isEn ? "Run denoising Demo" : "运行降噪 Demo"}
+          </a>
+        </div>
       </article>
       <article class="card lab-card">
-        <span class="status-badge">COURSE NOTES</span><h3>Deep learning foundations</h3><p>
+        <span class="status-badge">COURSE NOTES</span>
+        <h3>{isEn ? "Deep learning foundations" : "深度学习基础"}</h3>
+        <p>
           {
             isEn
-              ? "Course exercises are linked as study records, never rebranded as original research."
-              : "课程练习只作为学习记录，不重新包装成原创研究。"
+              ? "Course exercises and reproductions stay as study records, with assumptions and failed attempts left visible."
+              : "课程练习和复现作为学习记录保留，明确写出假设和失败尝试。"
           }
-        </p><ul class="tag-list">
+        </p>
+        <ul class="tag-list">
           <li class="tag">CNN</li><li class="tag">Optimization</li><li class="tag">Reproduction</li>
         </ul>
       </article>

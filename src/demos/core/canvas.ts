@@ -26,7 +26,12 @@ export function createMetricReporter(context: DemoContext): (metrics: DemoMetric
     if (now - lastTime < 400) return;
     const elapsed = now - lastTime;
     const fps = Math.round((frames * 1000) / elapsed);
-    context.setMetrics({ ...metrics, fps, frameTimeMs: Number((elapsed / frames).toFixed(1)) });
+    context.setMetrics({
+      ...metrics,
+      fps,
+      frameTimeMs: Number((elapsed / frames).toFixed(1)),
+      metricSource: metrics.metricSource ?? "animation-frame",
+    });
     frames = 0;
     lastTime = now;
   };

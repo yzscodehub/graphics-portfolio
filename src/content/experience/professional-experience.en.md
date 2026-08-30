@@ -4,7 +4,7 @@ locale: en
 title: Graphics Systems and Multimedia Development (Anonymous Public Version)
 industry: Rendering, engine, and multimedia systems
 startYear: 2026
-summary: This entry publishes capability themes and working methods only. It omits employers, private projects, contact details, and unverified quantitative outcomes; the year marks the current public-profile start and must be checked against the approved public resume before release.
+summary: This entry publishes capability themes and working methods only. It omits employers, private projects, contact details, dates, and unverified quantitative outcomes.
 responsibilities:
   - Worked on cross-platform graphics interfaces, resource binding, pipeline state, and GPU synchronization concerns
   - Investigated rendering pipelines, geometry compute, tooling, and frame-level performance questions

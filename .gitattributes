@@ -2,7 +2,9 @@
 
 *.pdf binary
 *.onnx binary
+*.f32 binary
 *.png binary
 *.jpg binary
 *.webp binary
+*.ttf binary
 *.woff2 binary

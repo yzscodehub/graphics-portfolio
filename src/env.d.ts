@@ -2,6 +2,7 @@
 
 interface ImportMetaEnv {
   readonly SITE_URL?: string;
+  readonly SITE_STAGE?: "preview" | "release";
 }
 
 interface ImportMeta {

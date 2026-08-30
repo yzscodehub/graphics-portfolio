@@ -7,43 +7,103 @@ import { profile } from "../data/profile";
 import type { Locale } from "../lib/i18n";
 import { localePath } from "../lib/i18n";
 import { withBase } from "../lib/urls";
+
 interface Props {
   locale: Locale;
 }
+
+type ProjectBackend = { id: string; label: string; role: string };
+type ProjectMetricSource = { kind: string; description: string } | string;
+type ProjectPresentationData = {
+  evidence?: string;
+  backends?: ProjectBackend[];
+  metricSource?: ProjectMetricSource;
+};
+
 const { locale } = Astro.props;
 const isEn = locale === "en";
 const allEntries = (await getCollection("projects")) as CollectionEntry<"projects">[];
 const entries = allEntries.filter((entry) => entry.data.locale === locale && !entry.data.draft);
 const slugOf = (entry: (typeof entries)[number]) => entry.data.routeSlug;
+
+function presentationData(entry: (typeof entries)[number]): ProjectPresentationData {
+  return entry.data as typeof entry.data & ProjectPresentationData;
+}
+
+function backendText(data: ProjectPresentationData): string {
+  return data.backends?.map((backend) => `${backend.id} · ${backend.role}`).join(" / ") ?? "—";
+}
+
+function metricSourceText(data: ProjectPresentationData): string {
+  if (!data.metricSource) return isEn ? "No numeric claim" : "无数值声明";
+  return typeof data.metricSource === "string"
+    ? data.metricSource
+    : `${data.metricSource.kind} · ${data.metricSource.description}`;
+}
 ---
 
 <BaseLayout
   locale={locale}
   title={isEn ? "Work" : "项目"}
-  description={isEn ? "Public graphics systems projects." : "公开的图形系统项目。"}
+  description={isEn
+    ? "Four graphics systems projects with explicit evidence boundaries."
+    : "四个明确标记证据边界的图形系统项目。"}
   handle={profile.displayName}
 >
   <PageHero
     eyebrow="WORK / SYSTEMS"
     title={isEn ? "Systems, made observable." : "让系统变得可观察。"}
     description={isEn
-      ? "Four personal projects connect architecture, rendering, GPU compute and neural graphics through runnable evidence."
-      : "四个个人项目通过可运行证据连接架构、渲染、GPU Compute 与神经图形。"}
+      ? "Four projects connect architecture, rendering, GPU compute, and neural graphics through runnable evidence."
+      : "四个项目通过可运行证据连接架构、渲染、GPU Compute 与神经图形。"}
   />
   <section class="section">
     <div class="section-inner">
       <div class="work-grid">
         {
-          entries.map((entry, index) => (
-            <ProjectCard
-              index={index + 1}
-              title={entry.data.title}
-              description={entry.data.summary}
-              tags={entry.data.technologies}
-              status={entry.data.status}
-              href={withBase(localePath(`/work/${slugOf(entry)}/`, locale))}
-            />
-          ))
+          entries.map((entry, index) => {
+            const data = presentationData(entry);
+            return (
+              <div
+                class="project-listing"
+                style="display:flex; flex-direction:column; min-width:0;"
+              >
+                <ProjectCard
+                  index={index + 1}
+                  title={entry.data.title}
+                  description={entry.data.summary}
+                  tags={entry.data.technologies}
+                  status={entry.data.status}
+                  href={withBase(localePath(`/work/${slugOf(entry)}/`, locale))}
+                />
+                <dl
+                  class="project-listing__evidence"
+                  style="display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px 12px; margin:0; padding:14px 18px 18px; border-right:1px solid var(--line); border-bottom:1px solid var(--line); background:rgba(15,21,24,.35); font:0.65rem/1.45 var(--font-mono,ui-monospace,monospace);"
+                >
+                  <div>
+                    <>
+                      <dt style="color:var(--dim);">EVIDENCE</dt>
+                      <dd style="margin:2px 0 0; color:var(--signal);">
+                        {data.evidence ?? "verified"}
+                      </dd>
+                    </>
+                  </div>
+                  <div>
+                    <>
+                      <dt style="color:var(--dim);">BACKENDS</dt>
+                      <dd style="margin:2px 0 0; color:var(--muted);">{backendText(data)}</dd>
+                    </>
+                  </div>
+                  <div style="grid-column:1 / -1;">
+                    <>
+                      <dt style="color:var(--dim);">METRIC SOURCE</dt>
+                      <dd style="margin:2px 0 0; color:var(--muted);">{metricSourceText(data)}</dd>
+                    </>
+                  </div>
+                </dl>
+              </div>
+            );
+          })
         }
       </div>
     </div>

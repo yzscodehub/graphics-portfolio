@@ -2,6 +2,7 @@
 import { getCollection, render, type CollectionEntry } from "astro:content";
 import DetailLayout from "../../layouts/DetailLayout.astro";
 import { profile } from "../../data/profile";
+import { withBase } from "../../lib/urls";
 export async function getStaticPaths() {
   const allEntries = (await getCollection("writing")) as CollectionEntry<"writing">[];
   const entries = allEntries.filter((entry) => entry.data.locale === "zh-CN" && !entry.data.draft);
@@ -12,6 +13,10 @@ interface Props {
 }
 const { entry } = Astro.props;
 const { Content } = await render(entry);
+const pageUrl = new URL(
+  withBase(`/writing/${entry.data.routeSlug}/`),
+  Astro.site ?? Astro.url.origin,
+).toString();
 ---
 
 <DetailLayout
@@ -20,5 +25,19 @@ const { Content } = await render(entry);
   description={entry.data.description}
   eyebrow={`WRITING / ${entry.data.category}`}
   handle={profile.displayName}
+  image={withBase(`/og/writing/${entry.data.routeSlug}.png`)}
+  ogType="article"
+  structuredData={{
+    "@context": "https://schema.org",
+    "@type": "BlogPosting",
+    headline: entry.data.title,
+    description: entry.data.description,
+    url: pageUrl,
+    inLanguage: "zh-CN",
+    datePublished: entry.data.publishedAt?.toISOString(),
+    dateModified: entry.data.updatedAt?.toISOString() ?? entry.data.publishedAt?.toISOString(),
+    author: { "@type": "Person", name: profile.displayName, sameAs: profile.githubUrl },
+    keywords: entry.data.tags,
+  }}
   paper><Content /></DetailLayout
 >

@@ -1,57 +1,258 @@
-import {
-  clearElement,
-  createMetricReporter,
-  drawStageBackdrop,
-  makeButton,
-  resizeCanvas,
-} from "./core/canvas";
+import { clearElement, createMetricReporter, drawStageBackdrop, makeButton } from "./core/canvas";
 import type { DemoContext, DemoController } from "./core/types";
+import { CanvasFallbackSurface } from "./reference-frame/fallback-surface";
+import { ReferenceFrameRenderer } from "./reference-frame/renderer";
+import type { AaTechnique, ShadowTechnique } from "./reference-frame/types";
 
-type ShadowMode = "hard" | "pcf" | "pcss";
-type AaMode = "none" | "fxaa" | "taa";
+interface ShadowAaRenderer {
+  resize(width: number, height: number): void;
+  setShadow(mode: ShadowTechnique): void;
+  setAa(mode: AaTechnique): void;
+  reset(): void;
+  pause(): void;
+  resume(): void;
+  dispose(): void;
+}
 
 export function createDemo(): DemoController {
   let context: DemoContext;
-  let ctx: CanvasRenderingContext2D;
+  let active: ShadowAaRenderer | undefined;
+  let shadow: ShadowTechnique = "pcf";
+  let aa: AaTechnique = "taa";
   let width = 1;
   let height = 1;
-  let raf = 0;
   let running = false;
-  let shadow: ShadowMode = "pcf";
-  let aa: AaMode = "fxaa";
-  let previousOffset = 0;
-  let report: ReturnType<typeof createMetricReporter>;
+  let generation = 0;
 
-  const draw = (time: number) => {
-    if (!running) return;
-    drawStageBackdrop(ctx, width, height);
-    const pulse = Math.sin(time * 0.001) * 7;
-    const x = width * 0.47 + pulse;
-    const y = height * 0.45;
-    const radius = Math.min(width, height) * 0.16;
-    ctx.fillStyle = "#172a29";
-    ctx.fillRect(0, height * 0.68, width, height * 0.32);
-    const shadowX = x + radius * 0.8;
-    const shadowY = height * 0.7;
-    const blur = shadow === "hard" ? 0 : shadow === "pcf" ? 9 : 22;
-    ctx.save();
-    ctx.filter = blur ? `blur(${blur}px)` : "none";
-    ctx.fillStyle = "rgba(0,0,0,.65)";
-    ctx.beginPath();
-    ctx.ellipse(shadowX, shadowY, radius * 1.05, radius * 0.25, -0.25, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.restore();
-    if (aa === "taa") {
-      ctx.save();
-      ctx.globalAlpha = 0.16;
-      ctx.fillStyle = "#f0b84b";
-      ctx.beginPath();
-      ctx.arc(x + previousOffset, y, radius, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.restore();
-      previousOffset = pulse;
+  const status = () => {
+    context.setStatus(
+      `${shadow.toUpperCase()} shadow filtering · ${aa.toUpperCase()} anti-aliasing · shared reference frame`,
+      "success",
+    );
+  };
+
+  const useFallback = (reason: string, expectedGeneration: number) => {
+    if (generation !== expectedGeneration) return;
+    active?.dispose();
+    active = undefined;
+    let fallback: CanvasShadowAaFallback | undefined;
+    try {
+      fallback = new CanvasShadowAaFallback(context, shadow, aa);
+      fallback.resize(width, height);
+      active = fallback;
+      if (running) fallback.resume();
+      context.setMetrics({ backend: "Canvas fallback", status: `${shadow} / ${aa}` });
+      context.setStatus(`${reason} Showing labeled Canvas comparison.`, "warning");
+    } catch (error) {
+      fallback?.dispose();
+      const fallbackError = error instanceof Error ? error.message : "Canvas fallback unavailable.";
+      context.setStatus(`${reason} ${fallbackError}`, "error");
     }
-    const gradient = ctx.createRadialGradient(
+  };
+
+  const setup = async () => {
+    const currentGeneration = ++generation;
+    active?.dispose();
+    active = undefined;
+    let renderer: ReferenceFrameRenderer | undefined;
+    try {
+      renderer = await ReferenceFrameRenderer.create(context, {
+        view: "final",
+        shadow,
+        aa,
+        onDeviceLost: (message) => {
+          if (generation !== currentGeneration) return;
+          const fallbackGeneration = ++generation;
+          useFallback(message, fallbackGeneration);
+        },
+      });
+      if (generation !== currentGeneration) {
+        renderer.dispose();
+        return;
+      }
+      renderer.resize(width, height);
+      if (currentGeneration !== generation) {
+        renderer.dispose();
+        return;
+      }
+      active = renderer;
+      if (running) renderer.resume();
+      context.setMetrics({ backend: renderer.backendLabel, status: `${shadow} / ${aa}` });
+      status();
+    } catch (error) {
+      renderer?.dispose();
+      useFallback(
+        error instanceof Error ? error.message : "WebGPU reference frame could not initialize.",
+        currentGeneration,
+      );
+    }
+  };
+
+  return {
+    async init(next) {
+      context = next;
+      clearElement(context.controls);
+      const shadowModes: ShadowTechnique[] = ["hard", "pcf", "pcss"];
+      const aaModes: AaTechnique[] = ["none", "fxaa", "taa"];
+      const shadowButtons = shadowModes.map((mode) =>
+        makeButton(`SHADOW ${mode.toUpperCase()}`, mode === shadow),
+      );
+      const aaButtons = aaModes.map((mode) => makeButton(`AA ${mode.toUpperCase()}`, mode === aa));
+      shadowButtons.forEach((button, index) =>
+        button.addEventListener(
+          "click",
+          () => {
+            shadow = shadowModes[index];
+            shadowButtons.forEach((entry) =>
+              entry.setAttribute("aria-pressed", String(entry === button)),
+            );
+            active?.setShadow(shadow);
+            status();
+          },
+          { signal: context.signal },
+        ),
+      );
+      aaButtons.forEach((button, index) =>
+        button.addEventListener(
+          "click",
+          () => {
+            aa = aaModes[index];
+            aaButtons.forEach((entry) =>
+              entry.setAttribute("aria-pressed", String(entry === button)),
+            );
+            active?.setAa(aa);
+            status();
+          },
+          { signal: context.signal },
+        ),
+      );
+      const resetButton = makeButton("RESET HISTORY");
+      resetButton.addEventListener(
+        "click",
+        () => {
+          active?.reset();
+          context.setStatus("Temporal history and deterministic scene time reset.", "success");
+        },
+        { signal: context.signal },
+      );
+      context.controls.append(...shadowButtons, ...aaButtons, resetButton);
+      await setup();
+    },
+    resize(nextWidth, nextHeight) {
+      width = Math.max(1, nextWidth);
+      height = Math.max(1, nextHeight);
+      active?.resize(width, height);
+    },
+    pause() {
+      running = false;
+      active?.pause();
+    },
+    resume() {
+      running = true;
+      active?.resume();
+    },
+    dispose() {
+      generation += 1;
+      active?.dispose();
+      active = undefined;
+    },
+  };
+}
+
+class CanvasShadowAaFallback implements ShadowAaRenderer {
+  private readonly surface: CanvasFallbackSurface;
+  private ctx: CanvasRenderingContext2D;
+  private width = 1;
+  private height = 1;
+  private running = false;
+  private raf = 0;
+  private previousOffset = 0;
+  private startedAt = performance.now();
+  private readonly report: ReturnType<typeof createMetricReporter>;
+
+  constructor(
+    shell: DemoContext,
+    private shadow: ShadowTechnique,
+    private aa: AaTechnique,
+  ) {
+    this.surface = new CanvasFallbackSurface(shell, "Shadow and anti-aliasing static comparison");
+    this.ctx = this.surface.resize(1, 1);
+    this.report = createMetricReporter(shell);
+  }
+
+  resize(width: number, height: number): void {
+    this.width = width;
+    this.height = height;
+    this.ctx = this.surface.resize(width, height);
+  }
+
+  setShadow(mode: ShadowTechnique): void {
+    this.shadow = mode;
+  }
+
+  setAa(mode: AaTechnique): void {
+    this.aa = mode;
+    this.previousOffset = 0;
+  }
+
+  reset(): void {
+    this.startedAt = performance.now();
+    this.previousOffset = 0;
+  }
+
+  pause(): void {
+    this.running = false;
+    cancelAnimationFrame(this.raf);
+  }
+
+  resume(): void {
+    if (this.running) return;
+    this.running = true;
+    this.raf = requestAnimationFrame(this.draw);
+  }
+
+  dispose(): void {
+    this.pause();
+    this.surface.dispose();
+  }
+
+  private draw = (now: number): void => {
+    if (!this.running) return;
+    const time = (now - this.startedAt) * 0.001;
+    drawStageBackdrop(this.ctx, this.width, this.height);
+    const pulse = Math.sin(time) * 7;
+    const x = this.width * 0.47 + pulse;
+    const y = this.height * 0.45;
+    const radius = Math.min(this.width, this.height) * 0.16;
+    this.ctx.fillStyle = "#172a29";
+    this.ctx.fillRect(0, this.height * 0.68, this.width, this.height * 0.32);
+    const blur = this.shadow === "hard" ? 0 : this.shadow === "pcf" ? 9 : 22;
+    this.ctx.save();
+    this.ctx.filter = blur ? `blur(${blur}px)` : "none";
+    this.ctx.fillStyle = "rgba(0,0,0,.65)";
+    this.ctx.beginPath();
+    this.ctx.ellipse(
+      x + radius * 0.8,
+      this.height * 0.7,
+      radius * 1.05,
+      radius * 0.25,
+      -0.25,
+      0,
+      Math.PI * 2,
+    );
+    this.ctx.fill();
+    this.ctx.restore();
+    if (this.aa === "taa") {
+      this.ctx.save();
+      this.ctx.globalAlpha = 0.16;
+      this.ctx.fillStyle = "#f0b84b";
+      this.ctx.beginPath();
+      this.ctx.arc(x + this.previousOffset, y, radius, 0, Math.PI * 2);
+      this.ctx.fill();
+      this.ctx.restore();
+      this.previousOffset = pulse;
+    }
+    const gradient = this.ctx.createRadialGradient(
       x - radius * 0.3,
       y - radius * 0.4,
       radius * 0.04,
@@ -62,93 +263,21 @@ export function createDemo(): DemoController {
     gradient.addColorStop(0, "#e8e6dc");
     gradient.addColorStop(0.42, "#57e3c2");
     gradient.addColorStop(1, "#0f5c54");
-    ctx.fillStyle = gradient;
-    ctx.beginPath();
-    ctx.arc(x, y, radius, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.strokeStyle = aa === "none" ? "#f0b84b" : "rgba(232,230,220,.7)";
-    ctx.lineWidth = aa === "none" ? 2 : 1;
-    ctx.stroke();
-    ctx.fillStyle = "#e8e6dc";
-    ctx.font = "12px ui-monospace, monospace";
-    ctx.fillText(`SHADOW ${shadow.toUpperCase()} / AA ${aa.toUpperCase()}`, 16, 24);
-    ctx.fillStyle = "rgba(232,230,220,.62)";
-    ctx.fillText(
-      "Parameters affect the drawn filter, edge treatment, and history trail.",
+    this.ctx.fillStyle = gradient;
+    this.ctx.beginPath();
+    this.ctx.arc(x, y, radius, 0, Math.PI * 2);
+    this.ctx.fill();
+    this.ctx.fillStyle = "#e8e6dc";
+    this.ctx.font = "12px ui-monospace, monospace";
+    this.ctx.fillText(
+      `CANVAS FALLBACK · ${this.shadow.toUpperCase()} / ${this.aa.toUpperCase()}`,
       16,
-      height - 16,
+      24,
     );
-    report({
-      backend: "Canvas comparison",
-      status: `${shadow.toUpperCase()} / ${aa.toUpperCase()}`,
+    this.report({
+      backend: "Canvas fallback",
+      status: `${this.shadow.toUpperCase()} / ${this.aa.toUpperCase()}`,
     });
-    raf = requestAnimationFrame(draw);
-  };
-  const drawOnce = () => {
-    if (!running) return;
-    cancelAnimationFrame(raf);
-    raf = requestAnimationFrame(draw);
-  };
-
-  return {
-    async init(next) {
-      context = next;
-      ctx = resizeCanvas(context.canvas, width, height);
-      report = createMetricReporter(context);
-      clearElement(context.controls);
-      const shadowButtons = (["hard", "pcf", "pcss"] as ShadowMode[]).map((mode) =>
-        makeButton(`SHADOW ${mode.toUpperCase()}`, mode === shadow),
-      );
-      const aaButtons = (["none", "fxaa", "taa"] as AaMode[]).map((mode) =>
-        makeButton(`AA ${mode.toUpperCase()}`, mode === aa),
-      );
-      context.controls.append(...shadowButtons, ...aaButtons);
-      shadowButtons.forEach((button, index) =>
-        button.addEventListener(
-          "click",
-          () => {
-            shadow = (["hard", "pcf", "pcss"] as ShadowMode[])[index];
-            shadowButtons.forEach((entry) =>
-              entry.setAttribute("aria-pressed", String(entry === button)),
-            );
-            context.setStatus(`Shadow mode set to ${shadow.toUpperCase()}.`, "success");
-            drawOnce();
-          },
-          { signal: context.signal },
-        ),
-      );
-      aaButtons.forEach((button, index) =>
-        button.addEventListener(
-          "click",
-          () => {
-            aa = (["none", "fxaa", "taa"] as AaMode[])[index];
-            aaButtons.forEach((entry) =>
-              entry.setAttribute("aria-pressed", String(entry === button)),
-            );
-            context.setStatus(`Anti-aliasing mode set to ${aa.toUpperCase()}.`, "success");
-            drawOnce();
-          },
-          { signal: context.signal },
-        ),
-      );
-      context.setStatus("Interactive shadow softness and edge-treatment comparison.", "success");
-    },
-    resize(nextWidth, nextHeight) {
-      width = nextWidth;
-      height = nextHeight;
-      ctx = resizeCanvas(context.canvas, width, height);
-    },
-    pause() {
-      running = false;
-      cancelAnimationFrame(raf);
-    },
-    resume() {
-      if (running) return;
-      running = true;
-      raf = requestAnimationFrame(draw);
-    },
-    dispose() {
-      cancelAnimationFrame(raf);
-    },
+    this.raf = requestAnimationFrame(this.draw);
   };
 }

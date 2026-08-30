@@ -2,6 +2,7 @@
 import { getCollection, render, type CollectionEntry } from "astro:content";
 import DetailLayout from "../../layouts/DetailLayout.astro";
 import { profile } from "../../data/profile";
+import { withBase } from "../../lib/urls";
 
 export async function getStaticPaths() {
   const allEntries = (await getCollection("projects")) as CollectionEntry<"projects">[];
@@ -13,6 +14,10 @@ interface Props {
 }
 const { entry } = Astro.props;
 const { Content } = await render(entry);
+const pageUrl = new URL(
+  withBase(`/work/${entry.data.routeSlug}/`),
+  Astro.site ?? Astro.url.origin,
+).toString();
 const meta: Array<[string, string]> = [
   ["STATUS", entry.data.status],
   ["ROLE", entry.data.role],
@@ -27,5 +32,66 @@ const meta: Array<[string, string]> = [
   description={entry.data.summary}
   eyebrow="WORK / CASE STUDY"
   handle={profile.displayName}
-  meta={meta}><Content /></DetailLayout
+  image={withBase(`/og/projects/${entry.data.routeSlug}.png`)}
+  heroMedia={withBase(entry.data.heroImage)}
+  heroMediaAlt={`${entry.data.title} technical overview`}
+  structuredData={{
+    "@context": "https://schema.org",
+    "@type": "CreativeWork",
+    name: entry.data.title,
+    description: entry.data.summary,
+    url: pageUrl,
+    inLanguage: "zh-CN",
+    creator: { "@type": "Person", name: profile.displayName, sameAs: profile.githubUrl },
+    keywords: entry.data.technologies,
+  }}
+  meta={meta}
 >
+  <Content />
+  <section class="project-evidence" aria-labelledby="project-evidence-title">
+    <h2 id="project-evidence-title">实现证据</h2>
+    <p class="evidence-manifest-link">
+      <a href={withBase("/media/assets-manifest.json")}>Evidence Manifest / SHA-256 / 捕获环境</a>
+    </p>
+    <div class="project-evidence-grid">
+      <figure>
+        <img
+          src={withBase(entry.data.architectureImage)}
+          alt={entry.data.architectureAlt}
+          width="1600"
+          height="900"
+          loading="lazy"
+        />
+        <figcaption>ARCHITECTURE / 当前实现的数据流与边界</figcaption>
+      </figure>
+      <figure>
+        <img
+          src={withBase(entry.data.demoImage)}
+          alt={entry.data.demoImageAlt}
+          width="1240"
+          height="900"
+          loading="lazy"
+        />
+        <figcaption>RUNTIME / 真实本地运行画面，后端见环境记录</figcaption>
+      </figure>
+    </div>
+    <div class="project-evidence-notes">
+      <div>
+        <h3>个人贡献</h3>
+        <ul>{entry.data.responsibilities.map((item: string) => <li>{item}</li>)}</ul>
+      </div>
+      <div>
+        <h3>测试环境</h3>
+        <ul>{entry.data.environment.map((item: string) => <li>{item}</li>)}</ul>
+      </div>
+      <div>
+        <h3>复现方法</h3>
+        <p>{entry.data.reproduction}</p>
+      </div>
+      <div>
+        <h3>当前边界</h3>
+        <ul>{entry.data.limitations.map((item: string) => <li>{item}</li>)}</ul>
+      </div>
+    </div>
+  </section>
+</DetailLayout>

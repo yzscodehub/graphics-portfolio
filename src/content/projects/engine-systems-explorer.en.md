@@ -3,47 +3,80 @@ routeSlug: engine-systems-explorer
 translationKey: engine-systems-explorer
 locale: en
 title: Engine Systems Explorer
-summary: A Canvas 2D procedural entry point for render-runtime concepts; real graph compilation remains a follow-up route.
+summary: A TypeScript render-graph compiler made observable through an accessible SVG execution plan.
 year: 2026
-status: in-progress
+status: completed
 role: Independent development / graphics systems design
 platforms:
-  - Windows
   - Web
+  - TypeScript
 technologies:
-  - C++
   - Render Graph
-  - RHI
-  - GPU Profiling
-heroImage: /media/placeholders/project-engine-systems-explorer.svg
+  - SVG
+  - Resource Lifetime
+  - Transient Aliasing
+  - Usage Planning
+heroImage: /media/projects/engine-systems-explorer-cover.svg
+architectureImage: /media/projects/engine-systems-explorer-architecture.svg
+architectureAlt: "Data flow from render-graph declaration through validation, culling, topology, lifetimes, aliasing, and inspection."
+demoImage: /media/runtime/engine-systems-explorer-runtime.png
+demoImageAlt: "Live Render Graph Explorer capture showing six live passes, one culled pass, and transient alias slots."
+environment:
+  - "Capture OS: Windows NT 10.0 x64"
+  - "Browser: Chromium 151.0.7922.34, 1600x1000 CSS px, DPR 1"
+  - "Backend: TypeScript + DOM/SVG; no GPU adapter required"
+  - "Evidence boundary: visual and CPU compile plan, not a hardware GPU timeline"
+reproduction: "Open Render Graph Explorer and toggle any pass; verify diagnostics, topology, lifetimes, alias slots, and usage transitions update together."
 responsibilities:
-  - Draws a fixed pass-and-resource dependency preview
-  - Exposes pass visibility and node selection as inspectable interaction
-  - Documents the boundary between a visual prototype and a real graph compiler
+  - Models versioned resources, read/write uses, and pass dependencies
+  - Compiles roots, validation diagnostics, culling, topology, lifetimes, alias slots, and usage transitions
+  - Presents the plan as keyboard-accessible, selectable SVG nodes
 featureSlugs:
-  - pass-dependency-preview
-  - pass-toggle-preview
-  - node-selection
-  - buffer-view-preview
+  - graph-validation
+  - topological-schedule
+  - pass-culling
+  - resource-lifetime
+  - transient-aliasing
+  - usage-transitions
 demoSlugs:
   - render-graph
   - frame-inspector
 articleSlugs:
   - rhi-abstraction-boundaries
   - render-graph-lifetime
-architecture: The current demo draws fixed pass nodes and declared read/write relationships with Canvas 2D. Its controller handles selection and visibility; a real render-graph compiler is a follow-up route.
+evidence: measured
+backends:
+  - id: svg
+    label: TypeScript compiler + accessible SVG inspector
+    role: primary
+    capabilities: []
+requirements:
+  - label: DOM and SVG
+    required: true
+fallback:
+  kind: none
+  description: The compiler and inspector are GPU-independent.
+metricSource:
+  kind: runtime
+  description: Compile time is measured with a CPU wall-clock timer; no hardware GPU timing is claimed.
 metrics: []
+architecture: A declaration layer describes resources and passes; compilation validates, finds roots, prunes unreachable work, sorts the schedule, computes lifetimes, assigns compatible transient aliases, and records logical usage transitions.
 limitations:
-  - The current model submits no GPU commands and does not provide an SVG graph, pass culling, resource-lifetime analysis, or transient aliasing
-  - A node toggle is a visual preview, not compiler-level dependency pruning
-  - A later route will connect real graph compilation, backend barriers, and memory measurement
+  - The graph compiles and visualizes plans but does not submit backend GPU commands
+  - Usage transitions are planning metadata and require backend validation before production use
 draft: false
 ---
 
-## Current preview
+## What runs
 
-Renderer complexity comes not only from shaders but from the relationships among passes and resources in one frame. The current demo draws five fixed nodes, read/write labels, and selection state on Canvas 2D. Visitors can toggle node visibility and inspect the selected declaration.
+The project turns a render-graph declaration into an inspectable execution plan. The demo contains versioned resources for depth, G-Buffer attachments, SSAO, HDR lighting, temporal history, present, and a debug overlay. Each pass declares its reads and writes; the compiler derives the relationships rather than relying on hand-written call order.
 
-## Boundary with a real engine
+## Compiler evidence
 
-The implementation has no SVG graph, GPU commands, pass culling, resource-lifetime analysis, or aliasing. A node toggle changes the visual preview; it does not recompile and prune a dependency graph. A follow-up route can connect the declarations to a backend and use API captures and timestamp queries to validate barriers, queue synchronization, and memory behavior.
+Validation catches duplicate resources and passes, invalid descriptors, unknown resources, missing producers, unknown versions, and cycles. Enabled passes are traced back from Present and side-effect roots, unreachable work is reported as culled, and the live schedule is topologically sorted. Each resource version receives first/last use positions, reader/writer information, and a compatible transient alias slot when its interval does not overlap another allocation.
+
+The inspector renders live and culled nodes as accessible SVG groups. Passes are selectable with pointer or keyboard input, and the panel exposes dependencies, resource versions, lifetime positions, alias slots, and usage transitions.
+
+## Boundary
+
+The CPU wall-clock value describes this small compiler run; it is not a GPU timestamp. The plan is ready to map into a backend, but barrier emission, queue ownership, and actual memory behavior still need API-specific validation.

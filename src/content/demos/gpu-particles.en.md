@@ -3,23 +3,49 @@ routeSlug: gpu-particles
 translationKey: gpu-particles
 locale: en
 title: GPU Compute Particles
-summary: Update a single particle storage buffer with raw WebGPU and WGSL, with a labeled Canvas fallback.
+summary: Update a ping-pong particle state with raw WebGPU and WGSL, including lifecycle, attractor, and optional timestamp-query evidence.
 category: gpu
 renderer: Raw WebGPU + WGSL / Canvas 2D fallback
 backend: raw-webgpu
-status: idea
-featured: true
+status: completed
+maturity: completed
+evidence: measured
+backends:
+  - id: raw-webgpu
+    label: Raw WebGPU compute and render passes
+    role: primary
+    capabilities:
+      - webgpu
+  - id: canvas-2d
+    label: Reduced deterministic Canvas 2D preview
+    role: fallback
+    capabilities: []
 capabilities:
   - webgpu
 requirements:
-  - WebGPU preferred
-  - Canvas 2D fallback when WebGPU is unavailable
+  - label: WebGPU
+    required: false
+    capability: webgpu
+  - label: Timestamp-query feature (optional)
+    required: false
+    capability: webgpu
+fallback:
+  kind: canvas-2d
+  description: A reduced Canvas 2D lifecycle preview preserves the controls and labels itself when WebGPU is unavailable.
+  image: /media/demos/gpu-particles-poster.svg
 controls:
   - 25K particles
   - 100K particles
   - 250K particles
+  - Attractor range
+  - Pointer attractor
+  - Pause / Resume
+  - Reset
 metrics: []
-fallbackImage: /media/placeholders/demo-gpu-particles.svg
+metricSource:
+  kind: runtime
+  description: When timestamp-query is supported, compute and render durations are read back from GPU timestamps; otherwise the panel reports animation-frame status without a GPU-time claim.
+fallbackImage: /media/demos/gpu-particles-poster.svg
 relatedProjects:
   - webgpu-compute-lab
 relatedArticles:
@@ -28,10 +54,14 @@ relatedArticles:
 draft: false
 ---
 
-## What it demonstrates
+## What runs
 
-Particle state lives in one read_write storage buffer. A compute pass updates it in place, then a render pass draws the same buffer as points. The implementation reports backend and particle count; it does not expose an independent GPU timer or a compute-versus-total timing split.
+The WebGPU path keeps two particle buffers and alternates their read/write roles each frame. A Compute Pass updates position, velocity, age, lifetime, and seed; expired or escaped particles are respawned deterministically. A Render Pass consumes the written buffer and draws points whose color and alpha reflect remaining lifetime.
 
-## Fallback behavior
+## Interaction and measurement
 
-When WebGPU is unavailable, the page creates a reduced Canvas 2D preview and labels it as such. The three count buttons recreate the renderer at the selected count. Ping-Pong state, indirect drawing, attractor/noise controls, and an independent GPU timing path are follow-up work rather than current features.
+The count buttons rebuild the resource set for 25K, 100K, or 250K particles. Pointer movement controls the attractor, the range controls its strength, and Pause/Reset act on both the native and Canvas implementations. If the adapter exposes `timestamp-query`, the Demo resolves separate Compute and Render intervals and reports them with a `gpu-timestamp-query` source; otherwise it explicitly reports timing as unavailable.
+
+## Fallback boundary
+
+The Canvas fallback implements the same lifecycle and attractor concepts at a reduced scale. It is useful for inspection, but its animation-frame cadence must not be compared directly with native GPU timestamps.

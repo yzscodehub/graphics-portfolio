@@ -21,7 +21,7 @@ const labels =
       };
 
 const navItems = site.navigation.map((item) => [item.href, item.label[locale]] as const);
-const previewStatus = `PUBLIC ${site.features.stage.toUpperCase()} / WORK IN PROGRESS`;
+const previewStatus = "PUBLIC PREVIEW / WORK IN PROGRESS";
 
 const normalize = (value: string) => value.replace(/\/+/g, "/").replace(/\/$/, "") || "/";
 const isActive = (route: string) => {
@@ -47,7 +47,13 @@ const otherHref = withBase(alternateRoute);
     <a class="brand" href={homeHref} aria-label={locale === "en" ? "Home" : "首页"}>
       <span class="brand-mark" aria-hidden="true">G</span>
       <span class="brand-name">{handle} / Graphics Systems</span>
-      <span class="preview-status" aria-label={previewStatus}>{previewStatus}</span>
+      {
+        site.features.stage === "preview" && (
+          <span class="preview-status" aria-label={previewStatus}>
+            {previewStatus}
+          </span>
+        )
+      }
     </a>
     <nav
       id="site-primary-navigation"

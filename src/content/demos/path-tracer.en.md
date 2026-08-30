@@ -2,35 +2,65 @@
 routeSlug: path-tracer
 translationKey: path-tracer
 locale: en
-title: Progressive Path Study
-summary: Study a small full-screen progressive path-like image with raw WebGPU and a labeled Canvas fallback.
+title: Progressive Path Tracer
+summary: Trace a procedural Cornell scene with a CPU median BVH, triangle/material buffers, linear rgba16float accumulation, and tone mapping.
 category: gpu
-renderer: Raw WebGPU + WGSL / Canvas 2D fallback
+renderer: Raw WebGPU compute + display / Canvas 2D fallback
 backend: raw-webgpu
-status: idea
-featured: false
+status: completed
+maturity: completed
+evidence: verified
+backends:
+  - id: raw-webgpu
+    label: Raw WebGPU compute path tracer
+    role: primary
+    capabilities:
+      - webgpu
+  - id: canvas-2d
+    label: CPU path-like Canvas 2D fallback
+    role: fallback
+    capabilities: []
 capabilities:
   - webgpu
 requirements:
-  - WebGPU preferred
-  - Canvas 2D fallback when WebGPU is unavailable
+  - label: WebGPU
+    required: false
+    capability: webgpu
+  - label: rgba16float storage textures
+    required: false
+    capability: webgpu
+fallback:
+  kind: canvas-2d
+  description: A labeled CPU path-like Canvas preview preserves bounce, pause, reset, and sample state when WebGPU is unavailable.
+  image: /media/demos/path-tracer-poster.svg
 controls:
+  - 1 BOUNCE
   - 2 BOUNCES
   - 3 BOUNCES
   - 4 BOUNCES
+  - Pause / Resume
+  - Reset SPP
 metrics: []
-fallbackImage: /media/placeholders/demo-path-tracer.svg
+metricSource:
+  kind: runtime
+  description: The panel reports accumulated SPP and animation-frame status; it does not publish a fixed GPU timing number.
+fallbackImage: /media/demos/path-tracer-poster.svg
 relatedProjects:
   - webgpu-compute-lab
 relatedArticles:
   - webgpu-particles-path-tracing
+  - path-tracing-to-neural-denoising
 draft: false
 ---
 
-## What it demonstrates
+## What runs
 
-The WebGPU fragment shader draws a full-screen procedural room with an analytic floor and two spheres, then blends a jittered path-like estimate into two color textures. The only exposed control is the maximum bounce count; there is no CPU-built BVH, material selector, Samples Per Pixel control, or explicit reset button.
+The CPU constructs a small Cornell-style scene, median-splits its triangles into a BVH, and uploads encoded triangle, node, and material buffers. The WebGPU Compute Pass traces the scene, writes linear HDR samples to alternating `rgba16float` storage textures, and the display pass applies a separate tone map.
 
-## Explicit limits
+## Controls and accumulation
 
-This is a visual study of shader resources and progressive accumulation, not a production path tracer. The fallback is a procedural Canvas 2D scene and reports visual samples rather than GPU timing. Production light sampling, a BVH, material variants, explicit reset controls, and denoising remain future work.
+The four bounce buttons update the uniform contract and reset the sample counter. Pause keeps displaying the current accumulation without adding samples; Reset SPP clears the accumulation state and advances the camera revision. The panel exposes SPP and bounce count, while avoiding a universal quality or speed claim.
+
+## Fallback boundary
+
+The CPU Canvas path is intentionally labeled and uses a visual path-like approximation. It preserves the interaction contract, but its samples and frame cadence are not GPU measurements.

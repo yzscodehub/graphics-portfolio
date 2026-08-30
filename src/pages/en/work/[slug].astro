@@ -2,6 +2,7 @@
 import { getCollection, render, type CollectionEntry } from "astro:content";
 import DetailLayout from "../../../layouts/DetailLayout.astro";
 import { profile } from "../../../data/profile";
+import { withBase } from "../../../lib/urls";
 export async function getStaticPaths() {
   const allEntries = (await getCollection("projects")) as CollectionEntry<"projects">[];
   const entries = allEntries.filter((entry) => entry.data.locale === "en" && !entry.data.draft);
@@ -12,6 +13,10 @@ interface Props {
 }
 const { entry } = Astro.props;
 const { Content } = await render(entry);
+const pageUrl = new URL(
+  withBase(`/en/work/${entry.data.routeSlug}/`),
+  Astro.site ?? Astro.url.origin,
+).toString();
 const meta: Array<[string, string]> = [
   ["STATUS", entry.data.status],
   ["ROLE", entry.data.role],
@@ -26,5 +31,68 @@ const meta: Array<[string, string]> = [
   description={entry.data.summary}
   eyebrow="WORK / CASE STUDY"
   handle={profile.displayName}
-  meta={meta}><Content /></DetailLayout
+  image={withBase(`/og/projects/${entry.data.routeSlug}.png`)}
+  heroMedia={withBase(entry.data.heroImage)}
+  heroMediaAlt={`${entry.data.title} technical overview`}
+  structuredData={{
+    "@context": "https://schema.org",
+    "@type": "CreativeWork",
+    name: entry.data.title,
+    description: entry.data.summary,
+    url: pageUrl,
+    inLanguage: "en",
+    creator: { "@type": "Person", name: profile.displayName, sameAs: profile.githubUrl },
+    keywords: entry.data.technologies,
+  }}
+  meta={meta}
 >
+  <Content />
+  <section class="project-evidence" aria-labelledby="project-evidence-title">
+    <h2 id="project-evidence-title">Implementation evidence</h2>
+    <p class="evidence-manifest-link">
+      <a href={withBase("/media/assets-manifest.json")}
+        >Evidence Manifest / SHA-256 / capture environment</a
+      >
+    </p>
+    <div class="project-evidence-grid">
+      <figure>
+        <img
+          src={withBase(entry.data.architectureImage)}
+          alt={entry.data.architectureAlt}
+          width="1600"
+          height="900"
+          loading="lazy"
+        />
+        <figcaption>ARCHITECTURE / Implemented data flow and current boundaries</figcaption>
+      </figure>
+      <figure>
+        <img
+          src={withBase(entry.data.demoImage)}
+          alt={entry.data.demoImageAlt}
+          width="1240"
+          height="900"
+          loading="lazy"
+        />
+        <figcaption>RUNTIME / Real local run; see the environment record for backend</figcaption>
+      </figure>
+    </div>
+    <div class="project-evidence-notes">
+      <div>
+        <h3>Personal contribution</h3>
+        <ul>{entry.data.responsibilities.map((item: string) => <li>{item}</li>)}</ul>
+      </div>
+      <div>
+        <h3>Test environment</h3>
+        <ul>{entry.data.environment.map((item: string) => <li>{item}</li>)}</ul>
+      </div>
+      <div>
+        <h3>Reproduction</h3>
+        <p>{entry.data.reproduction}</p>
+      </div>
+      <div>
+        <h3>Current boundary</h3>
+        <ul>{entry.data.limitations.map((item: string) => <li>{item}</li>)}</ul>
+      </div>
+    </div>
+  </section>
+</DetailLayout>

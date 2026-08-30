@@ -55,22 +55,18 @@ const href = withBase(localePath("/work/", "zh-CN"));
 
 ## Public preview policy
 
-The current site is a public preview, not a job-application release. `src/data/site-features.json` is the single feature source and is intentionally set to:
+`SITE_STAGE` is the only stage input. `src/data/site-stage.mjs` resolves it to the shared feature object used by Astro, UI, validation, and deployment:
 
-```json
-{
-  "stage": "preview",
-  "resume": false,
-  "emailContact": false,
-  "indexing": false
-}
+```ts
+resolveSiteFeatures("preview"); // noindex, no sitemap, GitHub-only
+resolveSiteFeatures("release"); // indexable, sitemap + RSS, still GitHub-only
 ```
 
 `src/data/profile.ts` is the only source for the public nickname and GitHub link. The preview exposes only `yzscodehub` and `https://github.com/yzscodehub`; it has no email, contact form, telephone link, resume route, or PDF artifact. Keep phone numbers, salary, address, private employer information, internal code, and unlicensed media out of the repository.
 
 `pnpm verify:preview` rejects public-email placeholders, phone and salary data, mail or telephone links, resume routes, PDF artifacts in `dist`, tracked PDF drafts anywhere in the repository, missing or oversize neural models, missing `noindex,nofollow` metadata, and an unblocked `robots.txt`.
 
-The former resume implementation is preserved under `deferred/resume/` and must stay outside Astro routes and Pages artifacts until the formal release phase.
+The former resume implementation is preserved under `deferred/resume/` and remains outside Astro routes and Pages artifacts in both Preview and Release. Publishing a resume or email requires a separate future product decision.
 
 ## Reviewed neural model
 
@@ -78,10 +74,10 @@ The repository includes a small residual denoiser trained only on deterministic 
 
 ## Deployment
 
-Pushes to `main` run type checks, linting, formatting, unit tests, guarded preview build, link checks, and Chromium checks. When they all pass, `.github/workflows/preview-pages.yml` deploys the preview to:
+Pushes to `main` always run type checks, linting, formatting, unit tests, guarded Preview build, link checks, and Chromium checks. Before the first `v*` tag, `.github/workflows/preview-pages.yml` also deploys the Preview to:
 
 `https://yzscodehub.github.io/graphics-portfolio/`
 
-Preview pages send `noindex,nofollow` and `robots.txt` uses `Disallow: /`; Astro enables the sitemap integration only when `SITE_STAGE=release`. GitHub Pages must use **GitHub Actions** as its source.
+Preview pages send `noindex,nofollow` and `robots.txt` uses `Disallow: /`; Astro enables Sitemap only when `SITE_STAGE=release`. Set `ENABLE_PREVIEW_PAGES=false` to stop Preview deployment early. Once any `v*` tag exists, main automatically becomes verify-only so it cannot overwrite an indexed release. GitHub Pages must use **GitHub Actions** as its source.
 
-The former tag workflow remains at `.github/workflows/release-pages.yml` for the later formal release. Do not create `v1.0.0` while the feature configuration is still in preview mode.
+`.github/workflows/release-pages.yml` deploys only from `v*` tags with `SITE_STAGE=release`. Do not create `v1.0.0` until the reviewed Preview satisfies the full acceptance gate.

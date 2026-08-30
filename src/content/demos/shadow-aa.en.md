@@ -3,15 +3,35 @@ routeSlug: shadow-aa
 translationKey: shadow-aa
 locale: en
 title: Shadow & Anti-Aliasing Lab
-summary: Compare labeled shadow-softness and edge-treatment modes in a procedural Canvas 2D scene.
+summary: Compare shared raw-WebGPU shadow, G-Buffer, depth, velocity, and temporal-history paths with a Canvas fallback.
 category: rendering
-renderer: Canvas 2D technique visualizer
-backend: canvas-2d
-status: in-progress
-featured: false
-capabilities: []
+renderer: Raw WebGPU reference frame / Canvas 2D fallback
+backend: raw-webgpu
+status: completed
+maturity: completed
+evidence: verified
+backends:
+  - id: raw-webgpu
+    label: Shared raw WebGPU reference frame
+    role: primary
+    capabilities:
+      - webgpu
+  - id: canvas-2d
+    label: Labeled Canvas 2D comparison
+    role: fallback
+    capabilities: []
+capabilities:
+  - webgpu
 requirements:
-  - Baseline Canvas 2D
+  - label: WebGPU
+    required: false
+    capability: webgpu
+  - label: Canvas 2D fallback
+    required: false
+fallback:
+  kind: canvas-2d
+  description: A labeled Canvas comparison keeps shadow softness and history controls usable when the raw reference frame cannot initialize.
+  image: /media/demos/shadow-aa-poster.svg
 controls:
   - SHADOW HARD
   - SHADOW PCF
@@ -19,8 +39,12 @@ controls:
   - AA NONE
   - AA FXAA
   - AA TAA
+  - RESET HISTORY
 metrics: []
-fallbackImage: /media/placeholders/demo-shadow-aa.svg
+metricSource:
+  kind: runtime
+  description: The live renderer reports backend and selected mode; no fixed cross-device GPU performance number is published.
+fallbackImage: /media/demos/shadow-aa-poster.svg
 relatedProjects:
   - real-time-rendering-lab
 relatedArticles:
@@ -28,10 +52,14 @@ relatedArticles:
 draft: false
 ---
 
-## What it demonstrates
+## What runs
 
-This demo uses Canvas 2D drawing, blur, and a small history trail to make labeled modes comparable. Hard, PCF, and PCSS describe increasing softness in the visual probe; None, FXAA, and TAA describe edge treatments. They are not implementations of WebGL shadow maps, GLSL filters, or a real temporal resolve.
+The raw WebGPU reference frame encodes a shadow map, a multi-target G-Buffer, linear depth, velocity, HDR lighting, SSAO, and temporal resolve history in one shared frame. Hard, PCF, and PCSS shadow modes select the implemented shader branches; None, FXAA, and TAA select the corresponding resolve path.
 
-## Follow-up route
+## Temporal behavior
 
-A true WebGL/GLSL shadow and anti-aliasing comparison can reuse these controls after a real depth map, filtering kernel, velocity buffer, and history validation path are implemented.
+TAA uses jitter and previous-frame depth/velocity state. Changing the shadow mode, AA mode, scene revision, or explicit Reset History invalidates the accumulated history. Freeze is available through the Frame Inspector, which can display the same attachment family without advancing the frame.
+
+## Fallback boundary
+
+When WebGPU cannot initialize or the device is lost, the page switches to a clearly labeled Canvas comparison. The fallback preserves the mode vocabulary and reset behavior but is not a substitute for the raw G-Buffer implementation.

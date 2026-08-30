@@ -11,12 +11,51 @@ interface Props {
   handle: string;
   meta?: Array<[string, string]>;
   paper?: boolean;
+  image?: string;
+  ogType?: "website" | "article";
+  structuredData?: Record<string, unknown>;
+  heroMedia?: string;
+  heroMediaAlt?: string;
 }
-const { locale, title, description, eyebrow, handle, meta = [], paper = false } = Astro.props;
+const {
+  locale,
+  title,
+  description,
+  eyebrow,
+  handle,
+  meta = [],
+  paper = false,
+  image,
+  ogType = "website",
+  structuredData,
+  heroMedia,
+  heroMediaAlt = "",
+} = Astro.props;
 ---
 
-<BaseLayout locale={locale} title={title} description={description} handle={handle}>
+<BaseLayout
+  locale={locale}
+  title={title}
+  description={description}
+  handle={handle}
+  image={image}
+  ogType={ogType}
+  structuredData={structuredData}
+>
   <PageHero eyebrow={eyebrow} title={title} description={description} />
+  {
+    heroMedia && (
+      <section class="detail-cinema frame">
+        <div class="detail-cinema__hud">
+          <>
+            <span>SEQUENCE / 01</span>
+            <span>VERIFIED LOCAL MEDIA</span>
+          </>
+        </div>
+        <img src={heroMedia} alt={heroMediaAlt} width="1600" height="900" loading="eager" />
+      </section>
+    )
+  }
   {
     paper ? (
       <article class="article-paper">

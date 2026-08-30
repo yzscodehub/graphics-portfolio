@@ -3,7 +3,8 @@ import { getCollection, type CollectionEntry } from "astro:content";
 import BaseLayout from "../layouts/BaseLayout.astro";
 import PageHero from "../components/PageHero.astro";
 import { profile } from "../data/profile";
-import type { Locale } from "../lib/i18n";
+import { localePath, type Locale } from "../lib/i18n";
+import { withBase } from "../lib/urls";
 interface Props {
   locale: Locale;
 }
@@ -13,6 +14,10 @@ const allExperience = (await getCollection("experience")) as CollectionEntry<"ex
 const experience = allExperience.filter(
   (entry) => entry.data.locale === locale && !entry.data.draft,
 );
+const aboutUrl = new URL(
+  withBase(localePath("/about/", locale)),
+  Astro.site ?? Astro.url.origin,
+).toString();
 ---
 
 <BaseLayout
@@ -20,6 +25,15 @@ const experience = allExperience.filter(
   title={isEn ? "About" : "关于"}
   description={profile.bio[locale]}
   handle={profile.displayName}
+  structuredData={{
+    "@context": "https://schema.org",
+    "@type": "Person",
+    name: profile.displayName,
+    jobTitle: profile.role[locale],
+    description: profile.bio[locale],
+    url: aboutUrl,
+    sameAs: [profile.githubUrl],
+  }}
 >
   <PageHero
     eyebrow="ABOUT / PRACTICE"
@@ -43,9 +57,9 @@ const experience = allExperience.filter(
             experience.map((entry) => (
               <li>
                 <>
-                  <time>
-                    {entry.data.startYear}—{entry.data.endYear ?? (isEn ? "Now" : "至今")}
-                  </time>
+                  <span class="timeline-label">
+                    {isEn ? "SELECTED SYSTEMS WORK" : "精选系统工作"}
+                  </span>
                   <div>
                     <>
                       <h3>{entry.data.title}</h3>
@@ -55,6 +69,20 @@ const experience = allExperience.filter(
                           <li>{item}</li>
                         ))}
                       </ul>
+                      {entry.data.results.filter(
+                        (result: { status: string }) => result.status === "confirmed",
+                      ).length > 0 && (
+                        <div class="confirmed-results">
+                          <strong>{isEn ? "Confirmed public results" : "已确认公开结果"}</strong>
+                          <ul>
+                            {entry.data.results
+                              .filter((result: { status: string }) => result.status === "confirmed")
+                              .map((result: { statement: string }) => (
+                                <li>{result.statement}</li>
+                              ))}
+                          </ul>
+                        </div>
+                      )}
                     </>
                   </div>
                 </>

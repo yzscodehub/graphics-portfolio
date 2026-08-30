@@ -1,0 +1,241 @@
+{
+  "version": 2,
+  "generatedBy": "scripts/generate-media.mjs",
+  "environments": [
+    {
+      "id": "deterministic-local-generator",
+      "kind": "generated-vector",
+      "measurement": "No runtime metric; deterministic self-authored SVG source."
+    },
+    {
+      "id": "playwright-chromium-151-windows",
+      "kind": "runtime-capture",
+      "os": "Windows NT 10.0 x64",
+      "browser": "Chromium",
+      "browserVersion": "151.0.7922.34",
+      "viewport": "1600x1000 CSS px / DPR 1",
+      "navigatorWebGPU": true,
+      "adapter": "requestAdapter returned null in the headless capture environment",
+      "measurement": "Visual evidence only. Runtime labels identify WebGL2, SVG, Canvas, or static paths; no cross-device performance claim."
+    }
+  ],
+  "assets": [
+    {
+      "path": "public/media/demos/material-lighting-poster.svg",
+      "role": "demo-poster",
+      "owner": "yzscodehub",
+      "license": "self-authored",
+      "bytes": 2011,
+      "sha256": "b046c6c7dc611be98d3c77138116462b5b68ede07c0ee67332ffb190435bb2a0",
+      "width": 1600,
+      "height": 900,
+      "environment": "deterministic-local-generator"
+    },
+    {
+      "path": "public/media/demos/render-graph-poster.svg",
+      "role": "demo-poster",
+      "owner": "yzscodehub",
+      "license": "self-authored",
+      "bytes": 2363,
+      "sha256": "74a4c8ea8220432cccd2ad725f3d85768a6d2b3e79bf7b89229ca420cbd7c7a0",
+      "width": 1600,
+      "height": 900,
+      "environment": "deterministic-local-generator"
+    },
+    {
+      "path": "public/media/demos/gpu-particles-poster.svg",
+      "role": "demo-poster",
+      "owner": "yzscodehub",
+      "license": "self-authored",
+      "bytes": 8686,
+      "sha256": "02b4f60e9f205d6ed82ec00988f84543c66e9d90a235275cf59399753011e500",
+      "width": 1600,
+      "height": 900,
+      "environment": "deterministic-local-generator"
+    },
+    {
+      "path": "public/media/demos/shadow-aa-poster.svg",
+      "role": "demo-poster",
+      "owner": "yzscodehub",
+      "license": "self-authored",
+      "bytes": 1967,
+      "sha256": "9b062444765774bbd273ee0e080b8a8e3b333594c51a48d26570cff522fa327e",
+      "width": 1600,
+      "height": 900,
+      "environment": "deterministic-local-generator"
+    },
+    {
+      "path": "public/media/demos/path-tracer-poster.svg",
+      "role": "demo-poster",
+      "owner": "yzscodehub",
+      "license": "self-authored",
+      "bytes": 2105,
+      "sha256": "9f3d02242b851d5839d29f9e8550b544a5b7ea8be53cb05fe940f28a3bc46e86",
+      "width": 1600,
+      "height": 900,
+      "environment": "deterministic-local-generator"
+    },
+    {
+      "path": "public/media/demos/frame-inspector-poster.svg",
+      "role": "demo-poster",
+      "owner": "yzscodehub",
+      "license": "self-authored",
+      "bytes": 3372,
+      "sha256": "f190a9e747cfc485e08d68817014be2a1f5c4e08f843feab63b23f0948b831d6",
+      "width": 1600,
+      "height": 900,
+      "environment": "deterministic-local-generator"
+    },
+    {
+      "path": "public/media/demos/neural-denoising-poster.svg",
+      "role": "demo-poster",
+      "owner": "yzscodehub",
+      "license": "self-authored",
+      "bytes": 5219,
+      "sha256": "2e23b8bc6d18672006729a0165ae001ea9e01bc672e57e90ffa542e809919103",
+      "width": 1600,
+      "height": 900,
+      "environment": "deterministic-local-generator"
+    },
+    {
+      "path": "public/media/projects/engine-systems-explorer-cover.svg",
+      "role": "project-cover",
+      "owner": "yzscodehub",
+      "license": "self-authored",
+      "bytes": 2493,
+      "sha256": "5115bb55ab8e04a6fb7754dabd9f2835213fe386f5331ded3a44b0957ec38269",
+      "width": 1600,
+      "height": 900,
+      "environment": "deterministic-local-generator"
+    },
+    {
+      "path": "public/media/projects/real-time-rendering-lab-cover.svg",
+      "role": "project-cover",
+      "owner": "yzscodehub",
+      "license": "self-authored",
+      "bytes": 2158,
+      "sha256": "c804963295d0a62fc34e9f7f489480ccd477db2ed3fcbc57f968c621a8cd1822",
+      "width": 1600,
+      "height": 900,
+      "environment": "deterministic-local-generator"
+    },
+    {
+      "path": "public/media/projects/webgpu-compute-lab-cover.svg",
+      "role": "project-cover",
+      "owner": "yzscodehub",
+      "license": "self-authored",
+      "bytes": 8801,
+      "sha256": "214ae65e7a93504e0da10dffc18de19b0da2d648847bf4d61c29ebc5f4dc4013",
+      "width": 1600,
+      "height": 900,
+      "environment": "deterministic-local-generator"
+    },
+    {
+      "path": "public/media/projects/neural-graphics-lab-cover.svg",
+      "role": "project-cover",
+      "owner": "yzscodehub",
+      "license": "self-authored",
+      "bytes": 5351,
+      "sha256": "9d260d57345bb5511c32405410fad912e112e5f81ed9bf6bc63f61ea72aed017",
+      "width": 1600,
+      "height": 900,
+      "environment": "deterministic-local-generator"
+    },
+    {
+      "path": "public/media/projects/engine-systems-explorer-architecture.svg",
+      "role": "project-architecture",
+      "owner": "yzscodehub",
+      "license": "self-authored",
+      "bytes": 2976,
+      "sha256": "c2123dda20bdbad9f4a09a5ebe272ab371267772af54093814ded6ac2299b7ad",
+      "width": 1600,
+      "height": 900,
+      "environment": "deterministic-local-generator"
+    },
+    {
+      "path": "public/media/projects/real-time-rendering-lab-architecture.svg",
+      "role": "project-architecture",
+      "owner": "yzscodehub",
+      "license": "self-authored",
+      "bytes": 2449,
+      "sha256": "a153610cc92cea1f58c03fb0d6459623e1e916fb5ec689f207a57547473553b4",
+      "width": 1600,
+      "height": 900,
+      "environment": "deterministic-local-generator"
+    },
+    {
+      "path": "public/media/projects/webgpu-compute-lab-architecture.svg",
+      "role": "project-architecture",
+      "owner": "yzscodehub",
+      "license": "self-authored",
+      "bytes": 2474,
+      "sha256": "52784d0f848cd3fee8fe5521244cb519a8efc33a7b9bb2081afbec7eea8fad1d",
+      "width": 1600,
+      "height": 900,
+      "environment": "deterministic-local-generator"
+    },
+    {
+      "path": "public/media/projects/neural-graphics-lab-architecture.svg",
+      "role": "project-architecture",
+      "owner": "yzscodehub",
+      "license": "self-authored",
+      "bytes": 2318,
+      "sha256": "fcb0d2e0c707b092fb6f9944f80455a9e3b179914fa77f8ffee71cc3407e6610",
+      "width": 1600,
+      "height": 900,
+      "environment": "deterministic-local-generator"
+    },
+    {
+      "path": "public/media/runtime/engine-systems-explorer-runtime.png",
+      "role": "demo-runtime-capture",
+      "owner": "yzscodehub",
+      "license": "self-authored",
+      "bytes": 117235,
+      "width": 1240,
+      "height": 546,
+      "environment": "playwright-chromium-151-windows",
+      "state": "running",
+      "backend": "TypeScript compiler + SVG inspector",
+      "sha256": "767850439e84d4569d5252ca0124a2b196a5575661d289bbfad2acca9a010cfa"
+    },
+    {
+      "path": "public/media/runtime/real-time-rendering-lab-runtime.png",
+      "role": "demo-runtime-capture",
+      "owner": "yzscodehub",
+      "license": "self-authored",
+      "bytes": 293671,
+      "width": 1240,
+      "height": 926,
+      "environment": "playwright-chromium-151-windows",
+      "state": "running",
+      "backend": "Three.js WebGL2 fallback + TSL",
+      "sha256": "842c356e64140b17156bb5281a3d22047d016686a19990e3ad7276b72ee99994"
+    },
+    {
+      "path": "public/media/runtime/webgpu-compute-lab-runtime.png",
+      "role": "demo-runtime-capture",
+      "owner": "yzscodehub",
+      "license": "self-authored",
+      "bytes": 530336,
+      "width": 1240,
+      "height": 884,
+      "environment": "playwright-chromium-151-windows",
+      "state": "running fallback",
+      "backend": "Deterministic Canvas particle fallback",
+      "sha256": "1feb066c2e1c40b46f7d56af889e0089af101af130c6d5986767d00bb058994c"
+    },
+    {
+      "path": "public/media/runtime/neural-graphics-lab-runtime.png",
+      "role": "demo-runtime-capture",
+      "owner": "yzscodehub",
+      "license": "self-authored",
+      "bytes": 121602,
+      "width": 1240,
+      "height": 546,
+      "environment": "playwright-chromium-151-windows",
+      "state": "measured reviewed run",
+      "backend": "ONNX Runtime single-thread WASM",
+      "sha256": "d2e38727da35f314a5f43c2f04c2398671ec8b8e3272ff549250990b78b29c0a"
+    }
+  ]
+}

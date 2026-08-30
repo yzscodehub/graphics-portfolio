@@ -1,36 +1,32 @@
 import { describe, expect, it } from "vitest";
-import { makeDenoisingView, type DenoisingFrames } from "../src/demos/neural-denoising";
+import {
+  calculateImageMetrics,
+  makeDenoisingView,
+  percentile,
+  type DenoisingFrames,
+} from "../src/demos/neural-denoising";
 
 describe("Neural Denoising views", () => {
   const frames: DenoisingFrames = {
     size: 2,
-    reference: new Uint8ClampedArray([
-      40, 80, 120, 255, 10, 20, 30, 255, 50, 60, 70, 255, 90, 100, 110, 255,
-    ]),
-    noisy: new Uint8ClampedArray([
-      20, 40, 60, 255, 30, 40, 50, 255, 70, 80, 90, 255, 100, 110, 120, 255,
-    ]),
+    reference: new Float32Array([0.4, 0.1, 0.5, 0.9, 0.8, 0.2, 0.6, 1, 0.3, 0.7, 0.2, 0.8]),
+    noisy: new Float32Array([0.2, 0.3, 0.7, 1, 0.4, 0.4, 0.8, 1, 0.6, 0.5, 0.4, 0.9]),
   };
 
-  it("uses the ONNX pixels, rather than the box-filter fallback, for the ERROR view", () => {
-    const onnxDenoised = new Uint8ClampedArray([
-      30, 70, 100, 255, 10, 20, 30, 255, 45, 55, 65, 255, 95, 105, 115, 255,
-    ]);
-
-    expect(Array.from(makeDenoisingView("error", frames, onnxDenoised))).toEqual([
-      40, 40, 80, 255, 0, 0, 0, 255, 20, 20, 20, 255, 20, 20, 20, 255,
-    ]);
+  it("uses ONNX pixels for the ERROR view", () => {
+    const onnx = new Float32Array([0.3, 0.1, 0.45, 0.95, 0.7, 0.2, 0.55, 1, 0.4, 0.7, 0.25, 0.85]);
+    const error = makeDenoisingView("error", frames, onnx);
+    const expected = [0.4, 0, 0.2, 0.2, 0.4, 0, 0.2, 0, 0.4, 0, 0.2, 0.2];
+    expected.forEach((value, index) => expect(error[index]).toBeCloseTo(value));
   });
 
-  it("retains the deterministic fallback only when ONNX pixels are unavailable", () => {
-    const onnxError = makeDenoisingView(
-      "error",
-      frames,
-      new Uint8ClampedArray([
-        30, 70, 100, 255, 10, 20, 30, 255, 45, 55, 65, 255, 95, 105, 115, 255,
-      ]),
-    );
-
-    expect(Array.from(makeDenoisingView("error", frames))).not.toEqual(Array.from(onnxError));
+  it("computes current-pair L1, MSE, PSNR and percentile timing", () => {
+    const perfect = calculateImageMetrics(frames.reference, frames.reference);
+    expect(perfect).toEqual({ l1: 0, mse: 0, psnrDb: Number.POSITIVE_INFINITY });
+    const noisy = calculateImageMetrics(frames.noisy, frames.reference);
+    expect(noisy.l1).toBeGreaterThan(0);
+    expect(noisy.psnrDb).toBeGreaterThan(0);
+    expect(percentile([9, 1, 7, 3, 5], 0.5)).toBe(5);
+    expect(percentile([9, 1, 7, 3, 5], 0.95)).toBe(9);
   });
 });

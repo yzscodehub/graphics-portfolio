@@ -17,6 +17,10 @@ interface Props {
 }
 const { locale } = Astro.props;
 const isEn = locale === "en";
+const homeUrl = new URL(
+  withBase(localePath("/", locale)),
+  Astro.site ?? Astro.url.origin,
+).toString();
 const allProjects = (await getCollection("projects")) as CollectionEntry<"projects">[];
 const allDemos = (await getCollection("demos")) as CollectionEntry<"demos">[];
 const allWriting = (await getCollection("writing")) as CollectionEntry<"writing">[];
@@ -95,6 +99,24 @@ const copy = isEn
   title={profile.role[locale]}
   description={profile.bio[locale]}
   handle={profile.displayName}
+  structuredData={[
+    {
+      "@context": "https://schema.org",
+      "@type": "Person",
+      name: profile.displayName,
+      jobTitle: profile.role[locale],
+      description: profile.bio[locale],
+      url: homeUrl,
+      sameAs: [profile.githubUrl],
+    },
+    {
+      "@context": "https://schema.org",
+      "@type": "WebSite",
+      name: site.name,
+      url: homeUrl,
+      inLanguage: locale,
+    },
+  ]}
 >
   <section class="hero">
     <div class="hero-grid">
@@ -119,15 +141,25 @@ const copy = isEn
         </div>
       </div>
       <div class="hero-demo-panel">
+        <div class="hero-cinematic-frame" aria-hidden="true">
+          <div class="hero-cinematic-matte hero-cinematic-matte--top"></div>
+          <div class="hero-cinematic-matte hero-cinematic-matte--bottom"></div>
+          <div class="hero-calibration-line"><span></span></div>
+          <div class="hero-light-reveal"></div>
+          <div class="hero-exposure-slate">
+            <span>21:9 / CALIBRATION</span><span>EXPOSURE +0.7</span>
+          </div>
+        </div>
         <div class="hero-demo-poster" aria-hidden="true"><div class="calibration-orb"></div></div>
         <div class="demo-hud">
           <span>DEMO_01</span><strong>MATERIAL / LIGHTING</strong><span>AUTO BACKEND</span>
         </div>
         <DemoShell
+          class="hero-demo-shell"
           slug="material-lighting"
           locale={locale}
           title="Material & Lighting"
-          fallbackImage="/media/placeholders/demo-material-lighting.svg"
+          fallbackImage="/media/demos/material-lighting-poster.svg"
           description={isEn ? "Interactive PBR calibration scene." : "交互式 PBR 校准场景。"}
         />
       </div>

@@ -4,6 +4,19 @@ import * as os from "node:os";
 import { describe, expect, it } from "vitest";
 
 describe("preview privacy policy", () => {
+  it("accepts only the preview site stage", async () => {
+    const policy = (await import("./verify-preview.mjs")) as {
+      validatePreviewStage(
+        environment: Record<string, string | undefined>,
+      ): Array<{ code: string }>;
+    };
+
+    expect(policy.validatePreviewStage({ SITE_STAGE: "preview" })).toEqual([]);
+    expect(policy.validatePreviewStage({ SITE_STAGE: "release" })).toEqual([
+      expect.objectContaining({ code: "stage" }),
+    ]);
+  });
+
   it("rejects public email placeholders and phone numbers", async () => {
     const policy = (await import("./verify-preview.mjs")) as {
       findPreviewPolicyViolations(text: string, relativePath: string): Array<{ code: string }>;

@@ -1,10 +1,16 @@
 allowBuilds:
   esbuild: true
   protobufjs: true
+  sharp: true
 onlyBuiltDependencies:
   - esbuild
   - protobufjs
   - sharp
 enableGlobalVirtualStore: false
+virtualStoreType: project
+nodeLinker: isolated
+symlink: true
+nodeExperimentalPackageMap: false
+hoist: false
 confirmModulesPurge: false
 packageImportMethod: hardlink

@@ -1,8 +1,9 @@
 /**
  * Public identity data for the portfolio.
  *
- * This preview identity intentionally exposes only a developer handle and
- * GitHub profile. Contact data is added only for the later release stage.
+ * Both preview and release intentionally expose only a developer handle and
+ * GitHub profile. Email, resume, phone, address, and private career material
+ * remain outside the public site.
  */
 
 export type Locale = "zh-CN" | "en";
@@ -22,12 +23,6 @@ export interface PublicProfile {
   bio: LocalizedText;
   focus: readonly string[];
   availability: LocalizedText;
-  releaseGuard: {
-    enabled: boolean;
-    ready: boolean;
-    requiredReplacements: readonly string[];
-    policy: string;
-  };
 }
 
 export const profile = {
@@ -52,13 +47,6 @@ export const profile = {
   availability: {
     "zh-CN": "欢迎交流图形、引擎与智能图形方向的机会。",
     en: "Open to conversations about graphics, engine, and intelligent-graphics work.",
-  },
-  releaseGuard: {
-    enabled: true,
-    ready: false,
-    requiredReplacements: ["publicEmail"],
-    policy:
-      "Preview intentionally has no public email. Add an intentionally public address only for a release build; never add a phone number, salary, address, or private employer material.",
   },
 } as const satisfies PublicProfile;
 

@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { readFileSync, statSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
@@ -6,6 +7,7 @@ import { describe, expect, it } from "vitest";
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const modelPath = path.join(root, "public", "models", "neural-denoiser.onnx");
 const metricsPath = path.join(root, "public", "models", "neural-denoiser.metrics.json");
+const heldoutRoot = path.join(root, "public", "models", "heldout");
 
 interface Metrics {
   modelBytes: number;
@@ -30,5 +32,21 @@ describe("reviewed neural denoiser artifact", () => {
     expect(metrics.onnxParity.maxAbsoluteDifference).toBeLessThanOrEqual(
       metrics.onnxParity.tolerance,
     );
+  });
+
+  it("ships a hashed float32 held-out browser pair", () => {
+    const manifest = JSON.parse(readFileSync(path.join(heldoutRoot, "manifest.json"), "utf8")) as {
+      split: string;
+      shape: number[];
+      files: Record<string, { file: string; bytes: number; sha256: string }>;
+    };
+    expect(manifest.split).toBe("val");
+    expect(manifest.shape).toEqual([1, 3, 256, 256]);
+    for (const entry of Object.values(manifest.files)) {
+      const file = path.join(heldoutRoot, entry.file);
+      const bytes = readFileSync(file);
+      expect(bytes.length).toBe(entry.bytes);
+      expect(createHash("sha256").update(bytes).digest("hex")).toBe(entry.sha256);
+    }
   });
 });

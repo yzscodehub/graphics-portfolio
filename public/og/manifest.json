@@ -1,0 +1,154 @@
+{
+  "version": 2,
+  "generatedBy": "scripts/generate-og.mjs",
+  "fontSources": [
+    "scripts/assets/fonts/IBMPlexSansCondensed-Bold.ttf",
+    "scripts/assets/fonts/IBMPlexMono-Regular.ttf"
+  ],
+  "cards": [
+    {
+      "path": "/og/default.png",
+      "title": "Graphics Systems Engineer",
+      "width": 1200,
+      "height": 630,
+      "bytes": 56320,
+      "sha256": "1aae17fe34eb112c8ba92e6990ca686f8ef604334fc8705ba3d64041c1a37d83"
+    },
+    {
+      "path": "/og/projects/engine-systems-explorer.png",
+      "title": "Engine Systems Explorer",
+      "width": 1200,
+      "height": 630,
+      "bytes": 56267,
+      "sha256": "9045532933a43e60904b99f7db48df9d06e99dc070f910cffac00ef919353ba6"
+    },
+    {
+      "path": "/og/projects/real-time-rendering-lab.png",
+      "title": "Real-Time Rendering Lab",
+      "width": 1200,
+      "height": 630,
+      "bytes": 54739,
+      "sha256": "dca10d3127392320b5ba53882e7dfc673b38f7f8e6fef65d4e522160f58243c2"
+    },
+    {
+      "path": "/og/projects/webgpu-compute-lab.png",
+      "title": "WebGPU Compute Lab",
+      "width": 1200,
+      "height": 630,
+      "bytes": 56092,
+      "sha256": "7fe8ad2b31b17c9e837af25fd6ba065a0a57dcfb9e03fde665814f72bda75334"
+    },
+    {
+      "path": "/og/projects/neural-graphics-lab.png",
+      "title": "Neural Graphics Lab",
+      "width": 1200,
+      "height": 630,
+      "bytes": 55047,
+      "sha256": "4028c49585c4625bd614088a196e0405d7706c160687cb2afcbe3a9ae867dfc7"
+    },
+    {
+      "path": "/og/demos/material-lighting.png",
+      "title": "Material & Lighting",
+      "width": 1200,
+      "height": 630,
+      "bytes": 55175,
+      "sha256": "2259c10b91baae493e7aa1f52d85523409d3d16f619a189b9dd91928813a34c4"
+    },
+    {
+      "path": "/og/demos/render-graph.png",
+      "title": "Render Graph Explorer",
+      "width": 1200,
+      "height": 630,
+      "bytes": 54819,
+      "sha256": "50649a736dbc50956994d15953b7058b20eeb290ef604bbf2043202d6093bb5c"
+    },
+    {
+      "path": "/og/demos/gpu-particles.png",
+      "title": "GPU Compute Particles",
+      "width": 1200,
+      "height": 630,
+      "bytes": 56023,
+      "sha256": "92e1c1ff673a51a05b1a2d96f1b4945e85faf33d67c6b5ac8b49831c028b104a"
+    },
+    {
+      "path": "/og/demos/shadow-aa.png",
+      "title": "Shadow & Temporal AA",
+      "width": 1200,
+      "height": 630,
+      "bytes": 55745,
+      "sha256": "2486b23821d62184e6af2dd3032fb7bc128f49b6c7b71f92e949f85a690a2542"
+    },
+    {
+      "path": "/og/demos/path-tracer.png",
+      "title": "Progressive Path Tracer",
+      "width": 1200,
+      "height": 630,
+      "bytes": 55498,
+      "sha256": "3cdd15e79f0f12406a45a6e5d3da95507c18002179cd6137e566d0bc3ac30cd4"
+    },
+    {
+      "path": "/og/demos/frame-inspector.png",
+      "title": "Frame Inspector",
+      "width": 1200,
+      "height": 630,
+      "bytes": 54930,
+      "sha256": "cf14ca73ddba9fe8194bc0cff1737aa8f68d729b455b3b869c24e50882f896e7"
+    },
+    {
+      "path": "/og/demos/neural-denoising.png",
+      "title": "Neural Denoising",
+      "width": 1200,
+      "height": 630,
+      "bytes": 55606,
+      "sha256": "03f88100e532f8bcad672ffba42231d015f0c86d04e8b4e1b4e75dfc2f35bc56"
+    },
+    {
+      "path": "/og/writing/compute-geometry-performance.png",
+      "title": "Large-Scale Geometry Processing with Compute Shaders",
+      "width": 1200,
+      "height": 630,
+      "bytes": 60947,
+      "sha256": "08403dc10f78ff91d849317f35371d87a26a49e2c59824bf46f8ea20e99fe7e0"
+    },
+    {
+      "path": "/og/writing/multimedia-data-path.png",
+      "title": "Data Paths, Zero-Copy, and AVSync for High-Resolution Video",
+      "width": 1200,
+      "height": 630,
+      "bytes": 60732,
+      "sha256": "a2f2b17b35e776ac1e476a6b805d8f36cd21837641aae5c614ee7f1e0b1a0437"
+    },
+    {
+      "path": "/og/writing/path-tracing-to-neural-denoising.png",
+      "title": "From Path-Tracing Noise to Neural Denoising in the Browser",
+      "width": 1200,
+      "height": 630,
+      "bytes": 60204,
+      "sha256": "b88f132a360d0102973892deedc161cd7676bb81a4eb26497ebb2715a6c1dc4f"
+    },
+    {
+      "path": "/og/writing/render-graph-lifetime.png",
+      "title": "Render Graph Dependencies, Resource Lifetimes, and Pass Culling",
+      "width": 1200,
+      "height": 630,
+      "bytes": 61416,
+      "sha256": "67cd878302772a854eb62d598eb0b066bb21c49f0f30d2f59dd200d2b2396031"
+    },
+    {
+      "path": "/og/writing/rhi-abstraction-boundaries.png",
+      "title": "What a Cross-Platform RHI Should—and Should Not—Abstract",
+      "width": 1200,
+      "height": 630,
+      "bytes": 59647,
+      "sha256": "967961b2455bf5c6b5726f2217e090815b3cc1ff26d8e0c284736488d0fcde81"
+    },
+    {
+      "path": "/og/writing/webgpu-particles-path-tracing.png",
+      "title": "Native WebGPU Particles and Progressive Path Tracing",
+      "width": 1200,
+      "height": 630,
+      "bytes": 60665,
+      "sha256": "ebcbd75221ef92d797049e3ea34f7eed75a3ee3caf81e3d61a4f8be37a61977e"
+    }
+  ]
+}

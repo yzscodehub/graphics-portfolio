@@ -6,10 +6,10 @@ describe("Frame Inspector layout", () => {
     expect(calculateFrameInspectorLayout(1, 1)).toBeUndefined();
   });
 
-  it("uses three rows below the narrow-layout breakpoint", () => {
+  it("uses four rows below the narrow-layout breakpoint", () => {
     const layout = calculateFrameInspectorLayout(539, 300);
 
-    expect(layout).toMatchObject({ columns: 2, rows: 3 });
+    expect(layout).toMatchObject({ columns: 2, rows: 4 });
   });
 
   it("uses the same narrow-layout grid for hit testing", () => {
@@ -22,9 +22,9 @@ describe("Frame Inspector layout", () => {
       bufferViewAtPoint(
         layout,
         layout.gap + layout.cellWidth + layout.gap + 20,
-        layout.gap + 2 * (layout.cellHeight + layout.gap) + 20,
+        layout.gap + 3 * (layout.cellHeight + layout.gap) + 20,
       ),
-    ).toBe("ssao");
+    ).toBe("history");
     expect(bufferViewAtPoint(layout, layout.gap + layout.cellWidth + 1, 20)).toBeUndefined();
   });
 });

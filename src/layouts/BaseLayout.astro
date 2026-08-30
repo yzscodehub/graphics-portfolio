@@ -13,6 +13,9 @@ interface Props {
   handle: string;
   image?: string;
   noindex?: boolean;
+  ogType?: "website" | "article";
+  structuredData?: Record<string, unknown> | Array<Record<string, unknown>>;
+  isNotFound?: boolean;
 }
 
 const {
@@ -22,6 +25,9 @@ const {
   handle,
   image,
   noindex = false,
+  ogType = "website",
+  structuredData,
+  isNotFound = false,
 } = Astro.props;
 const shouldNoindex = noindex || !site.features.indexing;
 const pageTitle = title.includes(handle) ? title : `${title} · ${handle}`;
@@ -29,14 +35,18 @@ const canonical = new URL(Astro.url.pathname, Astro.site ?? Astro.url.origin);
 const isWritingDetail =
   Astro.url.pathname.includes("/writing/") &&
   !Astro.url.pathname.replace(/\/$/, "").endsWith("/writing");
-const alternateRoute =
-  title === "404"
-    ? localePath("/", otherLocale[locale])
-    : isWritingDetail
-      ? localePath("/writing/", otherLocale[locale])
-      : localePath(Astro.url.pathname, otherLocale[locale]);
-const alternate = new URL(withBase(alternateRoute), Astro.site ?? Astro.url.origin);
-const socialImage = image ?? withBase("/og-default.svg");
+const alternateRoute = isNotFound
+  ? localePath("/", otherLocale[locale])
+  : isWritingDetail
+    ? undefined
+    : localePath(Astro.url.pathname, otherLocale[locale]);
+const alternate = alternateRoute
+  ? new URL(withBase(alternateRoute), Astro.site ?? Astro.url.origin)
+  : undefined;
+const socialImage = image ?? withBase("/og/default.png");
+const structuredJson = structuredData
+  ? JSON.stringify(structuredData).replaceAll("<", "\\u003c")
+  : undefined;
 ---
 
 <!doctype html>
@@ -49,21 +59,26 @@ const socialImage = image ?? withBase("/og-default.svg");
     <meta name="theme-color" content="#080b0d" />
     {shouldNoindex && <meta name="robots" content="noindex,nofollow" />}
     <link rel="icon" href={withBase("/favicon.svg")} type="image/svg+xml" />
-    <link rel="alternate" href={alternate} hreflang={otherLocale[locale]} />
+    {alternate && <link rel="alternate" href={alternate} hreflang={otherLocale[locale]} />}
     <link rel="alternate" href={canonical} hreflang={locale} />
-    <link
-      rel="alternate"
-      href={withBase("/rss.xml")}
-      type="application/rss+xml"
-      title="Graphics Systems Workbench"
-    />
+    {
+      site.features.rss && (
+        <link
+          rel="alternate"
+          href={withBase("/rss.xml")}
+          type="application/rss+xml"
+          title="Graphics Systems Workbench"
+        />
+      )
+    }
     <link rel="canonical" href={canonical} />
-    <meta property="og:type" content="website" />
+    <meta property="og:type" content={ogType} />
     <meta property="og:title" content={pageTitle} />
     <meta property="og:description" content={description} />
     <meta property="og:url" content={canonical} />
     <meta property="og:image" content={new URL(socialImage, canonical)} />
     <meta name="twitter:card" content="summary_large_image" />
+    {structuredJson && <script type="application/ld+json" is:inline set:html={structuredJson} />}
     <title>{pageTitle}</title>
   </head>
   <body>

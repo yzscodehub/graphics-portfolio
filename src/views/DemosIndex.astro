@@ -7,31 +7,77 @@ import { profile } from "../data/profile";
 import type { Locale } from "../lib/i18n";
 import { localePath } from "../lib/i18n";
 import { withBase } from "../lib/urls";
+
 interface Props {
   locale: Locale;
 }
+
+type DemoBackend = { id: string; label: string; role: string };
+type DemoRequirement = string | { label: string };
+type DemoFallback = { kind: string; description: string };
+type DemoMetricSource = { kind: string; description: string } | string;
+type DemoPresentationData = {
+  maturity?: string;
+  evidence?: string;
+  backends?: DemoBackend[];
+  requirements?: DemoRequirement[];
+  fallback?: DemoFallback;
+  metricSource?: DemoMetricSource;
+};
+
 const { locale } = Astro.props;
 const isEn = locale === "en";
 const allEntries = (await getCollection("demos")) as CollectionEntry<"demos">[];
 const entries = allEntries.filter((entry) => entry.data.locale === locale && !entry.data.draft);
 const slugOf = (entry: (typeof entries)[number]) => entry.data.routeSlug;
 const categories = ["all", "rendering", "engine", "gpu", "machine-learning"];
+
+function presentationData(entry: (typeof entries)[number]): DemoPresentationData {
+  return entry.data as typeof entry.data & DemoPresentationData;
+}
+
+function backendText(data: DemoPresentationData): string {
+  return data.backends?.map((backend) => `${backend.id} · ${backend.role}`).join(" / ") ?? "—";
+}
+
+function requirementText(data: DemoPresentationData): string {
+  return (
+    data.requirements
+      ?.map((requirement) => (typeof requirement === "string" ? requirement : requirement.label))
+      .join(" / ") ?? "—"
+  );
+}
+
+function metricSourceText(data: DemoPresentationData): string {
+  if (!data.metricSource) return isEn ? "No numeric claim" : "无数值声明";
+  return typeof data.metricSource === "string"
+    ? data.metricSource
+    : `${data.metricSource.kind} · ${data.metricSource.description}`;
+}
+
+function fallbackText(data: DemoPresentationData): string {
+  return data.fallback
+    ? `${data.fallback.kind} · ${data.fallback.description}`
+    : isEn
+      ? "Static preview"
+      : "静态预览";
+}
 ---
 
 <BaseLayout
   locale={locale}
   title={isEn ? "Demos" : "演示"}
   description={isEn
-    ? "Seven graphics prototypes at clearly labeled maturity stages."
-    : "七个明确标记成熟度阶段的图形技术原型。"}
+    ? "Seven completed graphics studies with explicit evidence and fallback paths."
+    : "七个已完成的图形技术研究，明确展示证据、回退和指标来源。"}
   handle={profile.displayName}
 >
   <PageHero
     eyebrow="DEMOS / RUNTIME"
-    title={isEn ? "Prototypes you can inspect." : "可以检查的技术原型。"}
+    title={isEn ? "Evidence you can inspect." : "可以检查的技术证据。"}
     description={isEn
-      ? "Every prototype exposes its current backend, implemented controls, limitations and fallback path."
-      : "每个原型都公开当前后端、已实现控制项、限制与降级路径。"}
+      ? "Every Demo is marked completed, names its backend and requirements, and separates runtime evidence from offline metrics."
+      : "每个 Demo 都标记为已完成，明确后端与要求，并将运行时证据和离线指标分开。"}
   />
   <section class="section">
     <div class="section-inner">
@@ -51,16 +97,58 @@ const categories = ["all", "rendering", "engine", "gpu", "machine-learning"];
       </div>
       <div class="demo-grid">
         {
-          entries.map((entry) => (
-            <DemoCard
-              title={entry.data.title}
-              description={entry.data.summary}
-              backend={entry.data.backend}
-              category={entry.data.category}
-              status={entry.data.status}
-              href={withBase(localePath(`/demos/${slugOf(entry)}/`, locale))}
-            />
-          ))
+          entries.map((entry) => {
+            const data = presentationData(entry);
+            return (
+              <div class="demo-listing" style="display:flex; flex-direction:column; min-width:0;">
+                <DemoCard
+                  title={entry.data.title}
+                  description={entry.data.summary}
+                  backend={entry.data.backend}
+                  category={entry.data.category}
+                  status={data.maturity ?? "completed"}
+                  href={withBase(localePath(`/demos/${slugOf(entry)}/`, locale))}
+                />
+                <dl
+                  class="demo-listing__evidence"
+                  style="display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px 12px; margin:0; padding:14px 18px 18px; border-right:1px solid var(--line); border-bottom:1px solid var(--line); background:rgba(15,21,24,.35); font:0.65rem/1.45 var(--font-mono,ui-monospace,monospace);"
+                >
+                  <div>
+                    <>
+                      <dt style="color:var(--dim);">EVIDENCE</dt>
+                      <dd style="margin:2px 0 0; color:var(--signal);">
+                        {data.evidence ?? "verified"}
+                      </dd>
+                    </>
+                  </div>
+                  <div>
+                    <>
+                      <dt style="color:var(--dim);">BACKENDS</dt>
+                      <dd style="margin:2px 0 0; color:var(--muted);">{backendText(data)}</dd>
+                    </>
+                  </div>
+                  <div>
+                    <>
+                      <dt style="color:var(--dim);">REQUIRES</dt>
+                      <dd style="margin:2px 0 0; color:var(--muted);">{requirementText(data)}</dd>
+                    </>
+                  </div>
+                  <div>
+                    <>
+                      <dt style="color:var(--dim);">FALLBACK</dt>
+                      <dd style="margin:2px 0 0; color:var(--muted);">{fallbackText(data)}</dd>
+                    </>
+                  </div>
+                  <div style="grid-column:1 / -1;">
+                    <>
+                      <dt style="color:var(--dim);">METRIC SOURCE</dt>
+                      <dd style="margin:2px 0 0; color:var(--muted);">{metricSourceText(data)}</dd>
+                    </>
+                  </div>
+                </dl>
+              </div>
+            );
+          })
         }
       </div>
     </div>

@@ -6,12 +6,15 @@ import ArticleCard from "../components/ArticleCard.astro";
 import { profile } from "../data/profile";
 import type { Locale } from "../lib/i18n";
 import { withBase } from "../lib/urls";
+
 interface Props {
   locale: Locale;
 }
+
 const { locale } = Astro.props;
 const isEn = locale === "en";
 const allEntries = (await getCollection("writing")) as CollectionEntry<"writing">[];
+// One Chinese full-text entry is the source for each English abstract card.
 const entries = allEntries.filter((entry) => entry.data.locale === "zh-CN" && !entry.data.draft);
 const slugOf = (entry: (typeof entries)[number]) => entry.data.routeSlug;
 ---
@@ -20,7 +23,7 @@ const slugOf = (entry: (typeof entries)[number]) => entry.data.routeSlug;
   locale={locale}
   title={isEn ? "Writing" : "文章"}
   description={isEn
-    ? "Engineering notes with English abstracts."
+    ? "Chinese full-text engineering notes with English titles and abstracts."
     : "记录工程判断、证据和取舍的技术文章。"}
   handle={profile.displayName}
 >
@@ -28,9 +31,23 @@ const slugOf = (entry: (typeof entries)[number]) => entry.data.routeSlug;
     eyebrow="WRITING / DECISIONS"
     title={isEn ? "Decisions, not recipes." : "记录判断，而不只是步骤。"}
     description={isEn
-      ? "Articles are published in Chinese with English titles and abstracts. Code, diagrams, boundaries and failure modes stay readable in either language."
-      : "文章连接代码、架构图、边界和失败路径；不是脱离上下文的技巧清单。"}
+      ? "English titles and abstracts are provided for every article; the full text is currently published in Chinese."
+      : "每篇文章都保留代码、架构图、边界和失败路径；当前全文以中文发布。"}
   />
+  {
+    isEn && (
+      <section class="section" style="padding-top:0; padding-bottom:0;">
+        <div class="section-inner">
+          <p
+            class="language-note"
+            style="margin:0; color:var(--muted); font:0.72rem/1.5 var(--font-mono,ui-monospace,monospace);"
+          >
+            ENGLISH ABSTRACT / CHINESE FULL TEXT
+          </p>
+        </div>
+      </section>
+    )
+  }
   <section class="section">
     <div class="section-inner">
       <div class="article-grid">
@@ -38,7 +55,11 @@ const slugOf = (entry: (typeof entries)[number]) => entry.data.routeSlug;
           entries.map((entry) => (
             <ArticleCard
               title={isEn ? entry.data.englishTitle : entry.data.title}
-              description={isEn ? entry.data.englishDescription : entry.data.description}
+              description={
+                isEn
+                  ? `English abstract · ${entry.data.englishDescription}`
+                  : entry.data.description
+              }
               category={entry.data.category}
               date={entry.data.publishedAt?.getFullYear().toString() ?? "2026"}
               href={withBase(`/writing/${slugOf(entry)}/`)}

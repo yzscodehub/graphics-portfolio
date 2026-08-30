@@ -24,10 +24,18 @@ function parseFrontmatter(source, file) {
   if (!match) throw new Error(`${file} is missing YAML frontmatter.`);
 
   const values = {};
+  let activeArray;
   for (const line of match[1].split(/\r?\n/)) {
     const field = line.match(/^([A-Za-z][A-Za-z0-9_-]*):\s*(.*)$/);
-    if (!field) continue;
-    values[field[1]] = field[2].replace(/^['"]|['"]$/g, "");
+    if (field) {
+      const value = field[2].replace(/^['"]|['"]$/g, "");
+      activeArray = value === "" ? field[1] : undefined;
+      values[field[1]] = value === "" ? [] : value;
+      continue;
+    }
+    const item = activeArray ? line.match(/^\s{2}-\s+(.+)$/) : undefined;
+    if (item && Array.isArray(values[activeArray]))
+      values[activeArray].push(item[1].replace(/^['"]|['"]$/g, ""));
   }
   return values;
 }
@@ -71,9 +79,11 @@ function validateCollection(name) {
 
 function main() {
   const errors = [];
+  const collections = {};
 
   for (const [collection, expectedCount] of Object.entries(expectedChineseEntries)) {
     const result = validateCollection(collection);
+    collections[collection] = result;
     errors.push(...result.errors);
     const publishedChineseKeys = new Set(
       result.entries
@@ -85,6 +95,66 @@ function main() {
         `${collection}: expected ${expectedCount} published zh-CN entries, found ${publishedChineseKeys.size}.`,
       );
     }
+    if (collection === "projects" || collection === "demos") {
+      const publishedEnglishKeys = new Set(
+        result.entries
+          .filter(({ meta }) => meta.locale === "en" && meta.draft !== "true")
+          .map(({ meta }) => meta.translationKey),
+      );
+      const missingEnglish = [...publishedChineseKeys].filter(
+        (key) => !publishedEnglishKeys.has(key),
+      );
+      const missingChinese = [...publishedEnglishKeys].filter(
+        (key) => !publishedChineseKeys.has(key),
+      );
+      if (
+        publishedEnglishKeys.size !== expectedCount ||
+        missingEnglish.length ||
+        missingChinese.length
+      )
+        errors.push(
+          `${collection}: zh-CN/en translationKey sets differ (missing en: ${missingEnglish.join(", ") || "none"}; missing zh-CN: ${missingChinese.join(", ") || "none"}).`,
+        );
+    }
+    if (collection === "demos")
+      for (const { file, meta } of result.entries.filter(({ meta }) => meta.draft !== "true")) {
+        if (meta.status !== "completed" || meta.maturity !== "completed")
+          errors.push(`${file}: published Demo status and maturity must both be completed.`);
+        if (/media\/placeholders\//.test(meta.fallbackImage ?? ""))
+          errors.push(`${file}: published Demo fallbackImage must be reviewed media.`);
+      }
+  }
+
+  const projectSlugs = new Set(
+    collections.projects.entries
+      .filter(({ meta }) => meta.locale === "zh-CN" && meta.draft !== "true")
+      .map(({ meta }) => meta.routeSlug),
+  );
+  const demoSlugs = new Set(
+    collections.demos.entries
+      .filter(({ meta }) => meta.locale === "zh-CN" && meta.draft !== "true")
+      .map(({ meta }) => meta.routeSlug),
+  );
+  const articleSlugs = new Set(
+    collections.writing.entries
+      .filter(({ meta }) => meta.locale === "zh-CN" && meta.draft !== "true")
+      .map(({ meta }) => meta.routeSlug),
+  );
+  for (const { file, meta } of collections.projects.entries.filter(
+    ({ meta }) => meta.draft !== "true",
+  )) {
+    for (const slug of meta.demoSlugs ?? [])
+      if (!demoSlugs.has(slug)) errors.push(`${file}: unknown related Demo ${slug}.`);
+    for (const slug of meta.articleSlugs ?? [])
+      if (!articleSlugs.has(slug)) errors.push(`${file}: unknown related article ${slug}.`);
+  }
+  for (const { file, meta } of collections.demos.entries.filter(
+    ({ meta }) => meta.draft !== "true",
+  )) {
+    for (const slug of meta.relatedProjects ?? [])
+      if (!projectSlugs.has(slug)) errors.push(`${file}: unknown related project ${slug}.`);
+    for (const slug of meta.relatedArticles ?? [])
+      if (!articleSlugs.has(slug)) errors.push(`${file}: unknown related article ${slug}.`);
   }
 
   const experience = validateCollection("experience");

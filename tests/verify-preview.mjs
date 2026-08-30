@@ -2,6 +2,7 @@ import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { execFileSync } from "node:child_process";
 import path from "node:path";
+import { resolveSiteFeatures } from "../src/data/site-stage.mjs";
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const sourceExtensions = new Set([".astro", ".css", ".html", ".json", ".md", ".mdx", ".ts"]);
@@ -20,6 +21,10 @@ const previewRules = [
   },
   { code: "telephone-link", pattern: /tel:/gi },
   { code: "email-link", pattern: /mailto:/gi },
+  {
+    code: "email-address",
+    pattern: /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi,
+  },
 ];
 
 function walk(directory, extensions) {
@@ -62,6 +67,30 @@ export function findPreviewPolicyViolations(text, relativePath) {
   }
 
   return violations;
+}
+
+export function validatePreviewStage(environment = process.env) {
+  try {
+    const features = resolveSiteFeatures(environment.SITE_STAGE);
+    if (features.stage === "preview") return [];
+    return [
+      {
+        code: "stage",
+        file: "environment",
+        line: 0,
+        value: "verify-preview requires SITE_STAGE=preview",
+      },
+    ];
+  } catch (error) {
+    return [
+      {
+        code: "stage",
+        file: "environment",
+        line: 0,
+        value: error instanceof Error ? error.message : "invalid SITE_STAGE",
+      },
+    ];
+  }
 }
 
 export function validatePreviewArtifacts(root = projectRoot) {
@@ -128,6 +157,14 @@ export function validatePreviewArtifacts(root = projectRoot) {
     }
   }
 
+  if (existsSync(path.join(outputRoot, "media", "placeholders")))
+    violations.push({
+      code: "placeholder-media-directory",
+      file: "dist/media/placeholders",
+      line: 0,
+      value: "obsolete placeholder assets must not ship",
+    });
+
   if (!existsSync(robots)) {
     violations.push({
       code: "missing-robots",
@@ -146,14 +183,23 @@ export function validatePreviewArtifacts(root = projectRoot) {
 
   for (const htmlFile of walk(outputRoot, new Set([".html"]))) {
     const html = readFileSync(htmlFile, "utf8");
+    const relativePath = path.relative(root, htmlFile).replaceAll(path.sep, "/");
     if (!/<meta\s+name=["']robots["']\s+content=["']noindex,nofollow["']\s*\/?\s*>/i.test(html)) {
       violations.push({
         code: "missing-noindex",
-        file: path.relative(root, htmlFile).replaceAll(path.sep, "/"),
+        file: relativePath,
         line: 0,
         value: "preview pages must opt out of indexing",
       });
     }
+    for (const contact of html.matchAll(/<a\b[^>]*data-contact-link[^>]*>/gi))
+      if (!/href=["']https:\/\/github\.com\/yzscodehub["']/i.test(contact[0]))
+        violations.push({
+          code: "contact-policy",
+          file: relativePath,
+          line: 0,
+          value: "contact controls must remain GitHub-only",
+        });
   }
 
   return violations;
@@ -210,6 +256,7 @@ export function scanPreviewFiles(root = projectRoot) {
 
 function main(root = projectRoot) {
   const violations = [
+    ...validatePreviewStage(),
     ...validatePreviewArtifacts(root),
     ...validateTrackedPreviewFiles(root),
     ...scanPreviewFiles(root),

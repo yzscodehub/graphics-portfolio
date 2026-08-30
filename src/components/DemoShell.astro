@@ -70,7 +70,13 @@ const fallbackImageUrl = withBase(fallbackImage);
     </p>
   </div>
   <div class="demo-shell__stage" data-demo-stage>
-    <canvas aria-label={`${title} visual output`} role="img"></canvas>
+    <canvas aria-label={`${title} visual output`} role="img">
+      {
+        locale === "en"
+          ? `${title} interactive rendering output. Use the adjacent status, controls, and fallback description when Canvas is unavailable.`
+          : `${title} 交互式渲染输出。Canvas 不可用时，请阅读相邻的状态、控件与回退说明。`
+      }
+    </canvas>
     <div class="demo-shell__fallback" data-demo-fallback hidden>
       <img class="demo-shell__fallback-image" src={fallbackImageUrl} alt="" />
       <div class="demo-shell__fallback-copy">
@@ -84,7 +90,8 @@ const fallbackImageUrl = withBase(fallbackImage);
     <p data-demo-status role="status">{labels.preparing}</p>
     <output data-demo-metrics aria-live="off"></output>
   </div>
-  <div class="demo-shell__controls" data-demo-controls aria-label={labels.controls}></div>
+  <div class="demo-shell__controls" data-demo-controls role="group" aria-label={labels.controls}>
+  </div>
 </section>
 
 <script>

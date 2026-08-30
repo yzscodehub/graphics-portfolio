@@ -3,23 +3,49 @@ routeSlug: gpu-particles
 translationKey: gpu-particles
 locale: zh-CN
 title: GPU Compute Particles
-summary: 使用原生 WebGPU 和 WGSL 原地更新单个粒子 Storage Buffer，并提供明确标注的 Canvas 回退。
+summary: 使用原生 WebGPU 和 WGSL 更新 Ping-Pong 粒子状态，包含生命周期、吸引子和可选 timestamp-query 证据。
 category: gpu
 renderer: Raw WebGPU + WGSL / Canvas 2D 回退
 backend: raw-webgpu
-status: idea
-featured: true
+status: completed
+maturity: completed
+evidence: measured
+backends:
+  - id: raw-webgpu
+    label: 原生 WebGPU Compute 与 Render Pass
+    role: primary
+    capabilities:
+      - webgpu
+  - id: canvas-2d
+    label: 缩减的确定性 Canvas 2D 预览
+    role: fallback
+    capabilities: []
 capabilities:
   - webgpu
 requirements:
-  - 优先使用 WebGPU
-  - WebGPU 不可用时使用 Canvas 2D 回退
+  - label: WebGPU
+    required: false
+    capability: webgpu
+  - label: timestamp-query 特性（可选）
+    required: false
+    capability: webgpu
+fallback:
+  kind: canvas-2d
+  description: WebGPU 不可用时使用缩减的 Canvas 2D 生命周期预览，并保留控件和明确标签。
+  image: /media/demos/gpu-particles-poster.svg
 controls:
   - 25K particles
   - 100K particles
   - 250K particles
+  - Attractor 范围
+  - Pointer attractor
+  - Pause / Resume
+  - Reset
 metrics: []
-fallbackImage: /media/placeholders/demo-gpu-particles.svg
+metricSource:
+  kind: runtime
+  description: 支持 timestamp-query 时从 GPU 时间戳读取 Compute/Render 区间，否则仅报告 animation-frame 状态，不声称 GPU 时间。
+fallbackImage: /media/demos/gpu-particles-poster.svg
 relatedProjects:
   - webgpu-compute-lab
 relatedArticles:
@@ -28,10 +54,14 @@ relatedArticles:
 draft: false
 ---
 
-## 展示内容
+## 实际运行内容
 
-粒子状态存放在一个 `read_write` Storage Buffer 中。Compute Pass 原地更新它，随后 Render Pass 将同一份 Buffer 绘制为点。当前实现报告后端和粒子数量，不提供独立 GPU 计时，也不拆分 Compute 与总帧时间。
+WebGPU 路径维护两个粒子 Buffer，每帧交替读写。Compute Pass 更新位置、速度、年龄、生命周期和种子；过期或越界粒子会以确定性方式重生。Render Pass 消费写入的 Buffer，点的颜色和透明度反映剩余生命周期。
 
-## 回退行为
+## 交互与测量
 
-WebGPU 不可用时，页面创建缩减后的 Canvas 2D 预览并明确标记。三个数量按钮会按所选规模重新创建渲染器。Ping-Pong 状态、间接绘制、吸引子/噪声控件和独立 GPU 计时属于后续路线。
+数量按钮会为 25K、100K 或 250K 粒子重新创建资源。指针控制吸引子，范围控件调整吸引力，Pause/Reset 同时作用于原生和 Canvas 实现。适配器支持 `timestamp-query` 时，Demo 解析独立 Compute/Render 区间并标记 `gpu-timestamp-query`；否则明确显示计时不可用。
+
+## 回退边界
+
+Canvas 回退以缩减规模实现相同的生命周期和吸引子概念，但 animation-frame 节奏不能与原生 GPU 时间戳直接比较。
