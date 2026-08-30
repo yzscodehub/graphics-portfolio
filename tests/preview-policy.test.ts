@@ -30,6 +30,12 @@ describe("preview privacy policy", () => {
     expect(violations.map((violation) => violation.code)).toEqual(
       expect.arrayContaining(["public-email-placeholder", "phone-number"]),
     );
+    expect(
+      policy.findPreviewPolicyViolations(
+        '{"sha256":"abcdef0123456789abcdef13800138000abcdef0123456789abcdef0123456789"}',
+        "dist/og/manifest.json",
+      ),
+    ).toEqual([]);
   });
 
   it("requires noindex, blocked robots, no PDFs, and a small model", async () => {

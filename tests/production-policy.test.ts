@@ -107,6 +107,12 @@ describe("production privacy policy", () => {
       "model.metrics.json",
     );
     expect(violations.some((violation) => violation.code === "phone-number")).toBe(false);
+    expect(
+      policy.findPolicyViolations(
+        '{"sha256":"abcdef0123456789abcdef13800138000abcdef0123456789abcdef0123456789"}',
+        "dist/og/manifest.json",
+      ),
+    ).toEqual([]);
   });
 
   it("keeps the indexed release GitHub-only", async () => {

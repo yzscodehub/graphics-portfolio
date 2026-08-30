@@ -50,6 +50,15 @@ function lineFor(text, index) {
   return text.slice(0, index).split("\n").length;
 }
 
+function isInsideHexDigest(text, match) {
+  if (!/^[a-f\d]+$/i.test(match[0])) return false;
+  let start = match.index;
+  let end = match.index + match[0].length;
+  while (start > 0 && /[a-f\d]/i.test(text[start - 1])) start -= 1;
+  while (end < text.length && /[a-f\d]/i.test(text[end])) end += 1;
+  return end - start >= 32;
+}
+
 export function findPreviewPolicyViolations(text, relativePath) {
   const violations = [];
 
@@ -57,6 +66,7 @@ export function findPreviewPolicyViolations(text, relativePath) {
     rule.pattern.lastIndex = 0;
     let match;
     while ((match = rule.pattern.exec(text)) !== null) {
+      if (rule.code === "phone-number" && isInsideHexDigest(text, match)) continue;
       violations.push({
         code: rule.code,
         file: relativePath,
