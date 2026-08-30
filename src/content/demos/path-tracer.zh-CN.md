@@ -2,23 +2,22 @@
 routeSlug: path-tracer
 translationKey: path-tracer
 locale: zh-CN
-title: Progressive Path Tracer
-summary: 用原生 WebGPU 实现小型场景的 BVH 求交、渐进采样和累积缓冲。
+title: Progressive Path Study
+summary: 使用原生 WebGPU 研究小型全屏渐进式路径近似图像，并在 WebGPU 不可用时使用 Canvas 回退。
 category: gpu
-renderer: Raw WebGPU + WGSL
+renderer: Raw WebGPU + WGSL / Canvas 2D 回退
 backend: raw-webgpu
 status: idea
 featured: false
 capabilities:
   - webgpu
 requirements:
-  - webgpu
+  - 优先使用 WebGPU
+  - WebGPU 不可用时使用 Canvas 2D 回退
 controls:
-  - Samples Per Pixel
-  - "Bounce Limit: 1–4"
-  - "Material: Diffuse / Metal / Dielectric"
-  - Accumulation Reset
-  - Pause / Restart
+  - 2 BOUNCES
+  - 3 BOUNCES
+  - 4 BOUNCES
 metrics: []
 fallbackImage: /media/placeholders/demo-path-tracer.svg
 relatedProjects:
@@ -28,10 +27,10 @@ relatedArticles:
 draft: false
 ---
 
-## 展示目标
+## 展示内容
 
-小型 Cornell 场景由 CPU 构建 BVH，GPU 生成样本并写入累积纹理。相机、材质、分辨率或反弹次数发生变化时，历史样本必须清空；否则不同投影会被错误混合。
+WebGPU 片元着色器绘制一个全屏程序化房间，包含解析地面和两个球体，再把带抖动的路径近似结果混合到两个颜色纹理中。唯一暴露的控件是最大反弹次数；当前没有 CPU 构建 BVH、材质选择、Samples Per Pixel 或显式重置按钮。
 
 ## 明确限制
 
-这是资源、采样和重置逻辑的原型，不包含生产级光源采样、压缩 BVH 或去噪。最多四次反弹只用于保持交互可控，不代表离线质量或硬件性能承诺。
+这是着色器资源和渐进式累积的视觉研究，不是生产级路径追踪器。回退路径是程序化 Canvas 2D 场景，报告的是视觉样本而非 GPU 计时。生产级光源采样、BVH、材质变体、显式重置和去噪保留为后续路线。

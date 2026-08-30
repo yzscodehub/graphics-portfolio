@@ -1,5 +1,6 @@
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { fileURLToPath } from "node:url";
+import { execFileSync } from "node:child_process";
 import path from "node:path";
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -158,6 +159,41 @@ export function validatePreviewArtifacts(root = projectRoot) {
   return violations;
 }
 
+export function findTrackedPreviewFileViolations(trackedPaths) {
+  return trackedPaths
+    .filter((relativePath) => path.extname(relativePath).toLowerCase() === ".pdf")
+    .map((relativePath) => ({
+      code: "tracked-preview-pdf",
+      file: relativePath.replaceAll(path.sep, "/"),
+      line: 0,
+      value: "generated resume PDFs must remain untracked during preview",
+    }));
+}
+
+export function validateTrackedPreviewFiles(root = projectRoot) {
+  if (!existsSync(path.join(root, ".git"))) return [];
+
+  try {
+    const tracked = execFileSync(
+      "git",
+      ["-c", `safe.directory=${root.replaceAll("\\", "/")}`, "ls-files", "-z", "--", "*.pdf"],
+      { cwd: root, encoding: "utf8" },
+    )
+      .split("\0")
+      .filter(Boolean);
+    return findTrackedPreviewFileViolations(tracked);
+  } catch (error) {
+    return [
+      {
+        code: "tracked-file-scan",
+        file: ".git",
+        line: 0,
+        value: error instanceof Error ? error.message : "unable to inspect tracked preview files",
+      },
+    ];
+  }
+}
+
 export function scanPreviewFiles(root = projectRoot) {
   const roots = [
     { directory: path.join(root, "src"), extensions: sourceExtensions },
@@ -173,7 +209,11 @@ export function scanPreviewFiles(root = projectRoot) {
 }
 
 function main(root = projectRoot) {
-  const violations = [...validatePreviewArtifacts(root), ...scanPreviewFiles(root)];
+  const violations = [
+    ...validatePreviewArtifacts(root),
+    ...validateTrackedPreviewFiles(root),
+    ...scanPreviewFiles(root),
+  ];
   if (violations.length === 0) {
     console.log("Preview privacy and artifact checks passed.");
     return;

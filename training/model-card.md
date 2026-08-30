@@ -43,6 +43,18 @@ starts as an exact identity mapping rather than degrading the input.
 - Manifest SHA-256:
   `7b6eacc3eb5f32ed9e1ae14d76a1ffdf4fb426b7ac5fffeb025cac177fc7dd4c`.
 
+Reviewed dataset command:
+
+```powershell
+python training/generate_dataset.py `
+  --output-root D:/datasets/portfolio-procedural-v1 `
+  --train-count 64 `
+  --val-count 16 `
+  --size 256 `
+  --noisy-spp 1 `
+  --clean-spp 64
+```
+
 The renderer estimates direct area-light illumination, analytic shadows, and
 a deterministic ambient approximation. The 64-SPP reference remains a finite
 Monte Carlo estimate, not full global-illumination ground truth.

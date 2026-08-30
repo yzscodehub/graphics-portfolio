@@ -31,8 +31,10 @@ const { Content } = await render(entry);
     <div class="section-inner">
       <DemoShell
         slug={entry.data.routeSlug}
+        locale="en"
         title={entry.data.title}
         description={entry.data.summary}
+        fallbackImage={entry.data.fallbackImage}
       />
     </div>
   </section>

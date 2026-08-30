@@ -21,15 +21,17 @@ const categories = ["all", "rendering", "engine", "gpu", "machine-learning"];
 <BaseLayout
   locale={locale}
   title={isEn ? "Demos" : "演示"}
-  description={isEn ? "Seven runnable graphics demonstrations." : "七个可运行的图形技术演示。"}
+  description={isEn
+    ? "Seven graphics prototypes at clearly labeled maturity stages."
+    : "七个明确标记成熟度阶段的图形技术原型。"}
   handle={profile.displayName}
 >
   <PageHero
     eyebrow="DEMOS / RUNTIME"
-    title={isEn ? "Evidence you can run." : "可以运行的技术证据。"}
+    title={isEn ? "Prototypes you can inspect." : "可以检查的技术原型。"}
     description={isEn
-      ? "Every demo exposes its backend, controls, limitations and fallback path."
-      : "每个 Demo 都公开后端、控制项、限制与降级路径。"}
+      ? "Every prototype exposes its current backend, implemented controls, limitations and fallback path."
+      : "每个原型都公开当前后端、已实现控制项、限制与降级路径。"}
   />
   <section class="section">
     <div class="section-inner">

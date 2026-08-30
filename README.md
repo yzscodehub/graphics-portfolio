@@ -68,7 +68,7 @@ The current site is a public preview, not a job-application release. `src/data/s
 
 `src/data/profile.ts` is the only source for the public nickname and GitHub link. The preview exposes only `yzscodehub` and `https://github.com/yzscodehub`; it has no email, contact form, telephone link, resume route, or PDF artifact. Keep phone numbers, salary, address, private employer information, internal code, and unlicensed media out of the repository.
 
-`pnpm verify:preview` rejects public-email placeholders, phone and salary data, mail or telephone links, resume routes, PDF artifacts, missing or oversize neural models, missing `noindex,nofollow` metadata, and an unblocked `robots.txt`.
+`pnpm verify:preview` rejects public-email placeholders, phone and salary data, mail or telephone links, resume routes, PDF artifacts in `dist`, tracked PDF drafts anywhere in the repository, missing or oversize neural models, missing `noindex,nofollow` metadata, and an unblocked `robots.txt`.
 
 The former resume implementation is preserved under `deferred/resume/` and must stay outside Astro routes and Pages artifacts until the formal release phase.
 

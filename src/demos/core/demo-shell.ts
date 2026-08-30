@@ -8,6 +8,53 @@ interface MountedDemo {
   dispose(): Promise<void>;
 }
 
+type ShellState = "loading" | "running" | "fallback" | "error";
+
+interface ShellCopy {
+  states: Record<ShellState, string>;
+  unknownModule: string;
+  incompleteMarkup: string;
+  loading: string;
+  reducedMotionFallback: string;
+  coarsePointerFallback: string;
+  localFallback: string;
+}
+
+const shellCopy: Record<"en" | "zh-CN", ShellCopy> = {
+  en: {
+    states: {
+      loading: "INITIALIZING",
+      running: "LIVE / RUNNING",
+      fallback: "STATIC PREVIEW",
+      error: "UNAVAILABLE",
+    },
+    unknownModule: "Unknown demo module.",
+    incompleteMarkup: "Demo markup is incomplete.",
+    loading: "Loading local render module…",
+    reducedMotionFallback: "Reduced motion: static preview enabled.",
+    coarsePointerFallback: "Touch device: static preview enabled.",
+    localFallback: "Showing local static preview.",
+  },
+  "zh-CN": {
+    states: {
+      loading: "初始化中",
+      running: "运行中",
+      fallback: "静态预览",
+      error: "不可用",
+    },
+    unknownModule: "未知的 Demo 模块。",
+    incompleteMarkup: "Demo 结构不完整。",
+    loading: "正在加载本地渲染模块…",
+    reducedMotionFallback: "减少动态效果：已显示静态预览。",
+    coarsePointerFallback: "触摸设备：已显示静态预览。",
+    localFallback: "已显示本地静态预览。",
+  },
+};
+
+function copyFor(shell: HTMLElement): ShellCopy {
+  return shellCopy[shell.dataset.demoLocale === "zh-CN" ? "zh-CN" : "en"];
+}
+
 function metricText(metrics: DemoMetrics): string {
   const values = [
     metrics.backend,
@@ -22,12 +69,12 @@ function metricText(metrics: DemoMetrics): string {
   return values.join(" · ");
 }
 
-function setShellState(
-  shell: HTMLElement,
-  state: "loading" | "running" | "fallback" | "error",
-): void {
+function setShellState(shell: HTMLElement, state: ShellState): void {
   shell.dataset.demoState = state;
-  shell.querySelector<HTMLElement>("[data-demo-state]")?.setAttribute("data-state", state);
+  const stateElement = shell.querySelector<HTMLElement>("[data-demo-state]");
+  if (!stateElement) return;
+  stateElement.dataset.state = state;
+  stateElement.textContent = copyFor(shell).states[state];
 }
 
 function setStatus(
@@ -56,7 +103,7 @@ export function mountDemoShell(shell: HTMLElement): void {
   const item = slug ? demoRegistry[slug] : undefined;
   if (!item) {
     setShellState(shell, "error");
-    setStatus(shell, "Unknown demo module.", "error");
+    setStatus(shell, copyFor(shell).unknownModule, "error");
     return;
   }
 
@@ -67,8 +114,8 @@ export function mountDemoShell(shell: HTMLElement): void {
     staticFallback(
       shell,
       capabilities.reducedMotion
-        ? "Reduced motion: static preview enabled."
-        : "Touch device: static preview enabled.",
+        ? copyFor(shell).reducedMotionFallback
+        : copyFor(shell).coarsePointerFallback,
     );
     return;
   }
@@ -87,7 +134,7 @@ export function mountDemoShell(shell: HTMLElement): void {
 
   if (!canvas || !stage || !controls || !metrics) {
     setShellState(shell, "error");
-    setStatus(shell, "Demo markup is incomplete.", "error");
+    setStatus(shell, copyFor(shell).incompleteMarkup, "error");
     return;
   }
 
@@ -109,7 +156,7 @@ export function mountDemoShell(shell: HTMLElement): void {
     if (started || destroyed) return;
     started = true;
     setShellState(shell, "loading");
-    setStatus(shell, "Loading local render module…");
+    setStatus(shell, copyFor(shell).loading);
     void item
       .load()
       .then(async ({ createDemo }) => {
@@ -136,7 +183,7 @@ export function mountDemoShell(shell: HTMLElement): void {
       .catch((error: unknown) => {
         if (destroyed) return;
         const message = error instanceof Error ? error.message : "Demo failed to initialize.";
-        staticFallback(shell, `${message} Showing local fallback.`);
+        staticFallback(shell, `${message} ${copyFor(shell).localFallback}`);
       });
   };
 

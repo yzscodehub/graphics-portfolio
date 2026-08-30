@@ -50,6 +50,7 @@ const otherHref = withBase(alternateRoute);
       <span class="preview-status" aria-label={previewStatus}>{previewStatus}</span>
     </a>
     <nav
+      id="site-primary-navigation"
       class="site-nav"
       data-site-nav
       aria-label={locale === "en" ? "Primary navigation" : "主导航"}
@@ -73,7 +74,10 @@ const otherHref = withBase(alternateRoute);
         class="nav-toggle"
         type="button"
         data-nav-toggle
+        data-nav-open-label={locale === "en" ? "Close navigation" : "关闭导航"}
+        data-nav-closed-label={labels.menu}
         aria-expanded="false"
+        aria-controls="site-primary-navigation"
         aria-label={labels.menu}>MENU</button
       >
     </div>

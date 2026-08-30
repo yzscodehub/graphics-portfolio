@@ -13,7 +13,7 @@ export const demoRegistry: Record<string, DemoLoader> = {
   "render-graph": {
     definition: {
       slug: "render-graph",
-      backend: "svg",
+      backend: "canvas-2d",
       capabilities: [],
       relatedProjects: ["engine-systems-explorer"],
     },

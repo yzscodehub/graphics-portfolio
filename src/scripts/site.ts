@@ -4,15 +4,27 @@ const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matc
 const navToggle = document.querySelector<HTMLButtonElement>("[data-nav-toggle]");
 const nav = document.querySelector<HTMLElement>("[data-site-nav]");
 
+const setNavigationOpen = (open: boolean, focusFirstItem = false) => {
+  nav?.classList.toggle("is-open", open);
+  navToggle?.setAttribute("aria-expanded", String(open));
+  navToggle?.setAttribute(
+    "aria-label",
+    open
+      ? (navToggle.dataset.navOpenLabel ?? "Close navigation")
+      : (navToggle.dataset.navClosedLabel ?? "Open navigation"),
+  );
+  if (open && focusFirstItem) {
+    window.requestAnimationFrame(() => nav?.querySelector<HTMLAnchorElement>("a")?.focus());
+  }
+};
+
 navToggle?.addEventListener("click", () => {
-  const open = nav?.classList.toggle("is-open") ?? false;
-  navToggle.setAttribute("aria-expanded", String(open));
+  setNavigationOpen(!nav?.classList.contains("is-open"), true);
 });
 
 document.addEventListener("keydown", (event) => {
   if (event.key !== "Escape" || !nav?.classList.contains("is-open")) return;
-  nav.classList.remove("is-open");
-  navToggle?.setAttribute("aria-expanded", "false");
+  setNavigationOpen(false);
   navToggle?.focus();
 });
 

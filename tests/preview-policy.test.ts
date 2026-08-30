@@ -50,4 +50,22 @@ describe("preview privacy policy", () => {
       rmSync(fixtureRoot, { recursive: true, force: true });
     }
   });
+
+  it("rejects generated PDFs tracked by the preview repository", async () => {
+    const policy = (await import("./verify-preview.mjs")) as {
+      findTrackedPreviewFileViolations(paths: string[]): Array<{ code: string; file: string }>;
+    };
+
+    expect(policy.findTrackedPreviewFileViolations(["README.md", "src/pages/index.astro"])).toEqual(
+      [],
+    );
+    expect(
+      policy.findTrackedPreviewFileViolations(["deferred/resume/public/resume/resume-zh-CN.pdf"]),
+    ).toEqual([
+      expect.objectContaining({
+        code: "tracked-preview-pdf",
+        file: "deferred/resume/public/resume/resume-zh-CN.pdf",
+      }),
+    ]);
+  });
 });

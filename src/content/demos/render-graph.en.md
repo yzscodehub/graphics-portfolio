@@ -3,20 +3,22 @@ routeSlug: render-graph
 translationKey: render-graph
 locale: en
 title: Render Graph Explorer
-summary: Explore pass dependencies, resource lifetimes, culling, and transient aliasing through an interactive graph.
+summary: Inspect a fixed Canvas 2D pass-dependency preview with visibility toggles and node selection.
 category: engine
-renderer: TypeScript + SVG
-backend: svg
+renderer: Canvas 2D procedural pass graph
+backend: canvas-2d
 status: in-progress
 featured: true
 capabilities: []
-requirements: []
+requirements:
+  - Baseline Canvas 2D
 controls:
-  - Select Pass
-  - Toggle Pass
-  - Show Resource Lifetime
-  - Show Aliasing
-  - Reset Graph
+  - Depth Prepass
+  - G-Buffer
+  - Lighting
+  - Temporal AA
+  - Tone Map
+  - Select a visible node on the canvas
 metrics: []
 fallbackImage: /media/placeholders/demo-render-graph.svg
 relatedProjects:
@@ -28,8 +30,8 @@ draft: false
 
 ## What it demonstrates
 
-This GPU-independent architecture demo highlights inputs, outputs, and dependencies when a pass is selected. Disabling a branch that does not contribute to the final output causes the required subgraph to be recomputed.
+This GPU-independent Canvas 2D preview draws five fixed pass nodes and their declared read/write labels. Buttons toggle node visibility and clicking a visible node selects it; the current implementation does not compile or execute a real render graph.
 
-## Observable information
+## Observable boundary
 
-The resource panel shows first write, last read, and reusable intervals. It describes a declarative render-graph analysis; it is not a real API capture or hardware timeline. Memory savings remain hypotheses until validated against a backend.
+The status line reports the selected node's declared reads and writes. It does not calculate first/last resource use, pass culling, SVG relationships, transient aliasing, barriers, or GPU timing. Those remain an explicit follow-up route for the Engine Systems project.

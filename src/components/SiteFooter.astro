@@ -1,6 +1,7 @@
 ---
 import type { Locale } from "../lib/i18n";
 import { site } from "../data/site";
+import { withBase } from "../lib/urls";
 
 interface Props {
   locale: Locale;
@@ -23,6 +24,7 @@ const stageLabel = `STAGE / ${site.features.stage.toUpperCase()}`;
       }</span
     >
     <span>{stageLabel}</span>
+    <a href={withBase("/THIRD_PARTY_NOTICES.txt")}>THIRD-PARTY</a>
     <span>ASTRO / WEBGPU / WGSL</span>
   </div>
 </footer>

@@ -1,7 +1,15 @@
 import { clearElement, makeButton, resizeCanvas } from "./core/canvas";
 import type { DemoContext, DemoController } from "./core/types";
 
-type ViewMode = "noisy" | "denoised" | "reference" | "error";
+export type ViewMode = "noisy" | "denoised" | "reference" | "error";
+
+const FRAME_SIZE = 256;
+
+export interface DenoisingFrames {
+  size: number;
+  reference: Uint8ClampedArray;
+  noisy: Uint8ClampedArray;
+}
 
 export function createDemo(): DemoController {
   let context: DemoContext;
@@ -10,9 +18,10 @@ export function createDemo(): DemoController {
   let height = 1;
   let mode: ViewMode = "noisy";
   let image: ImageData | undefined;
-  let onnxDenoised: ImageData | undefined;
+  let onnxDenoised: Uint8ClampedArray | undefined;
   let inferenceBackend = "Deterministic Canvas fallback";
   let measuredInferenceMs: number | undefined;
+  const frames = makeFrames(FRAME_SIZE);
   const staging = document.createElement("canvas");
   const draw = () => {
     if (!image) return;
@@ -32,22 +41,21 @@ export function createDemo(): DemoController {
     ctx.font = "12px ui-monospace, monospace";
     ctx.fillText(`DETERMINISTIC ${mode.toUpperCase()} VIEW`, 16, 24);
     ctx.fillStyle = "rgba(232,230,220,.62)";
-    ctx.fillText(
-      onnxDenoised
-        ? "Reviewed local ONNX model / held-out procedural validation distribution."
-        : "Deterministic visual fallback / ONNX inference unavailable.",
-      16,
-      height - 16,
-    );
+    ctx.fillText(getViewDetail(mode, Boolean(onnxDenoised)), 16, height - 16);
   };
-  const setMode = (next: ViewMode) => {
+  const setMode = (next: ViewMode, announce = true) => {
     mode = next;
-    image = mode === "denoised" && onnxDenoised ? onnxDenoised : makeView(mode, 256);
+    image = makeImageData(makeDenoisingView(mode, frames, onnxDenoised), frames.size);
     context.setMetrics({
       backend: inferenceBackend,
       status: mode.toUpperCase(),
       inferenceMs: measuredInferenceMs,
     });
+    if (announce)
+      context.setStatus(
+        getViewStatus(mode, Boolean(onnxDenoised)),
+        mode === "error" && !onnxDenoised ? "warning" : "info",
+      );
     draw();
   };
   return {
@@ -55,14 +63,14 @@ export function createDemo(): DemoController {
       context = next;
       ctx = resizeCanvas(context.canvas, width, height);
       clearElement(context.controls);
-      const inference = await tryOnnxInference();
-      onnxDenoised = inference.image;
+      const inference = await tryOnnxInference(frames);
+      onnxDenoised = inference.pixels;
       inferenceBackend = inference.backend ?? "Deterministic Canvas fallback";
       measuredInferenceMs = inference.inferenceMs;
-      context.setStatus(inference.status, inference.image ? "success" : "warning");
+      context.setStatus(inference.status, inference.pixels ? "success" : "warning");
       context.setMetrics({
         backend: inference.backend ?? "Deterministic Canvas fallback",
-        status: inference.image ? "MODEL READY" : "FALLBACK",
+        status: inference.pixels ? "MODEL READY" : "FALLBACK",
         inferenceMs: inference.inferenceMs,
       });
       (["noisy", "denoised", "reference", "error"] as ViewMode[]).forEach((view) => {
@@ -79,13 +87,13 @@ export function createDemo(): DemoController {
         );
         context.controls.append(button);
       });
-      setMode(mode);
+      setMode(mode, false);
     },
     resize(nextWidth, nextHeight) {
       width = nextWidth;
       height = nextHeight;
       ctx = resizeCanvas(context.canvas, width, height);
-      setMode(mode);
+      setMode(mode, false);
     },
     pause() {},
     resume() {
@@ -95,8 +103,8 @@ export function createDemo(): DemoController {
   };
 }
 
-async function tryOnnxInference(): Promise<{
-  image?: ImageData;
+async function tryOnnxInference(frames: DenoisingFrames): Promise<{
+  pixels?: Uint8ClampedArray;
   status: string;
   backend?: string;
   inferenceMs?: number;
@@ -111,57 +119,77 @@ async function tryOnnxInference(): Promise<{
     const session = await ort.InferenceSession.create(modelUrl, {
       executionProviders: ["webgpu", "wasm"],
     });
-    const { noisy } = makeFrames(256);
-    const input = new Float32Array(3 * 256 * 256);
-    for (let y = 0; y < 256; y += 1)
-      for (let x = 0; x < 256; x += 1)
-        for (let channel = 0; channel < 3; channel += 1) {
-          input[channel * 256 * 256 + y * 256 + x] = noisy[(y * 256 + x) * 4 + channel] / 255;
+    try {
+      const { noisy, size } = frames;
+      const input = new Float32Array(3 * size * size);
+      for (let y = 0; y < size; y += 1)
+        for (let x = 0; x < size; x += 1)
+          for (let channel = 0; channel < 3; channel += 1) {
+            input[channel * size * size + y * size + x] = noisy[(y * size + x) * 4 + channel] / 255;
+          }
+      const inferenceStart = performance.now();
+      const result = await session.run({
+        [session.inputNames[0]]: new ort.Tensor("float32", input, [1, 3, size, size]),
+      });
+      const inferenceMs = performance.now() - inferenceStart;
+      const output = result[session.outputNames[0]];
+      if (!output || output.data.length < 3 * size * size)
+        return {
+          status: "ONNX model output shape is incompatible; using deterministic local fallback.",
+        };
+      const pixels = new Uint8ClampedArray(size * size * 4);
+      for (let y = 0; y < size; y += 1)
+        for (let x = 0; x < size; x += 1) {
+          const pixel = (y * size + x) * 4;
+          for (let channel = 0; channel < 3; channel += 1)
+            pixels[pixel + channel] = Math.round(
+              clamp(Number(output.data[channel * size * size + y * size + x])) * 255,
+            );
+          pixels[pixel + 3] = 255;
         }
-    const inferenceStart = performance.now();
-    const result = await session.run({
-      [session.inputNames[0]]: new ort.Tensor("float32", input, [1, 3, 256, 256]),
-    });
-    const inferenceMs = performance.now() - inferenceStart;
-    const output = result[session.outputNames[0]];
-    if (!output || output.data.length < 3 * 256 * 256)
       return {
-        status: "ONNX model output shape is incompatible; using deterministic local fallback.",
+        pixels,
+        status:
+          "Reviewed ONNX model inference completed locally; WebGPU is preferred with WASM fallback.",
+        backend: "ONNX Runtime WebGPU/WASM",
+        inferenceMs,
       };
-    const data = new Uint8ClampedArray(256 * 256 * 4);
-    for (let y = 0; y < 256; y += 1)
-      for (let x = 0; x < 256; x += 1) {
-        const pixel = (y * 256 + x) * 4;
-        for (let channel = 0; channel < 3; channel += 1)
-          data[pixel + channel] = Math.round(
-            clamp(Number(output.data[channel * 256 * 256 + y * 256 + x])) * 255,
-          );
-        data[pixel + 3] = 255;
-      }
-    return {
-      image: new ImageData(data, 256, 256),
-      status:
-        "Reviewed ONNX model inference completed locally; WebGPU is preferred with WASM fallback.",
-      backend: "ONNX Runtime WebGPU/WASM",
-      inferenceMs,
-    };
+    } finally {
+      await session.release();
+    }
   } catch {
     return { status: "Model inference could not start; using deterministic local fallback." };
   }
 }
 
-function makeView(mode: ViewMode, size: number): ImageData {
-  const { reference, noisy } = makeFrames(size);
+export function makeDenoisingView(
+  mode: ViewMode,
+  frames: DenoisingFrames,
+  onnxDenoised?: Uint8ClampedArray,
+): Uint8ClampedArray {
+  const { reference, noisy } = frames;
   if (mode === "reference") {
     const copy = new Uint8ClampedArray(reference.length);
     copy.set(reference);
-    return new ImageData(copy, size, size);
+    return copy;
   }
   if (mode === "noisy") {
     const copy = new Uint8ClampedArray(noisy.length);
     copy.set(noisy);
-    return new ImageData(copy, size, size);
+    return copy;
   }
+  const denoised = onnxDenoised ?? makeFallbackDenoised(frames);
+  if (mode === "denoised") return new Uint8ClampedArray(denoised);
+  return makeAbsoluteError(reference, denoised);
+}
+
+function makeImageData(pixels: Uint8ClampedArray, size: number): ImageData {
+  const copiedPixels = new Uint8ClampedArray(pixels.length);
+  copiedPixels.set(pixels);
+  return new ImageData(copiedPixels, size, size);
+}
+
+function makeFallbackDenoised({ size, noisy }: DenoisingFrames): Uint8ClampedArray {
   const result = new Uint8ClampedArray(size * size * 4);
   for (let y = 0; y < size; y += 1)
     for (let x = 0; x < size; x += 1) {
@@ -179,14 +207,48 @@ function makeView(mode: ViewMode, size: number): ImageData {
             weight += spatial;
           }
         const denoised = sum / weight;
-        result[index + channel] =
-          mode === "error" ? Math.abs(reference[index + channel] - denoised) * 4 : denoised;
+        result[index + channel] = denoised;
       }
       result[index + 3] = 255;
     }
-  return new ImageData(result, size, size);
+  return result;
 }
-function makeFrames(size: number): { reference: Uint8ClampedArray; noisy: Uint8ClampedArray } {
+
+function makeAbsoluteError(
+  reference: Uint8ClampedArray,
+  candidate: Uint8ClampedArray,
+): Uint8ClampedArray {
+  const result = new Uint8ClampedArray(reference.length);
+  for (let index = 0; index < reference.length; index += 4) {
+    for (let channel = 0; channel < 3; channel += 1)
+      result[index + channel] =
+        Math.abs(reference[index + channel] - candidate[index + channel]) * 4;
+    result[index + 3] = 255;
+  }
+  return result;
+}
+
+function getViewDetail(mode: ViewMode, hasOnnxDenoised: boolean): string {
+  if (mode === "error")
+    return hasOnnxDenoised
+      ? "Absolute error: ONNX output compared with the current deterministic reference."
+      : "Approximate error: box-filter fallback compared with the current deterministic reference.";
+  return hasOnnxDenoised
+    ? "Reviewed local ONNX model / deterministic procedural runtime probe."
+    : "Deterministic visual fallback / ONNX inference unavailable.";
+}
+
+function getViewStatus(mode: ViewMode, hasOnnxDenoised: boolean): string {
+  if (mode === "error")
+    return hasOnnxDenoised
+      ? "Showing absolute error between ONNX output and the current reference."
+      : "Showing approximate error from the deterministic box-filter fallback. ONNX inference is unavailable.";
+  return hasOnnxDenoised
+    ? `Showing ${mode} from the local ONNX review run.`
+    : `Showing ${mode}; deterministic fallback is active.`;
+}
+
+export function makeFrames(size: number): DenoisingFrames {
   const reference = new Uint8ClampedArray(size * size * 4);
   const noisy = new Uint8ClampedArray(size * size * 4);
   for (let y = 0; y < size; y += 1)
@@ -205,7 +267,7 @@ function makeFrames(size: number): { reference: Uint8ClampedArray; noisy: Uint8C
       reference[index + 3] = 255;
       noisy[index + 3] = 255;
     }
-  return { reference, noisy };
+  return { size, reference, noisy };
 }
 function clamp(value: number): number {
   return Math.min(1, Math.max(0, value));

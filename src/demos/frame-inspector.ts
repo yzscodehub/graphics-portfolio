@@ -1,8 +1,66 @@
 import { clearElement, drawStageBackdrop, makeButton, resizeCanvas } from "./core/canvas";
 import type { DemoContext, DemoController } from "./core/types";
 
-type BufferView = "final" | "normal" | "depth" | "velocity" | "lighting" | "ssao";
-const VIEWS: BufferView[] = ["final", "normal", "depth", "velocity", "lighting", "ssao"];
+export type BufferView = "final" | "normal" | "depth" | "velocity" | "lighting" | "ssao";
+
+export const BUFFER_VIEWS: readonly BufferView[] = [
+  "final",
+  "normal",
+  "depth",
+  "velocity",
+  "lighting",
+  "ssao",
+];
+
+const CELL_GAP = 10;
+const NARROW_LAYOUT_BREAKPOINT = 540;
+
+export interface FrameInspectorLayout {
+  columns: number;
+  rows: number;
+  gap: number;
+  cellWidth: number;
+  cellHeight: number;
+}
+
+export function calculateFrameInspectorLayout(
+  width: number,
+  height: number,
+): FrameInspectorLayout | undefined {
+  if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0)
+    return undefined;
+
+  const columns = width < NARROW_LAYOUT_BREAKPOINT ? 2 : 3;
+  const rows = Math.ceil(BUFFER_VIEWS.length / columns);
+  const availableWidth = width - CELL_GAP * (columns + 1);
+  const availableHeight = height - CELL_GAP * (rows + 1);
+  if (availableWidth <= 0 || availableHeight <= 0) return undefined;
+
+  return {
+    columns,
+    rows,
+    gap: CELL_GAP,
+    cellWidth: availableWidth / columns,
+    cellHeight: availableHeight / rows,
+  };
+}
+
+export function bufferViewAtPoint(
+  layout: FrameInspectorLayout,
+  x: number,
+  y: number,
+): BufferView | undefined {
+  if (!Number.isFinite(x) || !Number.isFinite(y)) return undefined;
+  const column = Math.floor((x - layout.gap) / (layout.cellWidth + layout.gap));
+  const row = Math.floor((y - layout.gap) / (layout.cellHeight + layout.gap));
+  if (column < 0 || column >= layout.columns || row < 0 || row >= layout.rows) return undefined;
+
+  const cellX = layout.gap + column * (layout.cellWidth + layout.gap);
+  const cellY = layout.gap + row * (layout.cellHeight + layout.gap);
+  if (x > cellX + layout.cellWidth || y > cellY + layout.cellHeight) return undefined;
+
+  return BUFFER_VIEWS[row * layout.columns + column];
+}
 
 export function createDemo(): DemoController {
   let context: DemoContext;
@@ -13,21 +71,21 @@ export function createDemo(): DemoController {
   let running = false;
   const draw = () => {
     drawStageBackdrop(ctx, width, height);
-    const columns = width > 540 ? 3 : 2;
-    const gap = 10;
-    const cellWidth = (width - gap * (columns + 1)) / columns;
-    const cellHeight = (height - gap * 3) / 2;
-    VIEWS.forEach((view, index) => {
-      const x = gap + (index % columns) * (cellWidth + gap);
-      const y = gap + Math.floor(index / columns) * (cellHeight + gap);
-      drawBuffer(ctx, view, x, y, cellWidth, cellHeight, view === active);
+    const layout = calculateFrameInspectorLayout(width, height);
+    if (!layout) return;
+
+    BUFFER_VIEWS.forEach((view, index) => {
+      const x = layout.gap + (index % layout.columns) * (layout.cellWidth + layout.gap);
+      const y = layout.gap + Math.floor(index / layout.columns) * (layout.cellHeight + layout.gap);
+      drawBuffer(ctx, view, x, y, layout.cellWidth, layout.cellHeight, view === active);
     });
-    const activeIndex = VIEWS.indexOf(active);
-    const x = gap + (activeIndex % columns) * (cellWidth + gap);
-    const y = gap + Math.floor(activeIndex / columns) * (cellHeight + gap);
+    const activeIndex = BUFFER_VIEWS.indexOf(active);
+    const x = layout.gap + (activeIndex % layout.columns) * (layout.cellWidth + layout.gap);
+    const y =
+      layout.gap + Math.floor(activeIndex / layout.columns) * (layout.cellHeight + layout.gap);
     ctx.strokeStyle = "#f0b84b";
     ctx.lineWidth = 2;
-    ctx.strokeRect(x - 1, y - 1, cellWidth + 2, cellHeight + 2);
+    ctx.strokeRect(x - 1, y - 1, layout.cellWidth + 2, layout.cellHeight + 2);
     ctx.fillStyle = "rgba(232,230,220,.72)";
     ctx.font = "11px ui-monospace, monospace";
     ctx.fillText(`ACTIVE ATTACHMENT: ${active.toUpperCase()}`, 16, height - 13);
@@ -46,7 +104,7 @@ export function createDemo(): DemoController {
       context = next;
       ctx = resizeCanvas(context.canvas, width, height);
       clearElement(context.controls);
-      VIEWS.forEach((view) => {
+      BUFFER_VIEWS.forEach((view) => {
         const button = makeButton(view.toUpperCase(), view === active);
         button.addEventListener(
           "click",
@@ -64,14 +122,11 @@ export function createDemo(): DemoController {
         "click",
         (event) => {
           const rect = context.canvas.getBoundingClientRect();
-          const columns = width > 540 ? 3 : 2;
-          const gap = 10;
-          const cellWidth = (width - gap * (columns + 1)) / columns;
-          const cellHeight = (height - gap * 3) / 2;
-          const col = Math.floor((event.clientX - rect.left - gap) / (cellWidth + gap));
-          const row = Math.floor((event.clientY - rect.top - gap) / (cellHeight + gap));
-          const index = row * columns + col;
-          if (VIEWS[index]) select(VIEWS[index]);
+          const layout = calculateFrameInspectorLayout(width, height);
+          const view =
+            layout &&
+            bufferViewAtPoint(layout, event.clientX - rect.left, event.clientY - rect.top);
+          if (view) select(view);
         },
         { signal: context.signal },
       );

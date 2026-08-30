@@ -3,7 +3,7 @@ routeSlug: material-lighting
 translationKey: material-lighting
 locale: zh-CN
 title: Material & Lighting Lab
-summary: 在可重复的校准场景中观察 PBR 材质、直接光照、IBL、曝光和色调映射。
+summary: 检查 Three.js WebGL PBR 校准场景，并在 WebGL 初始化失败时使用明确标注的 Canvas 2D 回退。
 category: rendering
 renderer: Three.js WebGLRenderer + PMREM
 backend: three-webgl
@@ -12,14 +12,13 @@ featured: true
 capabilities:
   - webgl2
 requirements:
-  - webgpu（优先）
-  - webgl2（回退）
+  - 优先使用 WebGL2
+  - WebGL 初始化失败时使用 Canvas 2D 回退
 controls:
-  - Base Color
-  - Metalness / Roughness
-  - Environment Intensity
-  - Exposure / Tone Mapping
-  - Debug View
+  - Metallic
+  - Roughness
+  - Exposure
+  - "Debug: Final / Normal / Roughness"
 metrics: []
 fallbackImage: /media/placeholders/demo-material-lighting.svg
 relatedProjects:
@@ -29,10 +28,10 @@ relatedArticles:
 draft: false
 ---
 
-## 展示目标
+## 展示内容
 
-用一个简单、稳定的校准物把材质参数和颜色链路讲清楚。最终画面可以切换到 Base Color、Normal、Roughness、Metalness、Direct Lighting 和 Indirect Lighting 等调试视图。
+这个校准场景把三个实际材质控件和三个调试视图暴露出来。移动的主光源、PMREM 生成的房间环境和轨道相机都属于 Three.js WebGL 路径；回退路径是明确标注的 Canvas 程序化近似。
 
 ## 交互边界
 
-鼠标或触控只改变相机和显式参数；页面不把渲染结果上传服务器。浏览器优先尝试 WebGPU，初始化失败则进入 WebGL2 回退。性能数据来自当前设备运行时测量，不跨设备比较。
+相机和显式参数只保留在当前页面，渲染图像不会上传。页面先尝试 WebGL2，Three.js 无法初始化时再切换到 Canvas 2D。WebGPU/TSL 只是后续路线，不是当前后端；面板只报告 `requestAnimationFrame` 帧节奏，不把它表述为 GPU 计时。

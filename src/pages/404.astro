@@ -6,16 +6,24 @@ import { withBase } from "../lib/urls";
 
 <BaseLayout
   locale="zh-CN"
-  title="404"
-  description="页面不存在"
+  title="404 / Not Found"
+  description="页面不存在，或仍处于未发布状态。 Page not found or not yet published."
   handle={profile.displayName}
   noindex
 >
   <section class="page-hero">
     <div class="page-hero-inner">
-      <div><span class="eyebrow">ERROR / 404</span><h1>资源未绑定。</h1></div><div>
-        <p class="page-hero-copy">请求的页面不存在，或仍处于未发布状态。</p><div class="button-row">
-          <a class="button button-primary" href={withBase("/")}>返回首页</a>
+      <div>
+        <span class="eyebrow">ERROR / 404</span>
+        <h1>资源未绑定。<br /><span lang="en">Resource not bound.</span></h1>
+      </div><div>
+        <p class="page-hero-copy">
+          请求的页面不存在，或仍处于未发布状态。<br /><span lang="en"
+            >The requested page does not exist or has not been published.</span
+          >
+        </p><div class="button-row">
+          <a class="button button-primary" href={withBase("/")}>中文首页</a>
+          <a class="button button-secondary" href={withBase("/en/")} lang="en">English home</a>
         </div>
       </div>
     </div>

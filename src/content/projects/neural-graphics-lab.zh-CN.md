@@ -2,8 +2,8 @@
 routeSlug: neural-graphics-lab
 translationKey: neural-graphics-lab
 locale: zh-CN
-title: 神经图形实验室
-summary: 从自生成 Monte Carlo 图像对出发，完成残差 CNN 训练、ONNX 导出、数值验证和浏览器推理的可复现链路。
+title: Neural Graphics Lab
+summary: 用确定性程序化 probe 展示神经降噪页面契约；独立离线验证和可选 ONNX 部署保持明确分离。
 year: 2026
 status: completed
 role: 独立图形与机器学习工程实践
@@ -19,20 +19,20 @@ technologies:
   - WebGPU
 heroImage: /media/placeholders/project-neural-graphics-lab.svg
 responsibilities:
-  - 实现确定性的程序化 Monte Carlo 配对数据生成器
-  - 训练并评估八层残差卷积网络
-  - 验证 PyTorch/ONNX 数值一致性与浏览器模型体积
-  - 实现 WebGPU、WASM 与确定性 Canvas 降级状态
+  - 维护浏览器页面使用的确定性 Canvas 2D noisy/reference probe
+  - 记录单独审核的残差 CNN 离线训练与验证运行
+  - 保持可选 ONNX 推理与确定性回退状态清晰可见
+  - 将离线验证证据与浏览器当前画面分开
 featureSlugs:
-  - paired-data-generation
-  - residual-denoiser
-  - onnx-parity
-  - inference-timing
+  - deterministic-probe
+  - offline-validation-record
+  - optional-onnx-path
+  - model-card
 demoSlugs:
   - neural-denoising
 articleSlugs:
   - path-tracing-to-neural-denoising
-architecture: 本地 NumPy 渲染器生成彼此独立的训练与验证场景，PyTorch 训练固定形状残差 CNN，ONNX Runtime Web 选择 WebGPU 或 WASM，界面始终保留确定性降级结果。
+architecture: 浏览器页面生成确定性 Canvas 2D probe，并可加载经审核的 ONNX 文件；离线数据生成、训练和验证记录与当前画面分开维护。
 metrics:
   - label: 验证集 L1 降幅
     value: 38.9%
@@ -40,32 +40,22 @@ metrics:
   - label: 验证集 PSNR 提升
     value: +5.46 dB
     status: confirmed
-  - label: ONNX 体积
+  - label: ONNX 文件大小
     value: 62,986 bytes
     status: confirmed
 limitations:
-  - 结果只适用于小规模程序化渲染分布
-  - 未进行时序、任意 HDR、纹理和生产场景评估
-  - 不声明尚未在实际浏览器设备上测量的统一性能数字
+  - 浏览器画面是确定性程序化 probe，不是独立离线验证渲染，也不是实时路径追踪输出
+  - 确认过的质量指标只能来自独立留出离线验证集，不能从当前 probe 推导
+  - 没有时间序列、任意 HDR、纹理和生产场景评估；浏览器设备耗时不作统一承诺
 draft: false
 ---
 
 ## 项目结果
 
-这个项目不再停留在网络结构草图，而是覆盖了一条完整的可复现链路。数据集包含 64 个训练场景和 16 个独立验证场景，不使用外部图片或第三方模型权重；1-SPP 输入与独立采样的 64-SPP 参考一一配对。
+神经降噪页面始终先生成 `makeFrames()` 的确定性 Canvas 2D probe，用于稳定展示 noisy、denoised、reference 和 error 四种视图。它不是独立验证集的截图，也不代表实时路径追踪画面。
 
-网络包含八个卷积层，并通过零初始化残差输出层从严格恒等映射开始。经过 50 个 CPU 训练周期，选定检查点在程序化验证分布上将 L1 降低约 38.9%，PSNR 提升约 5.46 dB。
+项目同时保留一条单独审核的离线记录：残差 CNN 有八个卷积层，接受 `1×3×256×256` RGB 输入；离线验证集中记录了 L1、PSNR 和 ONNX 数值一致性。浏览器若发现经审核的 ONNX 文件，才尝试 ONNX Runtime WebGPU/WASM；失败时回到同一个确定性 probe。
 
-## 部署契约
+## 证据边界
 
-```text
-程序化配对数据 → PyTorch 残差 CNN → ONNX opset 17
-               → ONNX Runtime WebGPU / WASM
-               → 确定性 Canvas 降级
-```
-
-ONNX 模型为 62,986 字节，与 PyTorch 的最大绝对差异为 `8.94e-8`。网页会显示实际推理耗时，但不会声称一个脱离设备与后端的统一速度数字。
-
-## 限制
-
-生成器估计区域光直接照明、解析阴影和确定性环境项，因此属于路径追踪风格的教学数据，不是无偏生产级真值。模型卡将所有质量结论严格限定在独立的程序化验证集上。
+当前确认的指标来自独立留出的程序化验证场景，不来自浏览器当前画面。它们只适用于那套自生成分布，不能转化为生产级降噪、跨场景泛化或统一浏览器性能承诺。完整来源、训练记录和限制写在 `training/model-card.md`。

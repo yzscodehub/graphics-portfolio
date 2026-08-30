@@ -45,10 +45,10 @@ const copy = isEn
       workTitle: "Systems, made observable.",
       workDescription:
         "Four public projects turn low-level graphics concepts into inspectable, runnable case studies.",
-      demoLabel: "Runnable evidence",
-      demoTitle: "Seven focused demos.",
+      demoLabel: "Public prototypes",
+      demoTitle: "Seven focused technical studies.",
       demoDescription:
-        "Each demo states its backend, limitations and fallback instead of hiding unsupported hardware.",
+        "Each prototype states its current backend, implemented controls, limitations and planned next step.",
       evidenceLabel: "Professional evidence",
       evidenceTitle: "Experience without disclosure.",
       evidenceDescription:
@@ -73,9 +73,9 @@ const copy = isEn
       workLabel: "精选项目",
       workTitle: "让系统变得可观察。",
       workDescription: "四个公开项目把底层图形概念整理为可检查、可运行、可复盘的案例。",
-      demoLabel: "可运行证据",
-      demoTitle: "七个聚焦的技术演示。",
-      demoDescription: "每个 Demo 明确说明后端、限制和降级路径，不用不透明动画掩盖兼容问题。",
+      demoLabel: "公开技术原型",
+      demoTitle: "七个聚焦的技术研究。",
+      demoDescription: "每个原型明确说明当前后端、已实现控件、限制和下一步路线。",
       evidenceLabel: "职业能力证据",
       evidenceTitle: "脱敏，但不空泛。",
       evidenceDescription: "以匿名、可审核的能力线索呈现真实图形系统经验。",
@@ -125,7 +125,9 @@ const copy = isEn
         </div>
         <DemoShell
           slug="material-lighting"
+          locale={locale}
           title="Material & Lighting"
+          fallbackImage="/media/placeholders/demo-material-lighting.svg"
           description={isEn ? "Interactive PBR calibration scene." : "交互式 PBR 校准场景。"}
         />
       </div>
@@ -263,8 +265,8 @@ const copy = isEn
           <span class="status-badge">IN PROGRESS</span><h3>Neural denoising / ONNX Web</h3><p>
             {
               isEn
-                ? "A small residual network, a constrained model card, and explicit WebGPU → WASM → precomputed fallback."
-                : "小型残差网络、明确的模型卡，以及 WebGPU → WASM → 预计算降级链。"
+                ? "A small residual network, a constrained model card, and explicit WebGPU → WASM → deterministic Canvas fallback."
+                : "小型残差网络、明确的模型卡，以及 WebGPU → WASM → 确定性 Canvas 降级链。"
             }
           </p>
         </article>

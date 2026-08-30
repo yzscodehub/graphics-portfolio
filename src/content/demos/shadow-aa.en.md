@@ -3,7 +3,7 @@ routeSlug: shadow-aa
 translationKey: shadow-aa
 locale: en
 title: Shadow & Anti-Aliasing Lab
-summary: Compare shadow filtering and anti-aliasing strategies for edge quality, stability, and runtime cost in one scene.
+summary: Compare labeled shadow-softness and edge-treatment modes in a procedural Canvas 2D scene.
 category: rendering
 renderer: Canvas 2D technique visualizer
 backend: canvas-2d
@@ -13,11 +13,12 @@ capabilities: []
 requirements:
   - Baseline Canvas 2D
 controls:
-  - Hard / PCF / PCSS
-  - No AA / FXAA / TAA
-  - Shadow Bias
-  - Filter Radius
-  - Camera Motion
+  - SHADOW HARD
+  - SHADOW PCF
+  - SHADOW PCSS
+  - AA NONE
+  - AA FXAA
+  - AA TAA
 metrics: []
 fallbackImage: /media/placeholders/demo-shadow-aa.svg
 relatedProjects:
@@ -29,8 +30,8 @@ draft: false
 
 ## What it demonstrates
 
-Hard shadows, PCF, and PCSS share the same light and receiver so sampling and penumbra assumptions can be inspected. The anti-aliasing modes focus on geometric edges and camera-motion stability; TAA needs history validity and velocity information rather than a simple blurred current frame.
+This demo uses Canvas 2D drawing, blur, and a small history trail to make labeled modes comparable. Hard, PCF, and PCSS describe increasing softness in the visual probe; None, FXAA, and TAA describe edge treatments. They are not implementations of WebGL shadow maps, GLSL filters, or a real temporal resolve.
 
-## Compatibility
+## Follow-up route
 
-This demo intentionally keeps a traditional WebGLRenderer and GLSL path for comparison with the newer WebGPU path. A static comparison is shown when an advanced filter is unavailable.
+A true WebGL/GLSL shadow and anti-aliasing comparison can reuse these controls after a real depth map, filtering kernel, velocity buffer, and history validation path are implemented.

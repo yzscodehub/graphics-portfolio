@@ -3,7 +3,7 @@ routeSlug: frame-inspector
 translationKey: frame-inspector
 locale: en
 title: Frame Inspector
-summary: Inspect a frame through geometry, depth, lighting, and final-color buffers with explicit view switching.
+summary: Inspect six labeled Canvas 2D procedural buffer views through explicit view switching.
 category: engine
 renderer: Canvas 2D buffer visualization
 backend: canvas-2d
@@ -18,7 +18,7 @@ controls:
   - Depth
   - Velocity
   - Lighting
-  - SSAO / Tone Map
+  - SSAO
 metrics: []
 fallbackImage: /media/placeholders/demo-frame-inspector.svg
 relatedProjects:
@@ -31,8 +31,8 @@ draft: false
 
 ## What it demonstrates
 
-Debug views turn “the frame looks wrong” into inspectable intermediate results. Normal checks orientation and tangent-space assumptions, Depth keeps nonlinear depth explicit, and Velocity plus history buffers help explain temporal ghosting.
+The page draws six procedural tiles labelled Final, Normal, Depth, Velocity, Lighting, and SSAO. They are deterministic visual probes for naming and interaction; no WebGPU device, MRT attachment, captured frame, or production buffer is involved.
 
 ## Engineering boundary
 
-View switching selects a formal render output; it does not bypass the demo's resource lifetime. When WebGPU initialization fails, a precomputed buffer atlas and text explanation remain available.
+Clicking a tile or its control selects the active probe and updates the Canvas status line. A real WebGPU/MRT frame inspector and captured Buffer atlas remain a future route; this implementation is available on baseline Canvas 2D.

@@ -43,13 +43,19 @@ sequence. It also includes a deterministic ambient approximation, so it is
 accurately described as _path-tracing-style_ data rather than a full
 multi-bounce path-tracing benchmark.
 
-Generate the default 64 training and 16 validation scenes. On a typical modern
-CPU, the default `256 x 256`, 2-SPP/16-SPP run is expected to take a few
-minutes; exact timing depends on CPU, NumPy build, and available cores.
+Reproduce the reviewed portfolio dataset with every material sampling parameter
+made explicit. This 1-SPP/64-SPP run is intentionally heavier than the
+generator's shorter 2-SPP/16-SPP development defaults; exact timing depends on
+CPU, NumPy build, and available cores.
 
 ```powershell
 python training/generate_dataset.py `
-  --output-root D:/datasets/portfolio-procedural-v1
+  --output-root D:/datasets/portfolio-procedural-v1 `
+  --train-count 64 `
+  --val-count 16 `
+  --size 256 `
+  --noisy-spp 1 `
+  --clean-spp 64
 ```
 
 For a deterministic smoke test that normally completes in seconds, use a

@@ -3,7 +3,7 @@ routeSlug: shadow-aa
 translationKey: shadow-aa
 locale: zh-CN
 title: Shadow & Anti-Aliasing Lab
-summary: 在同一场景中比较阴影过滤和抗锯齿策略的边缘质量、稳定性与运行时成本。
+summary: 在程序化 Canvas 2D 场景中比较带标签的阴影柔化和边缘处理模式。
 category: rendering
 renderer: Canvas 2D 技术可视化
 backend: canvas-2d
@@ -11,13 +11,14 @@ status: in-progress
 featured: false
 capabilities: []
 requirements:
-  - webgl2
+  - 基础 Canvas 2D
 controls:
-  - Hard / PCF / PCSS
-  - No AA / FXAA / TAA
-  - Shadow Bias
-  - Filter Radius
-  - Camera Motion
+  - SHADOW HARD
+  - SHADOW PCF
+  - SHADOW PCSS
+  - AA NONE
+  - AA FXAA
+  - AA TAA
 metrics: []
 fallbackImage: /media/placeholders/demo-shadow-aa.svg
 relatedProjects:
@@ -27,10 +28,10 @@ relatedArticles:
 draft: false
 ---
 
-## 展示目标
+## 展示内容
 
-硬阴影、PCF 和 PCSS 使用相同光源与接收面，方便观察采样与半影假设。抗锯齿选项聚焦几何边缘和相机运动中的稳定性；TAA 需要历史有效性和速度信息，不能只把当前帧模糊后称为时间抗锯齿。
+这个 Demo 使用 Canvas 2D 绘制、模糊和短暂历史轨迹来做带标签的视觉对比。Hard、PCF、PCSS 表示逐渐增强的柔化效果，None、FXAA、TAA 表示边缘处理方式；它们不是 WebGL 阴影贴图、GLSL 滤波器或真实时间抗锯齿 resolve 的实现。
 
-## 兼容性
+## 后续路线
 
-该 Demo 保留传统 WebGLRenderer 与 GLSL 路径，以便比较旧有着色器和新 WebGPU 路径。高级过滤不可用时展示静态对比图。
+实现真实深度图、过滤核、速度 Buffer 和历史有效性后，可以沿用这些控件接入真正的 WebGL/GLSL 阴影与抗锯齿对比。

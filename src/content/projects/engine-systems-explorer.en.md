@@ -3,7 +3,7 @@ routeSlug: engine-systems-explorer
 translationKey: engine-systems-explorer
 locale: en
 title: Engine Systems Explorer
-summary: An interactive explanation of how a modern rendering runtime organizes render graphs, resource lifetimes, and frame inspection.
+summary: A Canvas 2D procedural entry point for render-runtime concepts; real graph compilation remains a follow-up route.
 year: 2026
 status: in-progress
 role: Independent development / graphics systems design
@@ -17,55 +17,33 @@ technologies:
   - GPU Profiling
 heroImage: /media/placeholders/project-engine-systems-explorer.svg
 responsibilities:
-  - Designed a data model for passes, resources, and dependencies
-  - Made first-use, last-use, and aliasing decisions visible
-  - Turned low-level engine concepts into observable, reproducible cases
+  - Draws a fixed pass-and-resource dependency preview
+  - Exposes pass visibility and node selection as inspectable interaction
+  - Documents the boundary between a visual prototype and a real graph compiler
 featureSlugs:
-  - render-graph
-  - pass-culling
-  - resource-lifetime
-  - frame-inspector
+  - pass-dependency-preview
+  - pass-toggle-preview
+  - node-selection
+  - buffer-view-preview
 demoSlugs:
   - render-graph
   - frame-inspector
 articleSlugs:
   - rhi-abstraction-boundaries
   - render-graph-lifetime
-architecture: A small graph model describes passes and resources. SVG renders the relationships while independent analysis functions calculate topology, required passes, and resource intervals.
+architecture: The current demo draws fixed pass nodes and declared read/write relationships with Canvas 2D. Its controller handles selection and visibility; a real render-graph compiler is a follow-up route.
 metrics: []
 limitations:
-  - The current visual model does not submit real GPU commands; it explains scheduling and resource decisions
-  - Aliasing still needs backend validation before any peak-memory benefit can be claimed
+  - The current model submits no GPU commands and does not provide an SVG graph, pass culling, resource-lifetime analysis, or transient aliasing
+  - A node toggle is a visual preview, not compiler-level dependency pruning
+  - A later route will connect real graph compilation, backend barriers, and memory measurement
 draft: false
 ---
 
-## Project outcome
+## Current preview
 
-Renderer complexity comes not only from shaders but from the relationships among resources and passes in one frame. This project turns those relationships from implicit call order into an inspectable graph: disable a pass to see dependencies shrink, or select a resource to inspect the interval between its first write and final read.
+Renderer complexity comes not only from shaders but from the relationships among passes and resources in one frame. The current demo draws five fixed nodes, read/write labels, and selection state on Canvas 2D. Visitors can toggle node visibility and inspect the selected declaration.
 
-## Why it exists
+## Boundary with a real engine
 
-Direct render calls work for a small demo. Once post-processing, shadows, transparency, debug views, and asynchronous work coexist, manually maintaining render targets and synchronization becomes fragile. A render graph separates the desired outputs from resource scheduling so compilation can perform pass culling, state inference, and transient reuse.
-
-## Core model
-
-Each pass declares the logical resources it reads and writes instead of owning a concrete GPU object. Compilation keeps the passes reachable from final outputs, derives a topological order from read/write edges, and scans first/last use to assign reusable intervals to compatible transient resources.
-
-```text
-Shadow ──writes──> ShadowMap ──reads──> Lighting
-GBuffer ──writes──> Normals ──reads──> Lighting
-Lighting ──writes──> HDR ──reads──> Bloom ──reads──> Tonemap
-```
-
-The visualizer does not claim to be a particular engine. It exposes boundaries and decisions: pass inputs and outputs, resource states, optional branches, and the pruning that occurs when a branch cannot contribute to a target output.
-
-## Engineering questions
-
-- A resource handle expresses logical identity and should not be retained across frames without an explicit lifetime rule.
-- Read/write declarations must be precise or topology and barrier inference become misleading.
-- Debug views should be formal output nodes rather than an escape hatch around the graph.
-- Aliasing must consider format, size, usage, and parallel execution constraints together.
-
-## Current boundary
-
-This is an explanatory tool, not a hardware timeline. A real backend still needs RenderDoc, API captures, and timestamp queries to validate barriers, queue synchronization, and peak memory. The next step is mapping the same declarations to WebGPU render and compute passes while preserving a readable intermediate representation.
+The implementation has no SVG graph, GPU commands, pass culling, resource-lifetime analysis, or aliasing. A node toggle changes the visual preview; it does not recompile and prune a dependency graph. A follow-up route can connect the declarations to a backend and use API captures and timestamp queries to validate barriers, queue synchronization, and memory behavior.

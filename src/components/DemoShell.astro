@@ -1,8 +1,12 @@
 ---
+import type { Locale } from "../lib/i18n";
+import { withBase } from "../lib/urls";
 interface Props {
   slug: string;
+  locale: Locale;
   title?: string;
   description?: string;
+  fallbackImage: string;
   forceLive?: boolean;
   quality?: "auto" | "low" | "high";
   class?: string;
@@ -10,17 +14,41 @@ interface Props {
 
 const {
   slug,
+  locale,
   title = "Interactive technical demo",
   description = "A local, self-contained rendering study.",
+  fallbackImage,
   forceLive = false,
   quality = "auto",
 } = Astro.props;
+
+const labels =
+  locale === "en"
+    ? {
+        fallbackLabel: "LOCAL STATIC PREVIEW",
+        fallbackTitle: "Interactive renderer is unavailable in this environment.",
+        fallbackDescription:
+          "This local preview keeps the visual context available without starting the renderer.",
+        initializing: "INITIALIZING",
+        preparing: "Preparing the demonstration…",
+        controls: `${title} controls`,
+      }
+    : {
+        fallbackLabel: "本地静态预览",
+        fallbackTitle: "当前环境无法运行交互式渲染器。",
+        fallbackDescription: "不启动渲染器时，仍可通过本地预览保留视觉上下文。",
+        initializing: "初始化中",
+        preparing: "正在准备演示…",
+        controls: `${title} 控制项`,
+      };
+const fallbackImageUrl = withBase(fallbackImage);
 ---
 
 <section
   class:list={["demo-shell", Astro.props.class]}
   data-demo-shell
   data-demo-slug={slug}
+  data-demo-locale={locale}
   data-force-live={String(forceLive)}
   data-quality={quality}
   aria-label={title}
@@ -31,23 +59,32 @@ const {
       <h2>{title}</h2>
       <p>{description}</p>
     </div>
-    <p class="demo-shell__state" data-demo-state data-state="loading" aria-live="polite">
-      INITIALIZING
+    <p
+      class="demo-shell__state"
+      data-demo-state
+      data-state="loading"
+      aria-live="polite"
+      aria-atomic="true"
+    >
+      {labels.initializing}
     </p>
   </div>
   <div class="demo-shell__stage" data-demo-stage>
     <canvas aria-label={`${title} visual output`} role="img"></canvas>
     <div class="demo-shell__fallback" data-demo-fallback hidden>
-      <span>LOCAL PREVIEW</span>
-      <strong>Interactive renderer is unavailable in this environment.</strong>
-      <p>The technical notes and control surface remain available without external media.</p>
+      <img class="demo-shell__fallback-image" src={fallbackImageUrl} alt="" />
+      <div class="demo-shell__fallback-copy">
+        <span>{labels.fallbackLabel}</span>
+        <strong>{labels.fallbackTitle}</strong>
+        <p>{labels.fallbackDescription}</p>
+      </div>
     </div>
   </div>
   <div class="demo-shell__meta">
-    <p data-demo-status role="status">Preparing the demonstration…</p>
+    <p data-demo-status role="status">{labels.preparing}</p>
     <output data-demo-metrics aria-live="off"></output>
   </div>
-  <div class="demo-shell__controls" data-demo-controls aria-label={`${title} controls`}></div>
+  <div class="demo-shell__controls" data-demo-controls aria-label={labels.controls}></div>
 </section>
 
 <script>
@@ -107,13 +144,19 @@ const {
     height: 100%;
     min-height: 280px;
   }
+  .demo-shell canvas[hidden],
+  .demo-shell__fallback[hidden] {
+    display: none !important;
+  }
   .demo-shell__fallback {
+    position: relative;
     display: grid;
     min-height: 280px;
     place-content: center;
     gap: 0.7rem;
     padding: 2rem;
     text-align: center;
+    isolation: isolate;
     background: repeating-linear-gradient(
       135deg,
       #0c1515,
@@ -121,6 +164,24 @@ const {
       #0f1a19 14px,
       #0f1a19 28px
     );
+  }
+  .demo-shell__fallback-image {
+    position: absolute;
+    z-index: 0;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    max-width: none;
+    object-fit: cover;
+    opacity: 0.52;
+    pointer-events: none;
+  }
+  .demo-shell__fallback-copy {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    justify-items: center;
+    gap: 0.7rem;
   }
   .demo-shell__fallback span {
     color: var(--color-accent, #57e3c2);

@@ -2,10 +2,10 @@
 routeSlug: neural-denoising
 translationKey: neural-denoising
 locale: zh-CN
-title: 神经网络降噪
-summary: 在浏览器中运行经过验证的八层残差 CNN，对比 1-SPP 输入、64-SPP 参考、模型输出与误差视图。
+title: Neural Denoising
+summary: 对比确定性程序化 noisy/reference probe 与可选的经审核 ONNX 输出。
 category: machine-learning
-renderer: ONNX Runtime Web
+renderer: Canvas 2D 确定性 probe + 可选 ONNX Runtime Web
 backend: onnx-web
 status: completed
 featured: true
@@ -13,12 +13,13 @@ capabilities:
   - webgpu
   - wasm
 requirements:
-  - 优先使用 WebGPU
-  - 单线程 WASM 降级
+  - 始终可用的 Canvas 2D probe
+  - 可选的经审核 ONNX 模型文件
 controls:
-  - 噪声 / 降噪 / 参考
-  - 误差热力图
-  - 运行后端与推理时间
+  - NOISY
+  - DENOISED
+  - REFERENCE
+  - ERROR
 metrics:
   - label: 验证集 L1 降幅
     value: 38.9%
@@ -26,6 +27,7 @@ metrics:
   - label: 验证集 PSNR 提升
     value: +5.46 dB
     status: confirmed
+metricSource: 已确认数值来自独立的留出离线验证运行，不来自当前浏览器程序化 probe。
 fallbackImage: /media/placeholders/demo-neural-denoising.svg
 relatedProjects:
   - neural-graphics-lab
@@ -36,10 +38,10 @@ draft: false
 
 ## 实际运行内容
 
-页面只在 Demo 进入视口后加载 `neural-denoiser.onnx`。ONNX Runtime 依次尝试 WebGPU 与 WASM，显示真实推理耗时；模型加载、形状检查或推理失败时，仍会保留明确标记的确定性 Canvas 降级画面。
-
-经过审核的模型接收 `1×3×256×256` RGB 输入，共包含八个卷积层。ONNX 文件为 62,986 字节，使用 opset 17 导出；PyTorch 与 ONNX 最大绝对误差为 `8.94e-8`。
+浏览器始终通过 `makeFrames()` 生成确定性的 Canvas 2D probe。如果部署了 `neural-denoiser.onnx`，页面才会按 WebGPU/WASM 尝试可选的 ONNX Runtime 推理，并显示实际推理耗时；模型加载、形状检查或执行失败时回到同一个确定性 probe。
 
 ## 证据与边界
 
-在 16 个独立程序化验证场景上，L1 从 `0.001054` 降至 `0.000644`，PSNR 从 `45.40 dB` 提升至 `50.85 dB`。这些结果只适用于自生成的 Cornell 风格分布，不代表生产级降噪或跨场景泛化能力。完整数据来源、训练记录和限制写在 `training/model-card.md`。
+单独审核过的模型接受 `1×3×256×256` RGB 输入，包含八个卷积层。模型文件大小和 PyTorch/ONNX 数值一致性属于离线验证记录，当前浏览器 Canvas 画面不是那组验证帧。
+
+已确认的 L1 与 PSNR 数值来自 16 个留出程序化场景的独立离线运行，只适用于自生成 Cornell 风格分布；它们不是当前 probe、浏览器速度、生产级降噪或泛化能力的测量。完整来源和限制见 `training/model-card.md`。

@@ -28,3 +28,6 @@ __pycache__/
 tmp/
 training/output/
 training/checkpoints/
+
+# Deferred resume outputs are generated locally and must not be committed
+deferred/resume/public/resume/*.pdf
