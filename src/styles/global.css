@@ -205,6 +205,18 @@ h3 {
   content: "";
 }
 
+.preview-status {
+  margin-left: 4px;
+  border: 1px solid rgba(240, 184, 75, 0.48);
+  background: rgba(240, 184, 75, 0.07);
+  padding: 4px 6px;
+  color: var(--amber);
+  font-size: 0.56rem;
+  letter-spacing: 0.055em;
+  line-height: 1.1;
+  white-space: nowrap;
+}
+
 .site-nav {
   display: flex;
   align-items: stretch;
@@ -933,21 +945,6 @@ h3 {
   color: #875b14;
 }
 
-.resume-layout {
-  display: grid;
-  grid-template-columns: 4fr 8fr;
-  gap: 48px;
-}
-
-.resume-sidebar {
-  border-top: 1px solid var(--line);
-  padding-top: 22px;
-}
-
-.resume-main section {
-  margin-bottom: 64px;
-}
-
 .timeline {
   margin: 0;
   padding: 0;
@@ -1074,7 +1071,6 @@ h3 {
   .page-hero-inner,
   .section-heading,
   .detail-layout,
-  .resume-layout,
   .contact-panel {
     grid-template-columns: 1fr;
   }
@@ -1121,6 +1117,17 @@ h3 {
 
   .brand-name {
     display: none;
+  }
+
+  .preview-status {
+    margin-left: 0;
+    padding: 4px 5px;
+    font-size: 0;
+  }
+
+  .preview-status::before {
+    content: "PREVIEW / WIP";
+    font-size: 0.56rem;
   }
 
   .hero-copy-panel {
@@ -1218,11 +1225,6 @@ h3 {
     width: 100%;
   }
 
-  .resume-layout {
-    grid-template-columns: 32% 1fr;
-  }
-
-  .resume-sidebar,
   .timeline li {
     border-color: #c8cdcc;
   }

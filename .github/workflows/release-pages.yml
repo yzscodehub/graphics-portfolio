@@ -1,0 +1,91 @@
+name: Release GitHub Pages
+
+on:
+  push:
+    tags:
+      - v1.0.0
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Release build
+    runs-on: ubuntu-latest
+    env:
+      SITE_URL: https://${{ github.repository_owner }}.github.io
+      SITE_STAGE: release
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v5
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Set up Python for public resume PDFs
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Generate bilingual public resume PDFs
+        env:
+          PUBLIC_HANDLE: ${{ vars.PUBLIC_HANDLE }}
+          PUBLIC_EMAIL: ${{ vars.PUBLIC_EMAIL }}
+          GITHUB_USERNAME: ${{ github.repository_owner }}
+        run: |
+          python -m pip install reportlab==4.4.9
+          pnpm run deferred:resume:pdf
+
+      - name: Type-check, lint, and unit-test
+        run: |
+          pnpm run check
+          pnpm run lint
+          pnpm run format
+          pnpm run test
+
+      - name: Create guarded release build
+        run: pnpm run build:release
+
+      - name: Install Chromium
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Run static browser checks
+        run: pnpm run test:e2e
+
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload static artifact
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: ./dist
+
+  deploy:
+    name: Deploy
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

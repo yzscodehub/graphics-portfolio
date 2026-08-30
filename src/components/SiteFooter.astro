@@ -1,5 +1,6 @@
 ---
 import type { Locale } from "../lib/i18n";
+import { site } from "../data/site";
 
 interface Props {
   locale: Locale;
@@ -8,6 +9,7 @@ interface Props {
 
 const { locale, handle } = Astro.props;
 const year = new Date().getFullYear();
+const stageLabel = `STAGE / ${site.features.stage.toUpperCase()}`;
 ---
 
 <footer class="site-footer">
@@ -20,6 +22,7 @@ const year = new Date().getFullYear();
           : "一座持续更新的图形系统工作台。"
       }</span
     >
+    <span>{stageLabel}</span>
     <span>ASTRO / WEBGPU / WGSL</span>
   </div>
 </footer>

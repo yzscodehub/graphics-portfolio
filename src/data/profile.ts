@@ -1,10 +1,8 @@
 /**
  * Public identity data for the portfolio.
  *
- * The three placeholder values are intentional. They are consumed by the
- * release guard in the production build and must be replaced before a public
- * deployment. Keeping them here avoids leaking private contact information
- * into content, metadata, or generated resume files.
+ * This preview identity intentionally exposes only a developer handle and
+ * GitHub profile. Contact data is added only for the later release stage.
  */
 
 export type Locale = "zh-CN" | "en";
@@ -14,9 +12,27 @@ export interface LocalizedText {
   en: string;
 }
 
+export interface PublicProfile {
+  displayName: string;
+  publicEmail: string | null;
+  githubUsername: string;
+  githubUrl: string;
+  role: LocalizedText;
+  headline: LocalizedText;
+  bio: LocalizedText;
+  focus: readonly string[];
+  availability: LocalizedText;
+  releaseGuard: {
+    enabled: boolean;
+    ready: boolean;
+    requiredReplacements: readonly string[];
+    policy: string;
+  };
+}
+
 export const profile = {
   displayName: "yzscodehub",
-  publicEmail: "PUBLIC_EMAIL",
+  publicEmail: null,
   githubUsername: "yzscodehub",
   githubUrl: "https://github.com/yzscodehub",
   role: {
@@ -40,10 +56,10 @@ export const profile = {
   releaseGuard: {
     enabled: true,
     ready: false,
-    requiredReplacements: ["displayName", "publicEmail", "githubUsername"],
+    requiredReplacements: ["publicEmail"],
     policy:
-      "Replace every placeholder with an intentionally public value before production deployment. Do not add a phone number, salary, address, or private employer material to this object.",
+      "Preview intentionally has no public email. Add an intentionally public address only for a release build; never add a phone number, salary, address, or private employer material.",
   },
-} as const;
+} as const satisfies PublicProfile;
 
 export type Profile = typeof profile;

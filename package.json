@@ -12,6 +12,7 @@
     "dev": "astro dev",
     "preview": "astro preview",
     "build": "astro build",
+    "build:preview": "astro build && node tests/validate-content.mjs && node tests/check-links.mjs && node tests/verify-preview.mjs",
     "build:release": "astro build && node tests/verify-production.mjs && node tests/validate-content.mjs && node tests/check-links.mjs",
     "check": "astro check",
     "lint": "eslint .",
@@ -22,7 +23,8 @@
     "test:content": "node tests/validate-content.mjs",
     "test:links": "node tests/check-links.mjs",
     "test:e2e": "playwright test",
-    "resume:pdf": "python scripts/resume/generate_resumes.py",
+    "deferred:resume:pdf": "python deferred/resume/scripts/resume/generate_resumes.py",
+    "verify:preview": "node tests/verify-preview.mjs",
     "verify:release": "node tests/verify-production.mjs"
   },
   "dependencies": {

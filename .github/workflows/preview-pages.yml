@@ -1,9 +1,9 @@
-name: Deploy GitHub Pages
+name: Deploy Public Preview
 
 on:
   push:
-    tags:
-      - v1.0.0
+    branches:
+      - main
   workflow_dispatch:
 
 permissions:
@@ -12,15 +12,16 @@ permissions:
   id-token: write
 
 concurrency:
-  group: pages
-  cancel-in-progress: false
+  group: pages-preview
+  cancel-in-progress: true
 
 jobs:
   build:
-    name: Release build
+    name: Verify and build preview
     runs-on: ubuntu-latest
     env:
       SITE_URL: https://${{ github.repository_owner }}.github.io
+      SITE_STAGE: preview
     steps:
       - name: Check out source
         uses: actions/checkout@v5
@@ -39,29 +40,20 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Set up Python for public resume PDFs
-        uses: actions/setup-python@v6
-        with:
-          python-version: "3.12"
+      - name: Type-check Astro and TypeScript
+        run: pnpm run check
 
-      - name: Generate bilingual public resume PDFs
-        env:
-          PUBLIC_HANDLE: ${{ vars.PUBLIC_HANDLE }}
-          PUBLIC_EMAIL: ${{ vars.PUBLIC_EMAIL }}
-          GITHUB_USERNAME: ${{ github.repository_owner }}
-        run: |
-          python -m pip install reportlab==4.4.9
-          pnpm run resume:pdf
+      - name: Lint source
+        run: pnpm run lint
 
-      - name: Type-check, lint, and unit-test
-        run: |
-          pnpm run check
-          pnpm run lint
-          pnpm run format
-          pnpm run test
+      - name: Check formatting
+        run: pnpm run format
 
-      - name: Create guarded release build
-        run: pnpm run build:release
+      - name: Run unit tests
+        run: pnpm run test
+
+      - name: Build guarded public preview
+        run: pnpm run build:preview
 
       - name: Install Chromium
         run: pnpm exec playwright install --with-deps chromium
@@ -73,12 +65,12 @@ jobs:
         uses: actions/configure-pages@v5
 
       - name: Upload static artifact
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@v4
         with:
           path: ./dist
 
   deploy:
-    name: Deploy
+    name: Deploy preview
     needs: build
     runs-on: ubuntu-latest
     environment:

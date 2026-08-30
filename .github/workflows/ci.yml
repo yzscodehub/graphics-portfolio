@@ -41,16 +41,11 @@ jobs:
       - name: Run unit tests
         run: pnpm run test
 
-      - name: Build static site
+      - name: Build guarded public preview
         env:
           SITE_URL: https://${{ github.repository_owner }}.github.io
-        run: pnpm run build
-
-      - name: Validate content contract
-        run: pnpm run test:content
-
-      - name: Check built internal links
-        run: pnpm run test:links
+          SITE_STAGE: preview
+        run: pnpm run build:preview
 
       - name: Install Chromium
         run: pnpm exec playwright install --with-deps chromium

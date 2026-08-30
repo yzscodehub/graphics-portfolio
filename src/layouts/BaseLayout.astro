@@ -2,6 +2,7 @@
 import "../styles/global.css";
 import SiteHeader from "../components/SiteHeader.astro";
 import SiteFooter from "../components/SiteFooter.astro";
+import { site } from "../data/site";
 import { localePath, otherLocale, type Locale } from "../lib/i18n";
 import { withBase } from "../lib/urls";
 
@@ -22,6 +23,7 @@ const {
   image,
   noindex = false,
 } = Astro.props;
+const shouldNoindex = noindex || !site.features.indexing;
 const pageTitle = title.includes(handle) ? title : `${title} · ${handle}`;
 const canonical = new URL(Astro.url.pathname, Astro.site ?? Astro.url.origin);
 const isWritingDetail =
@@ -45,7 +47,7 @@ const socialImage = image ?? withBase("/og-default.svg");
     <meta name="generator" content={Astro.generator} />
     <meta name="description" content={description} />
     <meta name="theme-color" content="#080b0d" />
-    {noindex && <meta name="robots" content="noindex,nofollow" />}
+    {shouldNoindex && <meta name="robots" content="noindex,nofollow" />}
     <link rel="icon" href={withBase("/favicon.svg")} type="image/svg+xml" />
     <link rel="alternate" href={alternate} hreflang={otherLocale[locale]} />
     <link rel="alternate" href={canonical} hreflang={locale} />

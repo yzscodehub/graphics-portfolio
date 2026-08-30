@@ -1,0 +1,53 @@
+import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import path from "node:path";
+import * as os from "node:os";
+import { describe, expect, it } from "vitest";
+
+describe("preview privacy policy", () => {
+  it("rejects public email placeholders and phone numbers", async () => {
+    const policy = (await import("./verify-preview.mjs")) as {
+      findPreviewPolicyViolations(text: string, relativePath: string): Array<{ code: string }>;
+    };
+
+    const violations = policy.findPreviewPolicyViolations(
+      "const email = 'PUBLIC_EMAIL'; const phone = '138 0013 8000';",
+      "fixture.ts",
+    );
+
+    expect(violations.map((violation) => violation.code)).toEqual(
+      expect.arrayContaining(["public-email-placeholder", "phone-number"]),
+    );
+  });
+
+  it("requires noindex, blocked robots, no PDFs, and a small model", async () => {
+    const policy = (await import("./verify-preview.mjs")) as {
+      validatePreviewArtifacts(root: string): Array<{ code: string }>;
+    };
+    const fixtureRoot = mkdtempSync(path.join(os.tmpdir(), "graphics-preview-policy-"));
+
+    try {
+      mkdirSync(path.join(fixtureRoot, "public", "models"), { recursive: true });
+      mkdirSync(path.join(fixtureRoot, "dist"), { recursive: true });
+      writeFileSync(path.join(fixtureRoot, "public", "models", "neural-denoiser.onnx"), "model");
+      writeFileSync(path.join(fixtureRoot, "dist", "robots.txt"), "User-agent: *\nDisallow: /\n");
+      writeFileSync(
+        path.join(fixtureRoot, "dist", "index.html"),
+        '<meta name="robots" content="noindex,nofollow">',
+      );
+
+      expect(policy.validatePreviewArtifacts(fixtureRoot)).toEqual([]);
+
+      writeFileSync(path.join(fixtureRoot, "dist", "resume.pdf"), "not a real PDF");
+      const violations = policy.validatePreviewArtifacts(fixtureRoot);
+      expect(violations.some((violation) => violation.code === "preview-pdf")).toBe(true);
+
+      writeFileSync(path.join(fixtureRoot, "dist", "sitemap-index.xml"), "<urlset />");
+      const sitemapViolations = policy.validatePreviewArtifacts(fixtureRoot);
+      expect(sitemapViolations.some((violation) => violation.code === "preview-sitemap")).toBe(
+        true,
+      );
+    } finally {
+      rmSync(fixtureRoot, { recursive: true, force: true });
+    }
+  });
+});

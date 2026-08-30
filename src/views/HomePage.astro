@@ -7,6 +7,7 @@ import DemoCard from "../components/DemoCard.astro";
 import ArticleCard from "../components/ArticleCard.astro";
 import DemoShell from "../components/DemoShell.astro";
 import { profile } from "../data/profile";
+import { site } from "../data/site";
 import type { Locale } from "../lib/i18n";
 import { localePath } from "../lib/i18n";
 import { withBase } from "../lib/urls";
@@ -39,7 +40,7 @@ const copy = isEn
       heroLede:
         "Rendering, engine architecture, GPU compute and multimedia systems — with neural graphics explored through reproducible experiments.",
       primary: "Explore work",
-      secondary: "Open résumé",
+      secondary: "Run demos",
       workLabel: "Selected work",
       workTitle: "Systems, made observable.",
       workDescription:
@@ -61,7 +62,6 @@ const copy = isEn
       labDescription:
         "Neural graphics work stays clearly labeled as an experiment until it earns stronger evidence.",
       contactTitle: "Let’s talk about the hard parts of graphics systems.",
-      copyEmail: "Copy email",
       github: "GitHub",
     }
   : {
@@ -69,7 +69,7 @@ const copy = isEn
       heroTitle: "构建实时图形背后的系统。",
       heroLede: "专注渲染、引擎架构、GPU Compute 与多媒体系统，并以可复现实验探索神经图形。",
       primary: "查看项目",
-      secondary: "打开简历",
+      secondary: "运行 Demo",
       workLabel: "精选项目",
       workTitle: "让系统变得可观察。",
       workDescription: "四个公开项目把底层图形概念整理为可检查、可运行、可复盘的案例。",
@@ -86,7 +86,6 @@ const copy = isEn
       labTitle: "公开学习过程。",
       labDescription: "神经图形在证据成熟前始终明确标记为实验，而不是包装成专家能力。",
       contactTitle: "一起讨论图形系统中真正困难的部分。",
-      copyEmail: "复制邮箱",
       github: "GitHub",
     };
 ---
@@ -108,13 +107,15 @@ const copy = isEn
             <a class="button button-primary" href={withBase(localePath("/work/", locale))}
               >{copy.primary}</a
             >
-            <a class="button button-secondary" href={withBase(localePath("/resume/", locale))}
+            <a class="button button-secondary" href={withBase(localePath("/demos/", locale))}
               >{copy.secondary}</a
             >
           </div>
         </div>
         <div class="hero-meta">
-          <span>RHI / PIPELINE</span><span>GPU / COMPUTE</span><span>MEDIA / SYNC</span>
+          <span>RHI / PIPELINE</span><span>GPU / COMPUTE</span><span>MEDIA / SYNC</span><span
+            >STAGE / {site.features.stage.toUpperCase()}</span
+          >
         </div>
       </div>
       <div class="hero-demo-panel">
@@ -284,14 +285,9 @@ const copy = isEn
     <div class="section-inner contact-panel reveal">
       <div><span class="kicker">CONTACT / OPEN CHANNEL</span><h2>{copy.contactTitle}</h2></div>
       <div class="contact-actions">
-        <a class="button button-primary" href={`mailto:${profile.publicEmail}`}
-          >{profile.publicEmail}</a
-        >
-        <button class="button button-secondary" type="button" data-copy-email={profile.publicEmail}
-          >{copy.copyEmail}</button
-        >
-        <a class="button button-secondary" href={profile.githubUrl} rel="me">{copy.github}</a>
-        <span class="copy-status" data-copy-status role="status" aria-live="polite"></span>
+        <a class="button button-primary" href={profile.githubUrl} rel="me" data-contact-link>
+          {copy.github}
+        </a>
       </div>
     </div>
   </section>

@@ -2,6 +2,7 @@
 import type { Locale } from "../lib/i18n";
 import { localePath, otherLocale, otherLocalePath } from "../lib/i18n";
 import { withBase } from "../lib/urls";
+import { site } from "../data/site";
 
 interface Props {
   locale: Locale;
@@ -13,32 +14,14 @@ const { locale, currentPath, handle } = Astro.props;
 const labels =
   locale === "en"
     ? {
-        work: "Work",
-        demos: "Demos",
-        writing: "Writing",
-        lab: "Lab",
-        about: "About",
-        resume: "Résumé",
         menu: "Open navigation",
       }
     : {
-        work: "项目",
-        demos: "演示",
-        writing: "文章",
-        lab: "实验室",
-        about: "关于",
-        resume: "简历",
         menu: "打开导航",
       };
 
-const navItems = [
-  ["/work/", labels.work],
-  ["/demos/", labels.demos],
-  ["/writing/", labels.writing],
-  ["/lab/", labels.lab],
-  ["/about/", labels.about],
-  ["/resume/", labels.resume],
-] as const;
+const navItems = site.navigation.map((item) => [item.href, item.label[locale]] as const);
+const previewStatus = `PUBLIC ${site.features.stage.toUpperCase()} / WORK IN PROGRESS`;
 
 const normalize = (value: string) => value.replace(/\/+/g, "/").replace(/\/$/, "") || "/";
 const isActive = (route: string) => {
@@ -64,6 +47,7 @@ const otherHref = withBase(alternateRoute);
     <a class="brand" href={homeHref} aria-label={locale === "en" ? "Home" : "首页"}>
       <span class="brand-mark" aria-hidden="true">G</span>
       <span class="brand-name">{handle} / Graphics Systems</span>
+      <span class="preview-status" aria-label={previewStatus}>{previewStatus}</span>
     </a>
     <nav
       class="site-nav"

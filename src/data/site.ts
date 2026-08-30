@@ -1,4 +1,18 @@
 import type { Locale, LocalizedText } from "./profile";
+import featureConfig from "./site-features.json";
+
+export interface SiteFeatures {
+  stage: "preview" | "release";
+  resume: boolean;
+  emailContact: boolean;
+  indexing: boolean;
+}
+
+/**
+ * The single source of truth for preview versus public-release behavior.
+ * UI, static metadata, validation, and deployment consume this same object.
+ */
+export const features = featureConfig as SiteFeatures;
 
 export const site = {
   name: "Graphics Workbench",
@@ -35,12 +49,9 @@ export const site = {
       href: "/about/",
       label: { "zh-CN": "关于", en: "About" } satisfies LocalizedText,
     },
-    {
-      href: "/resume/",
-      label: { "zh-CN": "简历", en: "Résumé" } satisfies LocalizedText,
-    },
   ],
-  socialLinks: ["github", "email"] as const,
+  socialLinks: ["github"] as const,
+  features,
   releaseGuard: {
     requiredPublicValues: ["profile.displayName", "profile.publicEmail", "profile.githubUsername"],
     placeholderFields: ["profile.displayName", "profile.publicEmail", "profile.githubUsername"],

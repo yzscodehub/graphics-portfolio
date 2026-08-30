@@ -13,6 +13,7 @@ coverage/
 playwright-report/
 test-results/
 blob-report/
+*.log
 
 # Editor and operating system files
 .DS_Store
