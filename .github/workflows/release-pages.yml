@@ -27,6 +27,25 @@ jobs:
     steps:
       - name: Check out source
         uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Validate release tag and source commit
+        shell: bash
+        run: |
+          if [[ "${{ vars.ENABLE_PREVIEW_PAGES }}" != "false" ]]; then
+            echo "Set the persistent ENABLE_PREVIEW_PAGES repository variable to false before release." >&2
+            exit 1
+          fi
+          if [[ ! "${GITHUB_REF_NAME}" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
+            echo "Release tags must use stable SemVer, for example v1.0.0." >&2
+            exit 1
+          fi
+          git fetch origin +refs/heads/main:refs/remotes/origin/main --no-tags
+          if ! git merge-base --is-ancestor "${GITHUB_SHA}" origin/main; then
+            echo "The release tag must point to a commit contained in origin/main." >&2
+            exit 1
+          fi
 
       - name: Set up pnpm
         uses: pnpm/action-setup@v4

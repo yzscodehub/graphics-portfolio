@@ -1,6 +1,7 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
+import { deriveReadingMinutes } from "../src/content/reading-time.ts";
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const contentRoot = path.join(projectRoot, "src", "content");
@@ -26,6 +27,18 @@ const expectedWritingModules = new Map([
   ["debugging", { order: 5, articles: 1 }],
   ["neural-graphics", { order: 6, articles: 1 }],
   ["multimedia", { order: 7, articles: 1 }],
+]);
+const forbiddenExperienceFields = new Set([
+  "startYear",
+  "endYear",
+  "publishedAt",
+  "updatedAt",
+  "company",
+  "employer",
+  "client",
+  "internalProject",
+  "realName",
+  "address",
 ]);
 
 function walk(directory) {
@@ -95,6 +108,9 @@ function validateCollection(name) {
       errors.push(`${entry.file}: published writing needs englishTitle and englishDescription.`);
     }
     if (name === "writing" && draft !== "true") {
+      for (const legacyField of ["category", "order", "readingMinutes"])
+        if (entry.meta[legacyField] !== undefined)
+          errors.push(`${entry.file}: legacy ${legacyField} must be removed; module is canonical.`);
       if (!writingModules.has(entry.meta.module))
         errors.push(`${entry.file}: unknown writing module ${entry.meta.module || "<missing>"}.`);
       if (!/^\d+$/.test(entry.meta.moduleOrder ?? ""))
@@ -117,10 +133,23 @@ function validateCollection(name) {
         );
       if (!entry.meta.publishedAt || !entry.meta.updatedAt)
         errors.push(`${entry.file}: publishedAt and updatedAt are required.`);
-      const readingMinutes = Number(entry.meta.readingMinutes);
-      if (!Number.isInteger(readingMinutes) || readingMinutes < 12 || readingMinutes > 25)
-        errors.push(`${entry.file}: readingMinutes must be an integer between 12 and 25.`);
+      const readingOverride = entry.meta.readingMinutesOverride;
+      const overrideReason = entry.meta.readingMinutesOverrideReason;
+      if ((readingOverride === undefined) !== (overrideReason === undefined))
+        errors.push(
+          `${entry.file}: readingMinutesOverride and readingMinutesOverrideReason must appear together.`,
+        );
+      if (
+        readingOverride !== undefined &&
+        (!/^\d+$/.test(readingOverride) ||
+          Number(readingOverride) < 1 ||
+          Number(readingOverride) > 60)
+      )
+        errors.push(`${entry.file}: readingMinutesOverride must be an integer between 1 and 60.`);
       const body = entry.source.replace(/^---\s*\r?\n[\s\S]*?\r?\n---\s*/, "");
+      const derivedMinutes = deriveReadingMinutes(body);
+      if (!Number.isInteger(derivedMinutes) || derivedMinutes < 1)
+        errors.push(`${entry.file}: derived reading time must be a positive integer.`);
       if (Buffer.byteLength(body, "utf8") < 6_000)
         errors.push(`${entry.file}: article body must contain at least 6000 UTF-8 bytes.`);
       if ((body.match(/^## /gm) ?? []).length < 7)
@@ -131,6 +160,10 @@ function validateCollection(name) {
         errors.push(`${entry.file}: article needs a reproducible experiment.`);
       if (!/(?:边界|限制|检查表)/.test(body))
         errors.push(`${entry.file}: article needs an explicit boundary, limitation, or checklist.`);
+      if (!/^## 参考资料$/m.test(body))
+        errors.push(`${entry.file}: article needs a primary-reference section.`);
+      if ((body.match(/\]\(https:\/\//g) ?? []).length < 2)
+        errors.push(`${entry.file}: article needs at least two linked primary references.`);
     }
   }
 
@@ -200,6 +233,18 @@ function main() {
       .filter(({ meta }) => meta.locale === "zh-CN" && meta.draft !== "true")
       .map(({ meta }) => meta.routeSlug),
   );
+  const publishedArticles = collections.writing.entries.filter(
+    ({ meta }) => meta.locale === "zh-CN" && meta.draft !== "true",
+  );
+  const articleBySlug = new Map(publishedArticles.map((entry) => [entry.meta.routeSlug, entry]));
+  const publishedProjects = collections.projects.entries.filter(
+    ({ meta }) => meta.locale === "zh-CN" && meta.draft !== "true",
+  );
+  const projectBySlug = new Map(publishedProjects.map((entry) => [entry.meta.routeSlug, entry]));
+  const publishedDemos = collections.demos.entries.filter(
+    ({ meta }) => meta.locale === "zh-CN" && meta.draft !== "true",
+  );
+  const demoBySlug = new Map(publishedDemos.map((entry) => [entry.meta.routeSlug, entry]));
   for (const { file, meta } of collections.projects.entries.filter(
     ({ meta }) => meta.draft !== "true",
   )) {
@@ -238,10 +283,47 @@ function main() {
       errors.push(`writing: ${module} expected ${contract.articles} articles, found ${actual}.`);
   }
 
+  for (const { file, meta } of publishedArticles) {
+    for (const projectSlug of meta.relatedProjects ?? []) {
+      const project = projectBySlug.get(projectSlug);
+      if (project && !(project.meta.articleSlugs ?? []).includes(meta.routeSlug))
+        errors.push(`${file}: project ${projectSlug} is missing reciprocal articleSlugs entry.`);
+    }
+    for (const demoSlug of meta.relatedDemos ?? []) {
+      const demo = demoBySlug.get(demoSlug);
+      if (demo && !(demo.meta.relatedArticles ?? []).includes(meta.routeSlug))
+        errors.push(`${file}: Demo ${demoSlug} is missing reciprocal relatedArticles entry.`);
+    }
+    for (const articleSlug of meta.relatedArticles ?? []) {
+      const related = articleBySlug.get(articleSlug);
+      if (related && !(related.meta.relatedArticles ?? []).includes(meta.routeSlug))
+        errors.push(`${file}: article ${articleSlug} is missing reciprocal relatedArticles entry.`);
+    }
+  }
+  for (const { file, meta } of publishedProjects)
+    for (const articleSlug of meta.articleSlugs ?? []) {
+      const article = articleBySlug.get(articleSlug);
+      if (article && !(article.meta.relatedProjects ?? []).includes(meta.routeSlug))
+        errors.push(`${file}: article ${articleSlug} is missing reciprocal relatedProjects entry.`);
+    }
+  for (const { file, meta } of publishedDemos)
+    for (const articleSlug of meta.relatedArticles ?? []) {
+      const article = articleBySlug.get(articleSlug);
+      if (article && !(article.meta.relatedDemos ?? []).includes(meta.routeSlug))
+        errors.push(`${file}: article ${articleSlug} is missing reciprocal relatedDemos entry.`);
+    }
+
   const experience = validateCollection("experience");
   errors.push(...experience.errors);
   if (experience.entries.length === 0)
     errors.push("experience: at least one anonymous experience entry is required.");
+  for (const { file, meta, source } of experience.entries) {
+    for (const field of forbiddenExperienceFields)
+      if (meta[field] !== undefined)
+        errors.push(`${file}: forbidden identifying experience field ${field}.`);
+    if (/\b(?:19|20)\d{2}\b/.test(source))
+      errors.push(`${file}: anonymous experience content must not publish calendar years.`);
+  }
 
   if (errors.length === 0) {
     console.log("Content contract checks passed.");

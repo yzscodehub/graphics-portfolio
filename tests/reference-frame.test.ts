@@ -39,6 +39,6 @@ describe("reference frame invariants", () => {
       format: "rgba16float",
       lastWriter: "Temporal Resolve",
     });
-    expect(history?.range).toContain("resolved previous frame");
+    expect(history?.range).toContain("latest Temporal Resolve");
   });
 });

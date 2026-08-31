@@ -4,11 +4,9 @@ routeSlug: path-tracing-to-neural-denoising
 locale: zh-CN
 title: 从路径追踪噪声到浏览器神经降噪
 description: 用可校验的配对渲染、八层残差 CNN、ONNX 导出和显式浏览器运行，建立一条不混淆离线质量与设备耗时的神经图形证据链。
-category: deep-learning
 module: neural-graphics
 moduleOrder: 6
 articleOrder: 1
-order: 1
 level: advanced
 prerequisites:
   - 路径追踪的有限采样与蒙特卡洛估计
@@ -24,12 +22,12 @@ relatedDemos:
   - neural-denoising
 relatedArticles:
   - webgpu-particles-path-tracing
+  - bvh-progressive-path-tracing
 tags:
   - Neural Graphics
   - PyTorch
   - ONNX
   - Denoising
-readingMinutes: 19
 englishTitle: From Path-Tracing Noise to Neural Denoising in the Browser
 englishDescription: A reproducible path from paired renders to residual-CNN training, ONNX export, browser inference, and evaluation boundaries.
 publishedAt: 2026-08-30
@@ -61,12 +59,16 @@ draft: false
 
 审核运行使用的配置为：64 个训练场景、16 个验证场景，输入为 **1-SPP** 的独立低采样估计，参考为 **64-SPP** 的独立高采样估计。训练种子范围与验证种子范围分离，不能把同一场景的相邻裁剪或同一随机序列同时放进两个集合。验证集仍共享同一个程序化渲染器假设，所以“留出”意味着未见场景参数，不意味着跨渲染器泛化。
 
-公开页面不直接相信“文件下载成功”。显式运行时，页面先取得版本化 held-out manifest，检查：
+这些配对由 `training/generate_dataset.py` 的独立程序化生成器产生，不是浏览器 Progressive Path Tracer Demo 的帧导出。生成器在 64 个训练场景之后把首个 validation pair 写为 `scene-0064`；网页为了稳定 URL 使用 `scene-0001`，但 held-out manifest 显式记录 source stem、公开别名、导出版本和 dataset-manifest SHA-256。BVH Path Tracer 文章提供采样、线性累积和有限参考的前置概念，但不能被当作该模型训练数据的来源证明。
 
+公开页面不直接相信“文件下载成功”。显式运行时，页面先取得 model artifact manifest，验证它所绑定的 ONNX 与 held-out manifest，再检查：
+
+- ONNX 的文件名、字节数、SHA-256、opset、输入输出名和固定 tensor contract；
+- held-out manifest 自身的字节数与 SHA-256；
 - `split` 必须是 `val`，布局必须是 `NCHW`，dtype 必须是小端 `float32`；
 - shape 必须是 `1 × 3 × 256 × 256`；
 - noisy 与 reference 二进制文件的字节长度和 SHA-256 必须与 manifest 一致；
-- 模型文件必须存在且满足公开的大小上限；输出长度必须与输入长度一致。
+- 创建 session 后的 input/output name 必须与 artifact manifest 一致，输出长度必须与输入长度一致。
 
 这里的 SHA-256 校验约束的是浏览器使用的留出输入和参考，防止内容或字节序被替换后仍显示一组貌似合理的图像。它不把一次网页运行伪装成完整验证，也不把 Canvas 的程序化预览称作真实模型输出。
 
@@ -131,7 +133,7 @@ PSNR = 10 × log10(MAX² / MSE)
 1. 在受控 Python 环境中生成 64/16 个 `256²` 场景，明确指定 `--noisy-spp 1 --clean-spp 64`，保存 `dataset-manifest.json` 及其 SHA-256。
 2. 以固定种子训练 16-channel、8-conv 网络；将 checkpoint、环境版本、训练参数和验证记录一并保存。不要将原始数据或随机权重当作网页素材提交。
 3. 在完整 validation split 上运行离线评估，记录 noisy 与 denoised 的 L1、MSE、PSNR；导出 ONNX 后运行 PyTorch/ONNX parity，且用明确容差拒绝不一致结果。
-4. 将经审核的 ONNX、held-out `.f32` 配对和 manifest 放到静态资源路径。重新计算文件字节数与 SHA-256，确保网页 manifest 中的值来自这些最终文件。
+4. 将经审核的 ONNX、held-out `.f32` 配对和两层 manifest 放到静态资源路径。重新计算 ONNX、held-out manifest 与配对文件的字节数和 SHA-256，确保网页只接受这些最终字节。
 5. 打开页面后先确认未点击时没有模型请求。点击 `RUN REVIEWED MODEL`，记录选择的后端、任何回退原因、5 次预热后 20 次样本的 P50/P95；将这些设备数据标注为运行时数据，而不是离线质量结论。
 
 这个过程允许实验失败：缺模型、哈希不匹配、WebGPU 不可用或 parity 超容差都应该停止相应断言，而不是修改文字去迎合页面展示。
@@ -140,11 +142,21 @@ PSNR = 10 × log10(MAX² / MSE)
 
 当前证据只覆盖小型、静态、程序化 RGB 分布。它不覆盖纹理、运动矢量、时域稳定性、复杂透明/体积效应、任意 HDR 颜色空间、跨厂商渲染器或生产资产。64-SPP 参考也仍含有限采样误差；显示域 PSNR 可能掩盖 HDR 高光中的误差。网络还可能在分布外场景中抹掉真实边缘、镜面细节或制造颜色偏移。
 
+公开 artifacts 足以审核浏览器使用的单个 held-out pair、ONNX 字节和运行时接口，但仓库不发布原始 64/16 数据集与训练 checkpoint；因此仅凭站点仓库不能独立重算完整 16-scene 离线指标或 PyTorch/ONNX parity。模型卡保存的是已审核记录，不应把“可核对已发布工件”改写成“任何访客都能从当前仓库完整复现训练”。
+
 发布或更新该 Demo 前，至少检查：
 
-- [ ] 数据集和 held-out 资源的 SHA-256 与 manifest 一致；
-- [ ] 1-SPP/64-SPP、64/16 场景、颜色管线和验证范围在页面与模型卡中一致；
-- [ ] ONNX 大小、输入输出契约及 PyTorch/ONNX parity 有真实记录；
-- [ ] 离线 L1/PSNR 与浏览器 P50/P95 分开标注；
-- [ ] WebGPU、单线程 WASM 和确定性回退均能解释失败；
-- [ ] 没有将该结果扩展为生产降噪、通用图像增强或固定性能承诺。
+- 数据集和 held-out 资源的 SHA-256 与 manifest 一致；
+- 1-SPP/64-SPP、64/16 场景、颜色管线和验证范围在页面与模型卡中一致；
+- ONNX 大小、输入输出契约及 PyTorch/ONNX parity 有真实记录；
+- Model artifact manifest 同时绑定 ONNX 与 held-out manifest 的最终字节；
+- 离线 L1/PSNR 与浏览器 P50/P95 分开标注；
+- WebGPU、单线程 WASM 和确定性回退均能解释失败；
+- 没有将该结果扩展为生产降噪、通用图像增强或固定性能承诺。
+
+## 参考资料
+
+- [ONNX Runtime Web](https://onnxruntime.ai/docs/tutorials/web/)
+- [ONNX Runtime WebGPU Execution Provider](https://onnxruntime.ai/docs/tutorials/web/ep-webgpu.html)
+- [PyTorch ONNX](https://docs.pytorch.org/docs/stable/onnx.html)
+- [Interactive Reconstruction of Monte Carlo Image Sequences using a Recurrent Denoising Autoencoder](https://research.nvidia.com/publication/2017-07_interactive-reconstruction-monte-carlo-image-sequences-using-recurrent)

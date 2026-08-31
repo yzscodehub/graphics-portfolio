@@ -45,7 +45,7 @@ export function validatePerformanceBudgets(projectRoot = root) {
       if (/^three\.(?:core|tsl|webgpu)\..+\.js$/.test(name)) threeRuntimeBytes += gzipBytes;
       if (name.startsWith("three.webgpu") && gzipBytes > 220 * 1024)
         violations.push({
-          code: "hero-runtime",
+          code: "hero-webgpu-entry-chunk",
           file: `dist/_astro/${name}`,
           bytes: gzipBytes,
           limit: 220 * 1024,

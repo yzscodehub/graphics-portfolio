@@ -5,9 +5,9 @@ import {
   drawStageBackdrop,
   makeButton,
   makeRange,
-  resizeCanvas,
 } from "./core/canvas";
 import type { DemoContext, DemoController } from "./core/types";
+import { CanvasFallbackSurface } from "./reference-frame/fallback-surface";
 import type { BufferGeometry, Material, Object3D } from "three";
 
 type DebugView = "final" | "normal" | "roughness" | "metalness" | "direct" | "indirect";
@@ -35,27 +35,71 @@ const TONE_MAPPING_LABELS: Record<ToneMappingMode, string> = {
  */
 export function createDemo(): DemoController {
   let active: DemoController | undefined;
+  let context: DemoContext | undefined;
+  let generation = 0;
+  let recovering = false;
+
+  const useCanvasFallback = async (reason: string, expectedGeneration: number) => {
+    if (!context || recovering || expectedGeneration !== generation) return false;
+    recovering = true;
+    const previous = active;
+    active = undefined;
+    try {
+      await previous?.dispose();
+      const fallback = createCanvasFallback();
+      await fallback.init(context);
+      if (expectedGeneration !== generation) {
+        await fallback.dispose();
+        return false;
+      }
+      active = fallback;
+      context.setRuntimeState?.("fallback");
+      context.setStatus(`${reason} Canvas material approximation is active.`, "warning");
+      return true;
+    } catch (error) {
+      context.setStatus(
+        `${reason} ${error instanceof Error ? error.message : "Canvas fallback unavailable."}`,
+        "error",
+      );
+      return false;
+    } finally {
+      recovering = false;
+    }
+  };
 
   return {
-    async init(context) {
-      const renderer = createThreeMaterialDemo();
+    async init(next) {
+      context = next;
+      const currentGeneration = ++generation;
+      const renderer = createThreeMaterialDemo((reason) => {
+        if (generation !== currentGeneration) return;
+        const fallbackGeneration = ++generation;
+        void useCanvasFallback(reason, fallbackGeneration);
+      });
       try {
-        await renderer.init(context);
+        await renderer.init(next);
+        if (currentGeneration !== generation) {
+          await renderer.dispose();
+          return;
+        }
         active = renderer;
+        next.setRuntimeState?.("running");
       } catch (error) {
         await renderer.dispose();
-        const fallback = createCanvasFallback();
-        await fallback.init(context);
-        active = fallback;
         const reason = error instanceof Error ? error.message : "Three.js renderer is unavailable.";
-        context.setStatus(
-          `${reason} Showing a clearly labeled Canvas material preview.`,
-          "warning",
-        );
+        if (!(await useCanvasFallback(reason, currentGeneration))) throw error;
       }
     },
     resize(width, height) {
-      active?.resize(width, height);
+      try {
+        active?.resize(width, height);
+      } catch (error) {
+        const fallbackGeneration = ++generation;
+        void useCanvasFallback(
+          error instanceof Error ? error.message : "Material renderer resize failed.",
+          fallbackGeneration,
+        );
+      }
     },
     pause() {
       active?.pause();
@@ -64,12 +108,13 @@ export function createDemo(): DemoController {
       active?.resume();
     },
     dispose() {
+      generation += 1;
       return active?.dispose();
     },
   };
 }
 
-function createThreeMaterialDemo(): DemoController {
+function createThreeMaterialDemo(onDeviceLost: (message: string) => void): DemoController {
   let context: DemoContext;
   let three: typeof import("three/webgpu");
   let tsl: typeof import("three/tsl");
@@ -286,6 +331,23 @@ function createThreeMaterialDemo(): DemoController {
         powerPreference: "high-performance",
       });
       await renderer.init();
+      const backend = renderer.backend as { device?: GPUDevice } | undefined;
+      if (backend?.device && context.onDeviceLost) {
+        context.onDeviceLost(backend.device, (reason) => {
+          const detail = reason as { reason?: string; message?: string } | undefined;
+          onDeviceLost(
+            `Three.js WebGPU device lost (${detail?.reason ?? "unknown"}): ${detail?.message || "recovery required"}`,
+          );
+        });
+      }
+      context.canvas.addEventListener(
+        "webglcontextlost",
+        (event) => {
+          event.preventDefault();
+          onDeviceLost("Three.js WebGL context lost; recovery required.");
+        },
+        { signal: context.signal },
+      );
       renderer.setClearColor(0x071011, 1);
       renderer.outputColorSpace = three.SRGBColorSpace;
       applyToneMapping();
@@ -413,6 +475,7 @@ function createThreeMaterialDemo(): DemoController {
 
 function createCanvasFallback(): DemoController {
   let context: DemoContext;
+  let surface: CanvasFallbackSurface | undefined;
   let ctx: CanvasRenderingContext2D;
   let width = 1;
   let height = 1;
@@ -422,6 +485,8 @@ function createCanvasFallback(): DemoController {
   let roughness = 0.34;
   let metalness = 0.72;
   let exposure = 1.1;
+  let toneMapping: ToneMappingMode = "aces";
+  let debug: DebugView = "final";
   let report: ReturnType<typeof createMetricReporter>;
 
   const render = (time: number) => {
@@ -451,42 +516,78 @@ function createCanvasFallback(): DemoController {
         const half = normalize([light[0] + view[0], light[1] + view[1], light[2] + view[2]]);
         const specular = Math.pow(Math.max(0, dot(normal, half)), 5 + (1 - roughness) * 120);
         const indirect = 0.16 + 0.24 * Math.max(0, normal[1]);
+        const direct = ndotl * 1.2 + specular;
         const index = (y * size + x) * 4;
-        const illumination = indirect + ndotl * 1.2;
-        image.data[index] = Math.round(
-          255 * toneMap((color[0] * illumination * (1 - metalness * 0.45) + specular) * exposure),
-        );
+        const shaded = [
+          color[0] * (indirect + ndotl * 1.2) * (1 - metalness * 0.45) + specular,
+          color[1] * (indirect + ndotl * 1.2) * (1 - metalness * 0.45) + specular,
+          color[2] * (indirect + ndotl * 1.2) * (1 - metalness * 0.45) + specular,
+        ] as Vec3;
+        const debugColor: Vec3 =
+          debug === "normal"
+            ? [(normal[0] + 1) * 0.5, (normal[1] + 1) * 0.5, (normal[2] + 1) * 0.5]
+            : debug === "roughness"
+              ? [roughness, roughness, roughness]
+              : debug === "metalness"
+                ? [metalness, metalness, metalness]
+                : debug === "direct"
+                  ? [
+                      color[0] * direct * (1 - metalness * 0.45),
+                      color[1] * direct * (1 - metalness * 0.45),
+                      color[2] * direct * (1 - metalness * 0.45),
+                    ]
+                  : debug === "indirect"
+                    ? [color[0] * indirect, color[1] * indirect, color[2] * indirect]
+                    : shaded;
+        image.data[index] = Math.round(255 * canvasToneMap(debugColor[0] * exposure, toneMapping));
         image.data[index + 1] = Math.round(
-          255 * toneMap((color[1] * illumination * (1 - metalness * 0.45) + specular) * exposure),
+          255 * canvasToneMap(debugColor[1] * exposure, toneMapping),
         );
         image.data[index + 2] = Math.round(
-          255 * toneMap((color[2] * illumination * (1 - metalness * 0.45) + specular) * exposure),
+          255 * canvasToneMap(debugColor[2] * exposure, toneMapping),
         );
         image.data[index + 3] = 255;
       }
     ctx.putImageData(image, centerX - size / 2, centerY - size / 2);
     ctx.fillStyle = "#e8e6dc";
     ctx.font = "12px ui-monospace, monospace";
-    ctx.fillText("CANVAS PBR PREVIEW / WEBGPU AND WEBGL2 UNAVAILABLE", 16, 24);
-    report({ backend: "Canvas fallback", status: "PBR approximation" });
+    ctx.fillText(
+      `CANVAS PBR APPROXIMATION / ${debug.toUpperCase()} / ${toneMapping.toUpperCase()}`,
+      16,
+      24,
+    );
+    report({ backend: "Canvas fallback", status: `PBR approximation / ${debug.toUpperCase()}` });
     raf = requestAnimationFrame(render);
   };
 
   return {
     async init(next) {
       context = next;
-      ctx = resizeCanvas(context.canvas, width, height);
+      surface = new CanvasFallbackSurface(context, "Canvas material and lighting approximation");
+      ctx = surface.resize(width, height);
       report = createMetricReporter(context);
       clearElement(context.controls);
       const baseColorControl = makeColorControl("Base Color", baseColor);
       const metalnessControl = makeRange("Metalness", metalness, 0, 1, 0.01);
       const roughnessControl = makeRange("Roughness", roughness, 0.05, 0.95, 0.01);
       const exposureControl = makeRange("Exposure", exposure, 0.5, 1.8, 0.05);
+      const toneMappingControl = document.createElement("div");
+      toneMappingControl.className = "demo-range";
+      toneMappingControl.setAttribute("aria-label", "Tone Mapping approximation");
+      const toneMappingLabel = document.createElement("span");
+      toneMappingLabel.textContent = "Tone Mapping";
+      const toneButtons = (Object.keys(TONE_MAPPING_LABELS) as ToneMappingMode[]).map((mode) =>
+        makeButton(TONE_MAPPING_LABELS[mode], mode === toneMapping),
+      );
+      toneMappingControl.append(toneMappingLabel, ...toneButtons);
+      const viewButtons = DEBUG_VIEWS.map((view) => makeButton(view.toUpperCase(), view === debug));
       context.controls.append(
         baseColorControl.wrapper,
         metalnessControl.parentElement!,
         roughnessControl.parentElement!,
         exposureControl.parentElement!,
+        toneMappingControl,
+        ...viewButtons,
       );
       baseColorControl.input.addEventListener(
         "input",
@@ -516,11 +617,39 @@ function createCanvasFallback(): DemoController {
         },
         { signal: context.signal },
       );
+      toneButtons.forEach((button, index) =>
+        button.addEventListener(
+          "click",
+          () => {
+            toneMapping = (Object.keys(TONE_MAPPING_LABELS) as ToneMappingMode[])[index]!;
+            toneButtons.forEach((entry) =>
+              entry.setAttribute("aria-pressed", String(entry === button)),
+            );
+          },
+          { signal: context.signal },
+        ),
+      );
+      viewButtons.forEach((button, index) =>
+        button.addEventListener(
+          "click",
+          () => {
+            debug = DEBUG_VIEWS[index]!;
+            viewButtons.forEach((entry) =>
+              entry.setAttribute("aria-pressed", String(entry === button)),
+            );
+            context.setStatus(
+              `Canvas approximation debug view: ${debug.toUpperCase()}; not a Three.js buffer capture.`,
+              "warning",
+            );
+          },
+          { signal: context.signal },
+        ),
+      );
     },
     resize(nextWidth, nextHeight) {
       width = nextWidth;
       height = nextHeight;
-      ctx = resizeCanvas(context.canvas, width, height);
+      ctx = surface?.resize(width, height) ?? ctx;
     },
     pause() {
       running = false;
@@ -534,6 +663,8 @@ function createCanvasFallback(): DemoController {
     dispose() {
       running = false;
       cancelAnimationFrame(raf);
+      surface?.dispose();
+      surface = undefined;
     },
   };
 }
@@ -570,6 +701,12 @@ function normalize(a: Vec3): Vec3 {
   return [a[0] / length, a[1] / length, a[2] / length];
 }
 
-function toneMap(value: number): number {
-  return Math.min(1, Math.pow(value / (1 + value), 1 / 2.2));
+function canvasToneMap(value: number, mode: ToneMappingMode): number {
+  const linear = Math.max(0, value);
+  if (mode === "linear") return Math.min(1, linear);
+  const mapped =
+    mode === "agx"
+      ? Math.pow(linear / (1 + linear), 0.82)
+      : (linear * (2.51 * linear + 0.03)) / (linear * (2.43 * linear + 0.59) + 0.14);
+  return Math.min(1, Math.max(0, Math.pow(mapped, 1 / 2.2)));
 }

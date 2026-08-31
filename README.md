@@ -84,12 +84,53 @@ The former resume implementation is preserved under `deferred/resume/` and remai
 
 The repository includes a small residual denoiser trained only on deterministic procedural Monte Carlo pairs generated locally. See `training/model-card.md` for provenance, exact commands, hashes, and strict limitations. These results are not presented as production-scene performance.
 
+The reviewed reproduction command fixes the published 16-channel, 50-epoch
+configuration rather than relying on training defaults:
+
+```powershell
+python training/train_denoiser.py `
+  --data-root D:/datasets/portfolio-procedural-v1 `
+  --output training/checkpoints/denoiser.pt `
+  --patch-size 256 `
+  --features 16 `
+  --batch-size 4 `
+  --epochs 50 `
+  --learning-rate 0.0002 `
+  --seed 7 `
+  --workers 0 `
+  --device cpu
+
+python training/export_onnx.py `
+  --checkpoint training/checkpoints/denoiser.pt `
+  --output public/models/neural-denoiser.onnx `
+  --opset 17
+
+python training/export_web_pair.py `
+  --dataset-root D:/datasets/portfolio-procedural-v1 `
+  --source-stem scene-0064 `
+  --asset-stem scene-0001 `
+  --scene-seed 91103 `
+  --output-root public/models/heldout
+
+python training/write_model_manifest.py `
+  --model public/models/neural-denoiser.onnx `
+  --heldout-manifest public/models/heldout/manifest.json `
+  --output public/models/neural-denoiser.manifest.json `
+  --input-name noisy_rgb `
+  --output-name denoised_rgb `
+  --opset 17
+```
+
+`training/README.md` documents the matching ONNX export, versioned held-out
+pair export, and `neural-denoiser.manifest.json` generation. The browser and
+preview/release gates verify the manifest's model and held-out SHA-256 values.
+
 ## Deployment
 
-Pushes to `main` always run type checks, linting, formatting, unit tests, guarded Preview build, link checks, and Chromium checks. Before the first `v*` tag, `.github/workflows/preview-pages.yml` also deploys the Preview to:
+Pushes to `main` always run type checks, linting, formatting, unit tests, guarded Preview build, link checks, and Chromium checks. While the persistent repository variable `ENABLE_PREVIEW_PAGES` is not `false`, `.github/workflows/preview-pages.yml` also deploys the Preview to:
 
 `https://yzscodehub.github.io/graphics-portfolio/`
 
-Preview pages send `noindex,nofollow` and `robots.txt` uses `Disallow: /`; Astro enables Sitemap only when `SITE_STAGE=release`. Set `ENABLE_PREVIEW_PAGES=false` to stop Preview deployment early. Once any `v*` tag exists, main automatically becomes verify-only so it cannot overwrite an indexed release. GitHub Pages must use **GitHub Actions** as its source.
+Preview pages send `noindex,nofollow` and `robots.txt` uses `Disallow: /`; Astro enables Sitemap only when `SITE_STAGE=release`. The release PR must set `ENABLE_PREVIEW_PAGES=false` before tagging so later `main` pushes remain verify-only and cannot overwrite an indexed release. GitHub Pages must use **GitHub Actions** as its source.
 
-`.github/workflows/release-pages.yml` deploys only from `v*` tags with `SITE_STAGE=release`. Do not create `v1.0.0` until the reviewed Preview satisfies the full acceptance gate.
+`.github/workflows/release-pages.yml` accepts only stable SemVer tags such as `v1.0.0`, verifies that the tagged commit belongs to `main`, and deploys with `SITE_STAGE=release`. Do not create `v1.0.0` until the reviewed Preview satisfies the full acceptance gate.

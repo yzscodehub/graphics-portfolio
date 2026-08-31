@@ -1,8 +1,38 @@
 /* eslint-disable @typescript-eslint/consistent-type-imports -- ONNX Runtime remains explicitly lazy and provider-specific. */
 import { clearElement, makeButton, resizeCanvas } from "./core/canvas";
-import type { DemoContext, DemoController } from "./core/types";
+import type {
+  DemoContext,
+  DemoController,
+  DemoResourceScope,
+  InferenceSessionLike,
+} from "./core/types";
 
 export type ViewMode = "noisy" | "denoised" | "reference" | "error";
+
+export interface ArtifactDescriptor {
+  file: string;
+  bytes: number;
+  sha256: string;
+}
+
+interface TensorContract {
+  name: string;
+  dtype: "float32";
+  shape: [1, 3, 256, 256];
+  layout: "NCHW";
+  range: "[0,1]";
+}
+
+export interface ModelManifest {
+  version: 1;
+  model: ArtifactDescriptor & {
+    format: "onnx";
+    opset: 17;
+    input: TensorContract;
+    output: TensorContract;
+  };
+  heldoutManifest: ArtifactDescriptor;
+}
 
 interface HeldoutManifest {
   version: number;
@@ -15,9 +45,15 @@ interface HeldoutManifest {
   layout: "NCHW";
   noisySamplesPerPixel: number;
   referenceSamplesPerPixel: number;
+  export: {
+    version: "reviewed-web-pair-v2";
+    assetStem: "scene-0001";
+    sourceDatasetStem: "scene-0064";
+    datasetManifestSha256: string;
+  };
   files: {
-    noisy: { file: string; bytes: number; sha256: string };
-    reference: { file: string; bytes: number; sha256: string };
+    noisy: ArtifactDescriptor;
+    reference: ArtifactDescriptor;
   };
 }
 
@@ -41,6 +77,60 @@ interface ReviewedRun {
   p95Ms: number;
   noisyMetrics: ImageMetrics;
   denoisedMetrics: ImageMetrics;
+}
+
+/** Keeps an explicit user action as the only entry point for model loading. */
+export class ExplicitRunGate {
+  private requestPromise: Promise<unknown> | undefined;
+
+  get inFlight(): boolean {
+    return this.requestPromise !== undefined;
+  }
+
+  async request<T>(loader: () => Promise<T>): Promise<T> {
+    if (this.requestPromise) throw new Error("A reviewed model request is already in progress.");
+    const request = loader();
+    this.requestPromise = request;
+    try {
+      return await request;
+    } finally {
+      if (this.requestPromise === request) this.requestPromise = undefined;
+    }
+  }
+}
+
+/** Releases an ONNX session at most once across normal completion and dispose. */
+export class SessionLease implements InferenceSessionLike {
+  private releasePromise: Promise<void> | undefined;
+  private activeOperations = 0;
+  private releaseRequested = false;
+  private idleResolvers: Array<() => void> = [];
+
+  constructor(private readonly session: InferenceSessionLike) {}
+
+  async run<T>(operation: () => Promise<T>): Promise<T> {
+    if (this.releaseRequested) throw new Error("ONNX session release is already pending.");
+    this.activeOperations += 1;
+    try {
+      return await operation();
+    } finally {
+      this.activeOperations -= 1;
+      if (this.activeOperations === 0) {
+        this.idleResolvers.splice(0).forEach((resolve) => resolve());
+      }
+    }
+  }
+
+  release(): Promise<void> {
+    this.releaseRequested = true;
+    this.releasePromise ??= (async () => {
+      if (this.activeOperations > 0) {
+        await new Promise<void>((resolve) => this.idleResolvers.push(resolve));
+      }
+      await this.session.release();
+    })();
+    return this.releasePromise;
+  }
 }
 
 export function calculateImageMetrics(
@@ -75,7 +165,7 @@ export function createDemo(): DemoController {
   let height = 1;
   let mode: ViewMode = "noisy";
   let run: ReviewedRun | undefined;
-  let runningRequest = false;
+  const reviewedRunGate = new ExplicitRunGate();
   let disposed = false;
   let fallbackFrames = makeProceduralFallbackFrames(256);
   const staging = document.createElement("canvas");
@@ -135,16 +225,18 @@ export function createDemo(): DemoController {
   };
 
   const runReviewedModel = async (button: HTMLButtonElement) => {
-    if (runningRequest || disposed) return;
-    runningRequest = true;
+    if (reviewedRunGate.inFlight || disposed) return;
     button.disabled = true;
     button.textContent = "LOADING REVIEWED MODEL…";
     context.setStatus("Loading hashed held-out pair and ONNX Runtime on explicit request…");
     try {
-      const result = await executeReviewedRun(context.signal);
+      const result = await reviewedRunGate.request(() =>
+        executeReviewedRun(context.signal, context.resources),
+      );
       if (disposed) return;
       run = result;
       mode = "denoised";
+      context.setRuntimeState?.("running");
       context.setStatus(
         `${result.backend} completed. Current held-out pair: L1 ${result.denoisedMetrics.l1.toFixed(6)}, PSNR ${result.denoisedMetrics.psnrDb.toFixed(2)} dB, P50/P95 ${result.p50Ms.toFixed(2)}/${result.p95Ms.toFixed(2)} ms.`,
         "success",
@@ -153,6 +245,7 @@ export function createDemo(): DemoController {
       button.textContent = "RERUN REVIEWED MODEL";
     } catch (error) {
       if (disposed || context.signal.aborted) return;
+      context.setRuntimeState?.("fallback");
       context.setStatus(
         `${error instanceof Error ? error.message : "Reviewed inference failed."} Static fallback remains available.`,
         "warning",
@@ -164,7 +257,6 @@ export function createDemo(): DemoController {
       });
       button.textContent = "RETRY REVIEWED MODEL";
     } finally {
-      runningRequest = false;
       if (!disposed) {
         button.disabled = false;
         draw();
@@ -175,6 +267,7 @@ export function createDemo(): DemoController {
   return {
     async init(next) {
       context = next;
+      context.setRuntimeState?.("fallback");
       ctx = resizeCanvas(context.canvas, width, height);
       clearElement(context.controls);
       const viewButtons = (["noisy", "denoised", "reference", "error"] as ViewMode[]).map((view) =>
@@ -226,45 +319,64 @@ export function createDemo(): DemoController {
   };
 }
 
-async function executeReviewedRun(signal: AbortSignal): Promise<ReviewedRun> {
+export async function executeReviewedRun(
+  signal: AbortSignal,
+  resources?: DemoResourceScope,
+): Promise<ReviewedRun> {
   const base = (import.meta.env.BASE_URL || "/").replace(/\/$/, "");
-  const root = `${base}/models/heldout`;
-  const manifestResponse = await fetch(`${root}/manifest.json`, { signal });
-  if (!manifestResponse.ok) throw new Error("Held-out manifest is unavailable.");
-  const manifest = (await manifestResponse.json()) as HeldoutManifest;
-  validateManifest(manifest);
-  const [noisy, reference] = await Promise.all([
-    fetchVerifiedFloat(`${root}/${manifest.files.noisy.file}`, manifest.files.noisy, signal),
+  const modelRoot = `${base}/models`;
+  const modelManifest = await fetchJson<ModelManifest>(
+    `${modelRoot}/neural-denoiser.manifest.json`,
+    "Reviewed model manifest",
+    signal,
+  );
+  validateModelManifest(modelManifest);
+  const manifestBuffer = await fetchVerifiedBytes(
+    `${modelRoot}/${modelManifest.heldoutManifest.file}`,
+    modelManifest.heldoutManifest,
+    "Held-out manifest",
+    signal,
+  );
+  const manifest = parseJson<HeldoutManifest>(manifestBuffer, "Held-out manifest");
+  validateHeldoutManifest(manifest);
+  const heldoutRoot = `${modelRoot}/heldout`;
+  const [noisy, reference, modelBuffer] = await Promise.all([
+    fetchVerifiedFloat(`${heldoutRoot}/${manifest.files.noisy.file}`, manifest.files.noisy, signal),
     fetchVerifiedFloat(
-      `${root}/${manifest.files.reference.file}`,
+      `${heldoutRoot}/${manifest.files.reference.file}`,
       manifest.files.reference,
+      signal,
+    ),
+    fetchVerifiedBytes(
+      `${modelRoot}/${modelManifest.model.file}`,
+      modelManifest.model,
+      "Reviewed ONNX model",
       signal,
     ),
   ]);
   const frames: DenoisingFrames = { size: manifest.shape[2], noisy, reference };
-  const modelUrl = `${base}/models/neural-denoiser.onnx`;
-  const modelResponse = await fetch(modelUrl, { signal });
-  if (!modelResponse.ok) throw new Error("Reviewed ONNX model is unavailable.");
-  const modelBytes = new Uint8Array(await modelResponse.arrayBuffer());
-  if (!modelBytes.byteLength || modelBytes.byteLength > 5 * 1024 * 1024)
-    throw new Error("Reviewed ONNX model size is outside the published contract.");
+  const modelBytes = new Uint8Array(modelBuffer);
 
   const backends: Array<"webgpu" | "wasm"> = navigator.gpu ? ["webgpu", "wasm"] : ["wasm"];
   const failures: string[] = [];
   for (const requestedBackend of backends) {
     throwIfAborted(signal);
     let attempt: Awaited<ReturnType<typeof createOnnxSession>> | undefined;
+    let lease: SessionLease | undefined;
     try {
       attempt = await createOnnxSession(modelBytes, requestedBackend);
+      lease = new SessionLease(attempt.session);
+      resources?.trackInferenceSession(lease);
+      validateSessionContract(attempt.session, modelManifest.model);
       throwIfAborted(signal);
-      return await runOnnxSession(attempt, frames, manifest.shape, signal);
+      return await runOnnxSession(attempt, lease, frames, manifest.shape, signal);
     } catch (error) {
       throwIfAborted(signal);
       failures.push(
         `${requestedBackend}: ${error instanceof Error ? error.message : "runtime failure"}`,
       );
     } finally {
-      if (attempt) await attempt.session.release().catch(() => undefined);
+      if (lease) await lease.release().catch(() => undefined);
     }
   }
   throw new Error(`Reviewed inference failed on every backend (${failures.join("; ")}).`);
@@ -272,6 +384,7 @@ async function executeReviewedRun(signal: AbortSignal): Promise<ReviewedRun> {
 
 async function runOnnxSession(
   attempt: Awaited<ReturnType<typeof createOnnxSession>>,
+  lease: SessionLease,
   frames: DenoisingFrames,
   shape: HeldoutManifest["shape"],
   signal: AbortSignal,
@@ -281,22 +394,29 @@ async function runOnnxSession(
   try {
     for (let index = 0; index < 5; index += 1) {
       throwIfAborted(signal);
-      releaseTensorMap(await session.run({ [session.inputNames[0]]: input }));
+      const outputs = await lease.run(() => session.run({ [session.inputNames[0]]: input }));
+      try {
+        throwIfAborted(signal);
+      } finally {
+        releaseTensorMap(outputs);
+      }
     }
     const samples: number[] = [];
     let outputData: Float32Array | undefined;
     for (let index = 0; index < 20; index += 1) {
       throwIfAborted(signal);
       const started = performance.now();
-      const outputs = await session.run({ [session.inputNames[0]]: input });
-      samples.push(performance.now() - started);
-      const output = outputs[session.outputNames[0]];
-      if (!output || output.data.length !== frames.noisy.length) {
+      const outputs = await lease.run(() => session.run({ [session.inputNames[0]]: input }));
+      try {
+        throwIfAborted(signal);
+        samples.push(performance.now() - started);
+        const output = outputs[session.outputNames[0]];
+        if (!output || output.data.length !== frames.noisy.length)
+          throw new Error("ONNX output shape does not match the reviewed held-out pair.");
+        outputData = Float32Array.from(output.data as Float32Array);
+      } finally {
         releaseTensorMap(outputs);
-        throw new Error("ONNX output shape does not match the reviewed held-out pair.");
       }
-      outputData = Float32Array.from(output.data as Float32Array);
-      releaseTensorMap(outputs);
     }
     if (!outputData) throw new Error("ONNX Runtime produced no reviewed output.");
     return {
@@ -342,35 +462,161 @@ function throwIfAborted(signal: AbortSignal): void {
   if (signal.aborted) throw signal.reason ?? new DOMException("Aborted", "AbortError");
 }
 
-function validateManifest(manifest: HeldoutManifest): void {
+function validateSessionContract(
+  session: Pick<import("onnxruntime-web").InferenceSession, "inputNames" | "outputNames">,
+  model: ModelManifest["model"],
+): void {
+  if (
+    session.inputNames.length !== 1 ||
+    session.outputNames.length !== 1 ||
+    session.inputNames[0] !== model.input.name ||
+    session.outputNames[0] !== model.output.name
+  )
+    throw new Error("ONNX session input/output names do not match the reviewed model contract.");
+}
+
+export function validateModelManifest(manifest: unknown): asserts manifest is ModelManifest {
+  if (!isRecord(manifest) || manifest.version !== 1 || !isRecord(manifest.model))
+    throw new Error("Reviewed model manifest contract is incompatible.");
+  const { model, heldoutManifest } = manifest;
+  if (
+    !isModelArtifact(model) ||
+    model.file !== "neural-denoiser.onnx" ||
+    model.format !== "onnx" ||
+    model.opset !== 17 ||
+    !isTensorContract(model.input, "noisy_rgb") ||
+    !isTensorContract(model.output, "denoised_rgb") ||
+    !isArtifactDescriptor(heldoutManifest) ||
+    heldoutManifest.file !== "heldout/manifest.json"
+  )
+    throw new Error("Reviewed model manifest contract is incompatible.");
+}
+
+export function validateHeldoutManifest(manifest: unknown): asserts manifest is HeldoutManifest {
+  if (!isRecord(manifest) || !isRecord(manifest.export) || !isRecord(manifest.files))
+    throw new Error("Held-out manifest contract is incompatible.");
+  const { export: exportRecord, files } = manifest;
   if (
     manifest.version !== 1 ||
+    manifest.renderer !== "procedural-cornell-mc-v1" ||
     manifest.split !== "val" ||
+    manifest.stem !== "scene-0001" ||
+    manifest.sceneSeed !== 91_103 ||
     manifest.dtype !== "float32-le" ||
     manifest.layout !== "NCHW" ||
-    manifest.shape[0] !== 1 ||
-    manifest.shape[1] !== 3 ||
-    manifest.shape[2] !== manifest.shape[3]
+    !isExactShape(manifest.shape) ||
+    manifest.noisySamplesPerPixel !== 1 ||
+    manifest.referenceSamplesPerPixel !== 64 ||
+    exportRecord.version !== "reviewed-web-pair-v2" ||
+    exportRecord.assetStem !== "scene-0001" ||
+    exportRecord.sourceDatasetStem !== "scene-0064" ||
+    !isSha256(exportRecord.datasetManifestSha256) ||
+    !isArtifactDescriptor(files.noisy) ||
+    !isArtifactDescriptor(files.reference) ||
+    files.noisy.file !== "scene-0001-noisy.f32" ||
+    files.reference.file !== "scene-0001-reference.f32"
   )
     throw new Error("Held-out manifest contract is incompatible.");
 }
 
 async function fetchVerifiedFloat(
   url: string,
-  expected: { bytes: number; sha256: string },
+  expected: ArtifactDescriptor,
   signal: AbortSignal,
 ): Promise<Float32Array> {
+  const buffer = await fetchVerifiedBytes(url, expected, "Held-out asset", signal);
+  if (!isLittleEndian()) throw new Error("Held-out float assets require a little-endian browser.");
+  return new Float32Array(buffer);
+}
+
+async function fetchVerifiedBytes(
+  url: string,
+  expected: ArtifactDescriptor,
+  label: string,
+  signal: AbortSignal,
+): Promise<ArrayBuffer> {
   const response = await fetch(url, { signal });
-  if (!response.ok) throw new Error(`Held-out asset failed to load: ${url}`);
+  if (!response.ok) throw new Error(`${label} failed to load: ${url}`);
   const buffer = await response.arrayBuffer();
-  if (buffer.byteLength !== expected.bytes) throw new Error("Held-out asset byte length mismatch.");
+  await verifyArtifactBuffer(buffer, expected, label);
+  return buffer;
+}
+
+async function fetchJson<T>(url: string, label: string, signal: AbortSignal): Promise<T> {
+  const response = await fetch(url, { signal });
+  if (!response.ok) throw new Error(`${label} failed to load: ${url}`);
+  return parseJson<T>(await response.arrayBuffer(), label);
+}
+
+function parseJson<T>(buffer: ArrayBuffer, label: string): T {
+  try {
+    return JSON.parse(new TextDecoder().decode(buffer)) as T;
+  } catch (error) {
+    throw new Error(`${label} is not valid JSON.`, { cause: error });
+  }
+}
+
+export async function verifyArtifactBuffer(
+  buffer: ArrayBuffer,
+  expected: ArtifactDescriptor,
+  label: string,
+): Promise<void> {
+  if (!isArtifactDescriptor(expected)) throw new Error(`${label} descriptor is incompatible.`);
+  if (buffer.byteLength !== expected.bytes) throw new Error(`${label} byte length mismatch.`);
   const digest = await crypto.subtle.digest("SHA-256", buffer);
   const actual = Array.from(new Uint8Array(digest), (value) =>
     value.toString(16).padStart(2, "0"),
   ).join("");
-  if (actual !== expected.sha256) throw new Error("Held-out asset SHA-256 mismatch.");
-  if (!isLittleEndian()) throw new Error("Held-out float assets require a little-endian browser.");
-  return new Float32Array(buffer);
+  if (actual !== expected.sha256) throw new Error(`${label} SHA-256 mismatch.`);
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function isSha256(value: unknown): value is string {
+  return typeof value === "string" && /^[a-f0-9]{64}$/i.test(value);
+}
+
+function isArtifactDescriptor(value: unknown): value is ArtifactDescriptor {
+  if (!isRecord(value) || typeof value.file !== "string" || !isSha256(value.sha256)) return false;
+  const bytes = value.bytes;
+  return (
+    value.file.length > 0 && typeof bytes === "number" && Number.isSafeInteger(bytes) && bytes > 0
+  );
+}
+
+function isModelArtifact(value: unknown): value is ModelManifest["model"] {
+  return (
+    isArtifactDescriptor(value) &&
+    isRecord(value) &&
+    value.format === "onnx" &&
+    value.opset === 17 &&
+    isTensorContract(value.input, "noisy_rgb") &&
+    isTensorContract(value.output, "denoised_rgb")
+  );
+}
+
+function isExactShape(value: unknown): value is [1, 3, 256, 256] {
+  return (
+    Array.isArray(value) &&
+    value.length === 4 &&
+    value[0] === 1 &&
+    value[1] === 3 &&
+    value[2] === 256 &&
+    value[3] === 256
+  );
+}
+
+function isTensorContract(value: unknown, name: string): value is TensorContract {
+  return (
+    isRecord(value) &&
+    value.name === name &&
+    value.dtype === "float32" &&
+    value.layout === "NCHW" &&
+    value.range === "[0,1]" &&
+    isExactShape(value.shape)
+  );
 }
 
 function isLittleEndian(): boolean {

@@ -2,26 +2,28 @@
 interface Props {
   title: string;
   description: string;
-  category: string;
+  moduleId: string;
   href: string;
   date: string;
   dateTime: string;
   moduleLabel?: string;
   level?: string;
   readingMinutes?: number;
+  readingTimeSource?: "derived" | "editorial-override";
   locale?: "zh-CN" | "en";
   fullTextLanguage?: "zh-CN" | "en";
 }
 const {
   title,
   description,
-  category,
+  moduleId,
   href,
   date,
   dateTime,
   moduleLabel,
   level,
   readingMinutes,
+  readingTimeSource = "derived",
   locale = "zh-CN",
   fullTextLanguage,
 } = Astro.props;
@@ -40,8 +42,8 @@ const levelLabel =
         : "中级";
 const readingLabel = readingMinutes
   ? locale === "en"
-    ? `${readingMinutes} min read`
-    : `${readingMinutes} 分钟阅读`
+    ? `${readingTimeSource === "derived" ? "~" : ""}${readingMinutes} min read`
+    : `${readingTimeSource === "derived" ? "约 " : ""}${readingMinutes} 分钟阅读`
   : undefined;
 const languageLabel =
   fullTextLanguage === "zh-CN" && locale === "en" ? "CHINESE FULL TEXT" : undefined;
@@ -49,7 +51,7 @@ const actionLabel =
   locale === "en" ? (fullTextLanguage === "zh-CN" ? "READ CHINESE" : "READ") : "阅读";
 ---
 
-<article class="card article-card reveal" data-category={category}>
+<article class="card article-card reveal" data-module={moduleId}>
   <div class="article-card__meta">
     <time datetime={dateTime}>{date}</time>
     {moduleLabel && <span>{moduleLabel}</span>}
@@ -57,11 +59,12 @@ const actionLabel =
   </div>
   <h3>{title}</h3>
   <p>{description}</p>
-  <div class="article-card__footer">
-    {readingLabel && <span>{readingLabel}</span>}
-    {languageLabel && <span>{languageLabel}</span>}
-  </div>
-  <a class="card-link" href={href} aria-label={`${actionLabel}: ${title}`}
-    ><span>{actionLabel} ↗</span></a
-  >
+  <footer class="article-card__footer">
+    <span class="article-card__reading">
+      {readingLabel}
+      {languageLabel && <span>{languageLabel}</span>}
+    </span>
+    <span class="article-card__action" aria-hidden="true">{actionLabel} ↗</span>
+  </footer>
+  <a class="card-link" href={href} aria-label={`${actionLabel}: ${title}`}></a>
 </article>

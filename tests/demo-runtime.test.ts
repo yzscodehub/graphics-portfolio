@@ -131,11 +131,11 @@ describe("Demo runtime", () => {
     await runtime.dispose();
 
     expect(pendingSignal?.aborted).toBe(true);
-    expect(events).toEqual(["scope:cleanup"]);
+    expect(events).toEqual(["controller:dispose", "scope:cleanup"]);
 
     finishInitialization?.();
     await expect(initialization).resolves.toBe(false);
-    expect(events).toEqual(["scope:cleanup", "controller:dispose"]);
+    expect(events).toEqual(["controller:dispose", "scope:cleanup"]);
   });
 });
 

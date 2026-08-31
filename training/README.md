@@ -88,7 +88,14 @@ residual blocks, and one residual head. It accepts and exports only
 python training/train_denoiser.py `
   --data-root D:/datasets/portfolio-procedural-v1 `
   --output training/checkpoints/denoiser.pt `
-  --device auto
+  --patch-size 256 `
+  --features 16 `
+  --batch-size 4 `
+  --epochs 50 `
+  --learning-rate 0.0002 `
+  --seed 7 `
+  --workers 0 `
+  --device cpu
 
 python training/evaluate_model.py `
   --data-root D:/datasets/portfolio-procedural-v1 `
@@ -97,7 +104,23 @@ python training/evaluate_model.py `
 
 python training/export_onnx.py `
   --checkpoint training/checkpoints/denoiser.pt `
-  --output public/models/neural-denoiser.onnx
+  --output public/models/neural-denoiser.onnx `
+  --opset 17
+
+python training/export_web_pair.py `
+  --dataset-root D:/datasets/portfolio-procedural-v1 `
+  --source-stem scene-0064 `
+  --asset-stem scene-0001 `
+  --scene-seed 91103 `
+  --output-root public/models/heldout
+
+python training/write_model_manifest.py `
+  --model public/models/neural-denoiser.onnx `
+  --heldout-manifest public/models/heldout/manifest.json `
+  --output public/models/neural-denoiser.manifest.json `
+  --input-name noisy_rgb `
+  --output-name denoised_rgb `
+  --opset 17
 ```
 
 To test the actual exported graph, install a reviewed local `onnxruntime`
@@ -115,14 +138,19 @@ python training/evaluate_model.py `
 
 `evaluate_model.py` evaluates full fixed-size images, uses no augmentation,
 and reports global element-weighted L1, MSE, and PSNR in the display-referred
-RGB color space. The reviewed measurements are recorded in `model-card.md`
-and `public/models/neural-denoiser.metrics.json`.
+RGB color space. `export_web_pair.py` checks the generated dataset manifest
+before exporting the source validation stem. The public browser files retain
+the stable `scene-0001` asset prefix while recording `scene-0064` as their
+source dataset stem in `public/models/heldout/manifest.json`. Finally,
+`write_model_manifest.py` hashes both the exact ONNX bytes and held-out
+manifest; browser code and release guards require that contract.
 
 ## Publication constraints
 
 - Do not commit `training/checkpoints/`, raw datasets, or temporary renders.
 - Do not publish an ONNX file until its dataset manifest, license, validation
-  result, and PyTorch/ONNX parity result have been reviewed.
+  result, PyTorch/ONNX parity result, and generated model manifest have been
+  reviewed.
 - Record real device and browser timings separately. Python evaluation timing
   does not imply ONNX Runtime Web timing.
 - The browser demo must continue to use its explicit WebGPU, WASM, and

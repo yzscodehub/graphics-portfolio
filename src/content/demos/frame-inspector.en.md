@@ -54,16 +54,17 @@ relatedArticles:
   - render-graph-lifetime
   - frame-inspector-observability
   - shadow-temporal-aa
+  - rhi-abstraction-boundaries
 draft: false
 ---
 
 ## What runs
 
-The raw WebGPU path shares a reference frame with the Shadow & Anti-Aliasing study and exposes eight attachments: Final, Albedo + Metalness, Normal + Roughness, Linear Depth, Velocity, HDR Lighting, SSAO, and TAA History. Each label includes its format, range, and last writer.
+The raw WebGPU path shares a reference frame with the Shadow & Anti-Aliasing study and exposes eight attachments: Final, Albedo + Metalness, Normal + Roughness, Linear Depth, Velocity, HDR Lighting, SSAO, and TAA History. Final uses the browser's preferred canvas format; every other label reports its concrete format, range, and last writer. History reports warming/valid state and identifies ACES + sRGB as a display-only transform over linear HDR.
 
 ## Freeze and selection
 
-Selecting an attachment changes only the display view. Freeze stops the render loop and keeps the current textures for inspection; Resume allows the shared frame to advance again. Device loss falls back to a deterministic Canvas atlas with the same attachment vocabulary.
+Selecting an attachment changes only the display view. Freeze stops the render loop and keeps the current textures for inspection; Resume allows the shared frame to advance again. A visibility pause resets temporal history on resume so it is not reused across a time discontinuity. Device loss falls back to a deterministic sibling Canvas atlas with the same attachment vocabulary.
 
 ## Evidence boundary
 

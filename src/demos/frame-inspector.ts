@@ -2,7 +2,12 @@ import { clearElement, drawStageBackdrop, makeButton } from "./core/canvas";
 import type { DemoContext, DemoController } from "./core/types";
 import { CanvasFallbackSurface } from "./reference-frame/fallback-surface";
 import { ReferenceFrameRenderer } from "./reference-frame/renderer";
-import { REFERENCE_ATTACHMENTS, attachmentInfo, type ReferenceView } from "./reference-frame/types";
+import {
+  REFERENCE_ATTACHMENTS,
+  attachmentInfo,
+  type AttachmentInfo,
+  type ReferenceView,
+} from "./reference-frame/types";
 
 export const BUFFER_VIEWS: readonly ReferenceView[] = REFERENCE_ATTACHMENTS.map(
   (entry) => entry.view,
@@ -55,7 +60,10 @@ export function bufferViewAtPoint(
 }
 
 interface InspectorRenderer {
+  readonly isFallback: boolean;
+  readonly historyStatus: string;
   resize(width: number, height: number): void;
+  getAttachmentInfo(view: ReferenceView): AttachmentInfo;
   setView(view: ReferenceView): void;
   setFrozen(frozen: boolean): void;
   pause(): void;
@@ -74,10 +82,11 @@ export function createDemo(): DemoController {
   let height = 1;
 
   const updateEvidence = () => {
-    const info = attachmentInfo(selected);
+    const info = active?.getAttachmentInfo(selected) ?? attachmentInfo(selected);
+    const isFallback = active?.isFallback ?? true;
     context.setStatus(
-      `${info.label} · ${info.format} · ${info.range} · last writer: ${info.lastWriter}`,
-      "success",
+      `${info.label} | ${info.format} | ${info.range} | last writer: ${info.lastWriter} | history: ${active?.historyStatus ?? "unavailable"} | ${isFallback ? "Canvas atlas, not GPU attachment data" : "display transform: ACES + sRGB"}`,
+      isFallback ? "warning" : "success",
     );
   };
 
@@ -98,6 +107,7 @@ export function createDemo(): DemoController {
       fallback.setFrozen(frozen);
       active = fallback;
       if (running) fallback.resume();
+      context.setRuntimeState?.("fallback");
       context.setMetrics({ backend: "Canvas fallback", status: "STATIC ATTACHMENT ATLAS" });
       context.setStatus(`${reason} Showing deterministic attachment atlas.`, "warning");
     } catch (error) {
@@ -135,6 +145,7 @@ export function createDemo(): DemoController {
       }
       active = renderer;
       if (running) renderer.resume();
+      context.setRuntimeState?.("running");
       context.setStatus(
         "Live WebGPU attachments share one reference frame; select a buffer or freeze the frame.",
         "success",
@@ -185,7 +196,15 @@ export function createDemo(): DemoController {
     resize(nextWidth, nextHeight) {
       width = Math.max(1, nextWidth);
       height = Math.max(1, nextHeight);
-      active?.resize(width, height);
+      try {
+        active?.resize(width, height);
+      } catch (error) {
+        const fallbackGeneration = ++generation;
+        void useFallback(
+          error instanceof Error ? error.message : "Frame Inspector resize failed.",
+          fallbackGeneration,
+        );
+      }
     },
     pause() {
       running = false;
@@ -204,6 +223,7 @@ export function createDemo(): DemoController {
 }
 
 class CanvasInspectorFallback implements InspectorRenderer {
+  readonly isFallback = true;
   private readonly surface: CanvasFallbackSurface;
   private ctx: CanvasRenderingContext2D;
   private width = 1;
@@ -216,6 +236,14 @@ class CanvasInspectorFallback implements InspectorRenderer {
     this.selected = selected;
     this.surface = new CanvasFallbackSurface(shell, "Frame Inspector static attachment atlas");
     this.ctx = this.surface.resize(1, 1);
+  }
+
+  get historyStatus(): string {
+    return "static atlas / no temporal GPU history";
+  }
+
+  getAttachmentInfo(view: ReferenceView): AttachmentInfo {
+    return attachmentInfo(view);
   }
 
   resize(width: number, height: number): void {

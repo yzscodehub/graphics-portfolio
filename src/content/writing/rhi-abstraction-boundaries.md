@@ -4,17 +4,14 @@ routeSlug: rhi-abstraction-boundaries
 locale: zh-CN
 title: 跨平台 RHI 应该抽象什么，不应该抽象什么
 description: 从资源、管线、命令和能力查询四个边界讨论跨 Vulkan、DirectX 与 Metal 的渲染接口设计。
-category: engine-architecture
 module: engine-systems
 moduleOrder: 2
 articleOrder: 1
-order: 1
 level: advanced
 tags:
   - RHI
   - Rendering
   - Architecture
-readingMinutes: 16
 prerequisites:
   - 了解至少一种现代显式图形 API
   - 熟悉 GPU 资源、Pipeline 与命令提交
@@ -30,6 +27,7 @@ relatedDemos:
 relatedArticles:
   - render-graph-lifetime
   - compute-geometry-performance
+  - multimedia-data-path
 englishTitle: What a Cross-Platform RHI Should—and Should Not—Abstract
 englishDescription: A practical boundary map for resources, pipelines, commands, and capability queries across Vulkan, DirectX, and Metal.
 publishedAt: 2026-08-30
@@ -113,12 +111,6 @@ struct DeviceFeatures {
 3. 是否能写一个不需要真实 GPU 的验证测试？
 
 如果三个问题都能回答“是”，它大概率属于抽象层。如果只能通过隐藏后端差异、丢失性能信息或返回一个含糊的布尔值来实现，就应该把它留在后端或单独建能力扩展。
-
-## 验证方式
-
-抽象层要同时测试正向和失败路径：无效格式组合、资源错误用法、重复释放、跨帧句柄、能力缺失和设备丢失。再用同一个 Render Graph 运行后端一致性测试，比较资源状态、附件布局和输出摘要，而不是只比较“窗口有没有画出颜色”。
-
-RHI 的成功标准不是最少的代码，而是上层能够表达渲染意图，后端能够保留自己的能力，问题能够在正确的边界暴露。跨平台的价值最终体现为可维护的语义和可解释的差异。
 
 ## 从渲染意图到后端提交的数据流
 
@@ -226,3 +218,9 @@ Capability 不应只是 `supportsFeature = true`。至少要描述支持等级�
 - device lost、重复释放和不支持路径是否有自动化测试？
 
 RHI 的价值不是让差异消失，而是让差异出现在正确、可查询、可测试的地方。
+
+## 参考资料
+
+- [Vulkan Specification](https://registry.khronos.org/vulkan/specs/latest/html/vkspec.html)
+- [D3D12 Resource Barriers](https://learn.microsoft.com/en-us/windows/win32/direct3d12/user-mode-heap-synchronization)
+- [Metal Resource Synchronization](https://developer.apple.com/documentation/metal/resource-synchronization)

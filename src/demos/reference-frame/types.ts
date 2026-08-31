@@ -7,7 +7,7 @@ export type AaTechnique = "none" | "fxaa" | "taa";
 export interface AttachmentInfo {
   view: ReferenceView;
   label: string;
-  format: GPUTextureFormat;
+  format: GPUTextureFormat | "preferred-canvas-format";
   range: string;
   lastWriter: string;
 }
@@ -16,8 +16,8 @@ export const REFERENCE_ATTACHMENTS: readonly AttachmentInfo[] = [
   {
     view: "final",
     label: "FINAL",
-    format: "bgra8unorm",
-    range: "display-referred",
+    format: "preferred-canvas-format",
+    range: "display-referred / browser preferred canvas format",
     lastWriter: "Display / Tone Map",
   },
   {
@@ -66,7 +66,7 @@ export const REFERENCE_ATTACHMENTS: readonly AttachmentInfo[] = [
     view: "history",
     label: "TAA HISTORY",
     format: "rgba16float",
-    range: "linear HDR / resolved previous frame",
+    range: "linear HDR / latest Temporal Resolve (ACES + sRGB display transform)",
     lastWriter: "Temporal Resolve",
   },
 ] as const;

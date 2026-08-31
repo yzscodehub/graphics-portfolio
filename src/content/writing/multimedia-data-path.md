@@ -4,11 +4,9 @@ routeSlug: multimedia-data-path
 locale: zh-CN
 title: 高分辨率高帧率视频的数据路径、零拷贝与 AVSync
 description: 从解码 surface、颜色语义、GPU 导入和合成呈现，到所有权、背压与主时钟，建立可测量的实时视频数据路径。
-category: multimedia
 module: multimedia
 moduleOrder: 7
 articleOrder: 1
-order: 1
 level: advanced
 prerequisites:
   - 编码视频的 packet、解码帧、PTS 与 time base 概念
@@ -18,8 +16,7 @@ learningOutcomes:
   - 画出一帧视频从解码到显示的所有权、格式和同步边界
   - 用 PTS 与主时钟设计可解释的等待、呈现和丢帧策略
   - 建立不混淆 CPU 拷贝、GPU 等待、颜色转换与端到端延迟的测量计划
-relatedProjects:
-  - real-time-rendering-lab
+relatedProjects: []
 relatedDemos: []
 relatedArticles:
   - rhi-abstraction-boundaries
@@ -28,7 +25,6 @@ tags:
   - Multimedia
   - Video Pipeline
   - AVSync
-readingMinutes: 20
 englishTitle: Data Paths, Zero-Copy, and AVSync for High-Resolution Video
 englishDescription: A boundary map for decoding, color conversion, texture upload, composition, and clock management in real-time media pipelines.
 publishedAt: 2026-08-30
@@ -195,10 +191,17 @@ if readyQueue.isFull():
 
 在将管线用于实际产品前，检查：
 
-- [ ] 每个 FrameHandle 都携带 PTS、time base、颜色元数据、所有权状态和同步对象；
-- [ ] 直接导入失败时有可观测的 upload 回退，且不会误称零拷贝；
-- [ ] producer 写完成与 consumer 采样完成分别有正确的同步边界；
-- [ ] 所有队列和 surface pool 有容量、背压和丢帧原因；
-- [ ] 视频 PTS 相对明确 master clock 决策，seek/暂停/重建会清理旧时间线；
-- [ ] 颜色转换、HDR policy、GPU Pass、present 与端到端延迟分段测量；
-- [ ] 页面不把任何未经采集的设备数字或跨平台性能承诺写成事实。
+- 每个 FrameHandle 都携带 PTS、time base、颜色元数据、所有权状态和同步对象；
+- 直接导入失败时有可观测的 upload 回退，且不会误称零拷贝；
+- producer 写完成与 consumer 采样完成分别有正确的同步边界；
+- 所有队列和 surface pool 有容量、背压和丢帧原因；
+- 视频 PTS 相对明确 master clock 决策，seek/暂停/重建会清理旧时间线；
+- 颜色转换、HDR policy、GPU Pass、present 与端到端延迟分段测量；
+- 页面不把任何未经采集的设备数字或跨平台性能承诺写成事实。
+
+## 参考资料
+
+- [WebCodecs Specification](https://www.w3.org/TR/webcodecs/)
+- [Vulkan Video](https://docs.vulkan.org/spec/latest/chapters/video-coding.html)
+- [Apple Core Video: CVPixelBuffer](https://developer.apple.com/documentation/corevideo/cvpixelbuffer)
+- [Android NDK: AHardwareBuffer](https://developer.android.com/ndk/reference/group/a-hardware-buffer)

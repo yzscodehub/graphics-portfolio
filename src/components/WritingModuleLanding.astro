@@ -8,6 +8,7 @@ import { getWritingModule, type WritingModuleId } from "../data/writing-modules"
 import BaseLayout from "../layouts/BaseLayout.astro";
 import type { Locale } from "../lib/i18n";
 import { withBase } from "../lib/urls";
+import { resolveReadingTime } from "../content/reading-time";
 
 interface Props {
   locale: Locale;
@@ -100,21 +101,25 @@ const dateFormatter = new Intl.DateTimeFormat(isEn ? "en-US" : "zh-CN", {
       {
         entries.length > 0 ? (
           <div class="article-grid writing-module__grid">
-            {entries.map((entry) => (
-              <ArticleCard
-                title={isEn ? entry.data.englishTitle : entry.data.title}
-                description={isEn ? entry.data.englishDescription : entry.data.description}
-                category={entry.data.category}
-                date={dateFormatter.format(entry.data.publishedAt)}
-                dateTime={entry.data.publishedAt.toISOString()}
-                moduleLabel={module.title[locale]}
-                level={entry.data.level}
-                readingMinutes={entry.data.readingMinutes}
-                locale={locale}
-                fullTextLanguage="zh-CN"
-                href={withBase(`/writing/${entry.data.routeSlug}/`)}
-              />
-            ))}
+            {entries.map((entry) => {
+              const readingTime = resolveReadingTime(entry);
+              return (
+                <ArticleCard
+                  title={isEn ? entry.data.englishTitle : entry.data.title}
+                  description={isEn ? entry.data.englishDescription : entry.data.description}
+                  moduleId={entry.data.module}
+                  date={dateFormatter.format(entry.data.publishedAt)}
+                  dateTime={entry.data.publishedAt.toISOString()}
+                  moduleLabel={module.title[locale]}
+                  level={entry.data.level}
+                  readingMinutes={readingTime.minutes}
+                  readingTimeSource={readingTime.source}
+                  locale={locale}
+                  fullTextLanguage="zh-CN"
+                  href={withBase(`/writing/${entry.data.routeSlug}/`)}
+                />
+              );
+            })}
           </div>
         ) : (
           <p class="writing-module__empty">{copy.empty}</p>

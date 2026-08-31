@@ -29,6 +29,12 @@ export function createDemo(): DemoController {
       `${shadow.toUpperCase()} shadow filtering · ${aa.toUpperCase()} anti-aliasing · shared reference frame`,
       "success",
     );
+    if (active instanceof CanvasShadowAaFallback) {
+      context.setStatus(
+        `Canvas fallback | ${shadow.toUpperCase()} shadow approximation | ${aa.toUpperCase()} temporal illustration`,
+        "warning",
+      );
+    }
   };
 
   const useFallback = (reason: string, expectedGeneration: number) => {
@@ -41,6 +47,7 @@ export function createDemo(): DemoController {
       fallback.resize(width, height);
       active = fallback;
       if (running) fallback.resume();
+      context.setRuntimeState?.("fallback");
       context.setMetrics({ backend: "Canvas fallback", status: `${shadow} / ${aa}` });
       context.setStatus(`${reason} Showing labeled Canvas comparison.`, "warning");
     } catch (error) {
@@ -77,6 +84,7 @@ export function createDemo(): DemoController {
       }
       active = renderer;
       if (running) renderer.resume();
+      context.setRuntimeState?.("running");
       context.setMetrics({ backend: renderer.backendLabel, status: `${shadow} / ${aa}` });
       status();
     } catch (error) {
@@ -141,7 +149,15 @@ export function createDemo(): DemoController {
     resize(nextWidth, nextHeight) {
       width = Math.max(1, nextWidth);
       height = Math.max(1, nextHeight);
-      active?.resize(width, height);
+      try {
+        active?.resize(width, height);
+      } catch (error) {
+        const fallbackGeneration = ++generation;
+        useFallback(
+          error instanceof Error ? error.message : "Shadow and anti-aliasing resize failed.",
+          fallbackGeneration,
+        );
+      }
     },
     pause() {
       running = false;

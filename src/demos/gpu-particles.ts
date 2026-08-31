@@ -84,23 +84,37 @@ export function createDemo(): DemoController {
   const useFallback = (reason: string, expectedGeneration: number) => {
     if (generation !== expectedGeneration) return;
     active?.dispose();
-    const fallback = new CanvasParticleFallback(context, Math.min(1_800, requestedCount));
-    fallback.setAttractor(attractor[0], attractor[1], strength);
-    fallback.setUserPaused(userPaused);
-    fallback.resize();
-    active = fallback;
-    if (running) fallback.resume();
-    context.setStatus(`${reason} Showing reduced deterministic Canvas particles.`, "warning");
+    active = undefined;
+    let fallback: CanvasParticleFallback | undefined;
+    try {
+      fallback = new CanvasParticleFallback(context, Math.min(1_800, requestedCount));
+      fallback.setAttractor(attractor[0], attractor[1], strength);
+      fallback.setUserPaused(userPaused);
+      fallback.resize();
+      active = fallback;
+      if (running) fallback.resume();
+      context.setRuntimeState?.("fallback");
+      context.setStatus(`${reason} Showing reduced deterministic Canvas particles.`, "warning");
+    } catch (error) {
+      fallback?.dispose();
+      context.setStatus(
+        `${reason} ${error instanceof Error ? error.message : "Canvas fallback unavailable."}`,
+        "error",
+      );
+    }
   };
 
   const setup = async () => {
     const currentGeneration = ++generation;
     active?.dispose();
     active = undefined;
+    let renderer: WebGpuParticleRenderer | undefined;
     try {
-      const renderer = await WebGpuParticleRenderer.create(context, requestedCount, (message) =>
-        useFallback(message, currentGeneration),
-      );
+      renderer = await WebGpuParticleRenderer.create(context, requestedCount, (message) => {
+        if (generation !== currentGeneration) return;
+        const fallbackGeneration = ++generation;
+        useFallback(message, fallbackGeneration);
+      });
       if (generation !== currentGeneration) {
         renderer.dispose();
         return;
@@ -108,13 +122,19 @@ export function createDemo(): DemoController {
       renderer.setAttractor(attractor[0], attractor[1], strength);
       renderer.setUserPaused(userPaused);
       renderer.resize();
+      if (generation !== currentGeneration) {
+        renderer.dispose();
+        return;
+      }
       active = renderer;
+      context.setRuntimeState?.("running");
       if (running) renderer.resume();
       context.setStatus(
         `WebGPU Ping-Pong compute active with ${requestedCount.toLocaleString()} particles. Move the pointer to steer the attractor.`,
         "success",
       );
     } catch (error) {
+      renderer?.dispose();
       useFallback(
         error instanceof Error ? error.message : "WebGPU particles could not initialize.",
         currentGeneration,
@@ -187,7 +207,15 @@ export function createDemo(): DemoController {
       await setup();
     },
     resize() {
-      active?.resize();
+      try {
+        active?.resize();
+      } catch (error) {
+        const fallbackGeneration = ++generation;
+        useFallback(
+          error instanceof Error ? error.message : "Particle renderer resize failed.",
+          fallbackGeneration,
+        );
+      }
     },
     pause() {
       running = false;
@@ -362,10 +390,20 @@ class WebGpuParticleRenderer implements ParticleRenderer {
     if (!navigator.gpu) throw new Error("WebGPU is unavailable.");
     const adapter = await navigator.gpu.requestAdapter({ powerPreference: "high-performance" });
     if (!adapter) throw new Error("No WebGPU adapter was returned.");
-    const timestampSupported = adapter.features.has("timestamp-query");
-    const device = await adapter.requestDevice({
-      requiredFeatures: timestampSupported ? ["timestamp-query"] : [],
-    });
+    const timestampRequested = adapter.features.has("timestamp-query");
+    let timestampSupported = timestampRequested;
+    let device: GPUDevice;
+    try {
+      device = await adapter.requestDevice({
+        requiredFeatures: timestampRequested ? ["timestamp-query"] : [],
+      });
+    } catch (error) {
+      if (!timestampRequested) throw error;
+      // Timestamp collection is evidence enrichment, not a prerequisite for
+      // the ping-pong simulation. Retry without the optional feature.
+      device = await adapter.requestDevice();
+      timestampSupported = false;
+    }
     const allocations: GPUBuffer[] = [];
     let queryState: TimestampQueryState | undefined;
     let renderer: WebGpuParticleRenderer | undefined;
@@ -419,7 +457,19 @@ class WebGpuParticleRenderer implements ParticleRenderer {
           label: "Particles/RenderPipeline",
           layout: "auto",
           vertex: { module: renderModule, entryPoint: "vs" },
-          fragment: { module: renderModule, entryPoint: "fs", targets: [{ format }] },
+          fragment: {
+            module: renderModule,
+            entryPoint: "fs",
+            targets: [
+              {
+                format,
+                blend: {
+                  color: { srcFactor: "src-alpha", dstFactor: "one-minus-src-alpha" },
+                  alpha: { srcFactor: "one", dstFactor: "one-minus-src-alpha" },
+                },
+              },
+            ],
+          },
           primitive: { topology: "point-list" },
         }),
       );
@@ -448,7 +498,14 @@ class WebGpuParticleRenderer implements ParticleRenderer {
           return [compute, render] as const;
         },
       );
-      queryState = timestampSupported ? TimestampQueryState.create(device) : undefined;
+      if (timestampSupported) {
+        try {
+          queryState = TimestampQueryState.create(device);
+        } catch {
+          timestampSupported = false;
+          queryState = undefined;
+        }
+      }
       renderer = new WebGpuParticleRenderer(
         shell,
         adapter,
@@ -470,8 +527,8 @@ class WebGpuParticleRenderer implements ParticleRenderer {
       renderer.watchDeviceLoss(onDeviceLost);
       shell.setMetrics({
         backend: renderer.backendLabel,
-        status: timestampSupported ? "GPU timestamps ready" : "GPU timing N/A",
-        metricSource: timestampSupported ? "gpu-timestamp-query" : "unavailable",
+        status: queryState ? "GPU timestamps ready" : "GPU timing N/A",
+        metricSource: queryState ? "gpu-timestamp-query" : "unavailable",
       });
       return renderer;
     } catch (error) {
@@ -806,7 +863,8 @@ struct VertexOutput {
   return output;
 }
 @fragment fn fs(input: VertexOutput) -> @location(0) vec4f {
-  return vec4f(mix(vec3f(0.94, 0.49, 0.22), vec3f(0.34, 0.89, 0.76), input.life), 1.0);
+  let alpha = 0.12 + input.life * 0.88;
+  return vec4f(mix(vec3f(0.94, 0.49, 0.22), vec3f(0.34, 0.89, 0.76), input.life), alpha);
 }
 `;
 

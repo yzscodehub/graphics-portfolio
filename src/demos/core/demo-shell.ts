@@ -1,7 +1,7 @@
 import { getCapabilities, measureCapabilities, shouldUseStaticFallback } from "./capabilities";
 import { demoRegistry } from "./registry";
 import { DemoRuntime } from "./runtime";
-import type { DemoMetrics, DemoQuality } from "./types";
+import type { DemoMetrics, DemoQuality, DemoRuntimeState } from "./types";
 
 const ACTIVE_SHELLS = new WeakMap<HTMLElement, MountedDemo>();
 
@@ -124,9 +124,11 @@ export function mountDemoShell(shell: HTMLElement): void {
   }
 
   let destroyed = false;
+  let failed = false;
   let inViewport = false;
   let started = false;
   let documentVisible = !document.hidden;
+  let reportedRuntimeState: DemoRuntimeState = "running";
   const abortController = new AbortController();
   const runtime = new DemoRuntime();
   const canvas = shell.querySelector<HTMLCanvasElement>("canvas");
@@ -140,9 +142,30 @@ export function mountDemoShell(shell: HTMLElement): void {
     return;
   }
 
-  const resize = () => {
-    const bounds = stage.getBoundingClientRect();
-    runtime.resize(Math.max(1, Math.floor(bounds.width)), Math.max(220, Math.floor(bounds.height)));
+  const failRuntime = (error: unknown) => {
+    if (failed || destroyed) return;
+    failed = true;
+    const message = error instanceof Error ? error.message : "Demo resize failed.";
+    void runtime
+      .dispose()
+      .catch(() => undefined)
+      .finally(() => {
+        if (!destroyed) staticFallback(shell, `${message} ${copyFor(shell).localFallback}`);
+      });
+  };
+  const resize = (): boolean => {
+    if (failed) return false;
+    try {
+      const bounds = stage.getBoundingClientRect();
+      runtime.resize(
+        Math.max(1, Math.floor(bounds.width)),
+        Math.max(220, Math.floor(bounds.height)),
+      );
+      return true;
+    } catch (error) {
+      failRuntime(error);
+      return false;
+    }
   };
   const updateState = () => {
     if (destroyed) return;
@@ -170,6 +193,10 @@ export function mountDemoShell(shell: HTMLElement): void {
       },
       setStatus: (message: string, tone?: "info" | "success" | "warning" | "error") =>
         setStatus(shell, message, tone),
+      setRuntimeState: (state: DemoRuntimeState) => {
+        reportedRuntimeState = state;
+        setShellState(shell, state);
+      },
     };
     void runtime
       .initialize(
@@ -183,8 +210,8 @@ export function mountDemoShell(shell: HTMLElement): void {
       )
       .then((active) => {
         if (!active || destroyed) return;
-        resize();
-        setShellState(shell, "running");
+        if (!resize()) return;
+        setShellState(shell, reportedRuntimeState);
         updateState();
       })
       .catch((error: unknown) => {

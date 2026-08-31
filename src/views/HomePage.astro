@@ -10,6 +10,7 @@ import WritingModuleNav from "../components/WritingModuleNav.astro";
 import { profile } from "../data/profile";
 import { site } from "../data/site";
 import { writingModules } from "../data/writing-modules";
+import { resolveReadingTime } from "../content/reading-time";
 import type { Locale } from "../lib/i18n";
 import { localePath } from "../lib/i18n";
 import { withBase } from "../lib/urls";
@@ -103,7 +104,7 @@ const copy = isEn
       labLabel: "Current lab",
       labTitle: "Learning in public.",
       labDescription:
-        "Neural graphics work stays clearly labeled as an experiment until it earns stronger evidence.",
+        "The reviewed single-frame denoiser is complete; the lab now tracks temporal stability and richer rendering features as the next research boundary.",
       contactTitle: "Let’s talk about the hard parts of graphics systems.",
       github: "GitHub",
     }
@@ -127,7 +128,8 @@ const copy = isEn
       writingDescription: "六条技术主线把抽象、测量、取舍和失败路径连接起来。",
       labLabel: "当前实验室",
       labTitle: "公开学习过程。",
-      labDescription: "神经图形在证据成熟前始终明确标记为实验，而不是包装成专家能力。",
+      labDescription:
+        "已审核的单帧降噪器已经完成；实验室下一阶段研究时域稳定性与更丰富的渲染特征。",
       contactTitle: "一起讨论图形系统中真正困难的部分。",
       github: "GitHub",
     };
@@ -319,23 +321,27 @@ const copy = isEn
       />
       <div class="article-grid">
         {
-          writing.map((entry) => (
-            <ArticleCard
-              title={isEn ? entry.data.englishTitle : entry.data.title}
-              description={isEn ? entry.data.englishDescription : entry.data.description}
-              category={entry.data.category}
-              date={dateFormatter.format(entry.data.publishedAt)}
-              dateTime={entry.data.publishedAt.toISOString()}
-              moduleLabel={
-                writingModules.find((module) => module.id === entry.data.module)?.title[locale]
-              }
-              level={entry.data.level}
-              readingMinutes={entry.data.readingMinutes}
-              locale={locale}
-              fullTextLanguage="zh-CN"
-              href={withBase(`/writing/${slugOf(entry)}/`)}
-            />
-          ))
+          writing.map((entry) => {
+            const readingTime = resolveReadingTime(entry);
+            return (
+              <ArticleCard
+                title={isEn ? entry.data.englishTitle : entry.data.title}
+                description={isEn ? entry.data.englishDescription : entry.data.description}
+                moduleId={entry.data.module}
+                date={dateFormatter.format(entry.data.publishedAt)}
+                dateTime={entry.data.publishedAt.toISOString()}
+                moduleLabel={
+                  writingModules.find((module) => module.id === entry.data.module)?.title[locale]
+                }
+                level={entry.data.level}
+                readingMinutes={readingTime.minutes}
+                readingTimeSource={readingTime.source}
+                locale={locale}
+                fullTextLanguage="zh-CN"
+                href={withBase(`/writing/${slugOf(entry)}/`)}
+              />
+            );
+          })
         }
       </div>
     </div>
@@ -351,11 +357,13 @@ const copy = isEn
       />
       <div class="lab-grid">
         <article class="card lab-card reveal">
-          <span class="status-badge">IN PROGRESS</span><h3>Neural denoising / ONNX Web</h3><p>
+          <span class="status-badge">NEXT STUDY</span><h3>
+            Temporal denoising / feature buffers
+          </h3><p>
             {
               isEn
-                ? "A small residual network, a constrained model card, and explicit WebGPU → WASM → deterministic Canvas fallback."
-                : "小型残差网络、明确的模型卡，以及 WebGPU → WASM → 确定性 Canvas 降级链。"
+                ? "Test motion, history rejection, albedo and normal features without presenting the completed single-frame model as unfinished work."
+                : "研究运动、历史拒绝以及 Albedo/Normal 特征，不再把已经完成的单帧模型标成进行中。"
             }
           </p>
         </article>

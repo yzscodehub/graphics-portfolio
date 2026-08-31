@@ -4,6 +4,7 @@ import WritingArticleContext from "../../components/WritingArticleContext.astro"
 import { profile } from "../../data/profile";
 import DetailLayout from "../../layouts/DetailLayout.astro";
 import { withBase } from "../../lib/urls";
+import { resolveReadingTime } from "../../content/reading-time";
 
 type WritingEntry = CollectionEntry<"writing">;
 interface TocHeading {
@@ -37,6 +38,7 @@ const moduleEntries = publishedWriting
 const currentIndex = moduleEntries.findIndex((candidate) => candidate.id === entry.id);
 const previousEntry = currentIndex > 0 ? moduleEntries[currentIndex - 1] : undefined;
 const nextEntry = currentIndex >= 0 ? moduleEntries[currentIndex + 1] : undefined;
+const readingTime = resolveReadingTime(entry);
 
 const allProjects = (await getCollection("projects")) as CollectionEntry<"projects">[];
 const allDemos = (await getCollection("demos")) as CollectionEntry<"demos">[];
@@ -100,6 +102,7 @@ const pageUrl = new URL(articleHref(entry), Astro.site ?? Astro.url.origin).toSt
     dateModified: entry.data.updatedAt?.toISOString() ?? entry.data.publishedAt?.toISOString(),
     author: { "@type": "Person", name: profile.displayName, sameAs: profile.githubUrl },
     keywords: entry.data.tags,
+    timeRequired: `PT${readingTime.minutes}M`,
   }}
   paper
 >
@@ -107,18 +110,68 @@ const pageUrl = new URL(articleHref(entry), Astro.site ?? Astro.url.origin).toSt
     locale="zh-CN"
     moduleId={entry.data.module}
     level={entry.data.level}
-    readingMinutes={entry.data.readingMinutes}
+    readingMinutes={readingTime.minutes}
+    readingTimeSource={readingTime.source}
     updatedAt={entry.data.updatedAt ?? entry.data.publishedAt}
     prerequisites={entry.data.prerequisites}
     learningOutcomes={entry.data.learningOutcomes}
     headings={headings.filter((heading) => heading.depth === 2)}
-    related={[...relatedProjects, ...relatedDemos, ...relatedArticles]}
-    previous={previousEntry
-      ? { label: previousEntry.data.title, href: articleHref(previousEntry), kind: "article" }
-      : undefined}
-    next={nextEntry
-      ? { label: nextEntry.data.title, href: articleHref(nextEntry), kind: "article" }
-      : undefined}
   />
   <Content />
+  <aside
+    class="writing-article-context writing-article-context--after"
+    aria-label="正文后的关联内容与模块顺序"
+  >
+    {
+      [...relatedProjects, ...relatedDemos, ...relatedArticles].length > 0 && (
+        <section>
+          <h2>关联内容</h2>
+          <ul class="writing-related-list">
+            {[...relatedProjects, ...relatedDemos, ...relatedArticles].map((item) => (
+              <li>
+                <a href={item.href} data-kind={item.kind}>
+                  <span>{item.kind.toUpperCase()}</span>
+                  {item.label}
+                </a>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )
+    }
+    {
+      (previousEntry || nextEntry) && (
+        <nav class="writing-sequence" aria-label="模块顺序">
+          {previousEntry ? (
+            <a href={articleHref(previousEntry)} rel="prev">
+              <span>← 上一篇</span>
+              {previousEntry.data.title}
+            </a>
+          ) : (
+            <span />
+          )}
+          {nextEntry ? (
+            <a href={articleHref(nextEntry)} rel="next">
+              <span>下一篇 →</span>
+              {nextEntry.data.title}
+            </a>
+          ) : (
+            <span />
+          )}
+        </nav>
+      )
+    }
+  </aside>
+  <script slot="after" is:inline>
+    document.querySelectorAll(".article-paper .prose table").forEach((table, index) => {
+      table.tabIndex = 0;
+      if (!table.hasAttribute("aria-label")) {
+        const caption = table.querySelector("caption")?.textContent?.trim();
+        table.setAttribute(
+          "aria-label",
+          caption || `技术文章数据表 ${index + 1}，可使用键盘横向滚动`,
+        );
+      }
+    });
+  </script>
 </DetailLayout>

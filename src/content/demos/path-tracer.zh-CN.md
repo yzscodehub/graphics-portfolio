@@ -50,7 +50,6 @@ relatedProjects:
 relatedArticles:
   - webgpu-particles-path-tracing
   - bvh-progressive-path-tracing
-  - path-tracing-to-neural-denoising
 draft: false
 ---
 

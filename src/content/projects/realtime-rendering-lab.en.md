@@ -43,7 +43,6 @@ demoSlugs:
   - shadow-aa
   - frame-inspector
 articleSlugs:
-  - rhi-abstraction-boundaries
   - material-lighting-color-pipeline
   - shadow-temporal-aa
   - frame-inspector-observability

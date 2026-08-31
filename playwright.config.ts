@@ -1,5 +1,8 @@
 import { defineConfig, devices } from "@playwright/test";
 
+const baseURL =
+  process.env.GRAPHICS_PORTFOLIO_E2E_BASE_URL ?? "http://127.0.0.1:4173/graphics-portfolio/";
+
 export default defineConfig({
   testDir: "./tests/e2e",
   fullyParallel: true,
@@ -8,7 +11,7 @@ export default defineConfig({
   workers: process.env.CI ? 1 : undefined,
   reporter: process.env.CI ? [["github"], ["html", { open: "never" }]] : "list",
   use: {
-    baseURL: "http://127.0.0.1:4321/graphics-portfolio/",
+    baseURL,
     trace: "on-first-retry",
     screenshot: "only-on-failure",
   },

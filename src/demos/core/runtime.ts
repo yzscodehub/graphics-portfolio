@@ -154,9 +154,16 @@ interface ActiveDemo {
   scope: ResourceScope;
 }
 
+interface PendingDemo {
+  scope: ResourceScope;
+  controller?: DemoController;
+  cancelled: boolean;
+  controllerDisposed: boolean;
+}
+
 export class DemoRuntime {
   private active: ActiveDemo | undefined;
-  private readonly pending = new Map<number, ResourceScope>();
+  private readonly pending = new Map<number, PendingDemo>();
   private generation = 0;
   private inViewport = false;
   private documentVisible = true;
@@ -171,34 +178,38 @@ export class DemoRuntime {
     await this.disposePendingExcept(generation);
     await this.disposeActive();
 
-    const scope = new ResourceScope(parentSignal);
-    this.pending.set(generation, scope);
-    let controller: DemoController | undefined;
+    const candidate: PendingDemo = {
+      scope: new ResourceScope(parentSignal),
+      cancelled: false,
+      controllerDisposed: false,
+    };
+    this.pending.set(generation, candidate);
     try {
-      controller = await factory();
-      if (!this.isCurrent(generation)) {
-        await this.disposeCandidate(controller, scope, generation);
+      const controller = await factory();
+      candidate.controller = controller;
+      if (candidate.cancelled || !this.isCurrent(generation)) {
+        await this.disposeCandidate(candidate, generation);
         return false;
       }
       await controller.init({
         ...context,
-        signal: scope.signal,
-        addCleanup: (cleanup) => scope.add(cleanup),
-        resources: scope,
-        onDeviceLost: (device, recover) => scope.onDeviceLost(device, recover),
+        signal: candidate.scope.signal,
+        addCleanup: (cleanup) => candidate.scope.add(cleanup),
+        resources: candidate.scope,
+        onDeviceLost: (device, recover) => candidate.scope.onDeviceLost(device, recover),
         generation,
         isCurrent: () => this.isCurrent(generation),
       });
-      if (!this.isCurrent(generation)) {
-        await this.disposeCandidate(controller, scope, generation);
+      if (candidate.cancelled || !this.isCurrent(generation)) {
+        await this.disposeCandidate(candidate, generation);
         return false;
       }
       this.pending.delete(generation);
-      this.active = { controller, scope };
+      this.active = { controller, scope: candidate.scope };
       this.updateActivity();
       return true;
     } catch (error) {
-      await this.disposeCandidate(controller, scope, generation);
+      await this.disposeCandidate(candidate, generation);
       if (!this.isCurrent(generation)) return false;
       throw error;
     }
@@ -233,19 +244,19 @@ export class DemoRuntime {
       ([generation]) => generation !== currentGeneration,
     );
     for (const [generation] of stale) this.pending.delete(generation);
-    await Promise.all(stale.map(([, scope]) => scope.dispose()));
+    await Promise.all(stale.map(([, candidate]) => this.disposeCandidate(candidate)));
   }
 
-  private async disposeCandidate(
-    controller: DemoController | undefined,
-    scope: ResourceScope,
-    generation: number,
-  ): Promise<void> {
-    this.pending.delete(generation);
+  private async disposeCandidate(candidate: PendingDemo, generation?: number): Promise<void> {
+    candidate.cancelled = true;
+    if (generation !== undefined) this.pending.delete(generation);
     try {
-      await controller?.dispose();
+      if (candidate.controller && !candidate.controllerDisposed) {
+        candidate.controllerDisposed = true;
+        await candidate.controller.dispose();
+      }
     } finally {
-      await scope.dispose();
+      await candidate.scope.dispose();
     }
   }
 

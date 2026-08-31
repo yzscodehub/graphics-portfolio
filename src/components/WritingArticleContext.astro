@@ -9,12 +9,6 @@ interface TocItem {
   text: string;
 }
 
-interface ArticleLink {
-  label: string;
-  href: string;
-  kind: "article" | "project" | "demo";
-}
-
 interface Props {
   locale: Locale;
   moduleId: WritingModuleId;
@@ -24,9 +18,7 @@ interface Props {
   prerequisites: string[];
   learningOutcomes: string[];
   headings: TocItem[];
-  related: ArticleLink[];
-  previous?: ArticleLink;
-  next?: ArticleLink;
+  readingTimeSource: "derived" | "editorial-override";
 }
 
 const {
@@ -38,9 +30,7 @@ const {
   prerequisites,
   learningOutcomes,
   headings,
-  related,
-  previous,
-  next,
+  readingTimeSource,
 } = Astro.props;
 const isEn = locale === "en";
 const module = getWritingModule(moduleId);
@@ -57,6 +47,14 @@ const formattedDate = updatedAt
     }).format(updatedAt)
   : undefined;
 const moduleHref = withBase(writingModulePath(moduleId, locale));
+const readingTimeLabel =
+  readingTimeSource === "derived"
+    ? isEn
+      ? `About ${readingMinutes} min`
+      : `约 ${readingMinutes} 分钟`
+    : isEn
+      ? `${readingMinutes} min (editorial override)`
+      : `${readingMinutes} 分钟（编辑校准）`;
 ---
 
 <aside class="writing-article-context" aria-label={isEn ? "Article context" : "文章导览"}>
@@ -75,7 +73,7 @@ const moduleHref = withBase(writingModulePath(moduleId, locale));
     </div>
     <div>
       <dt>{isEn ? "Reading time" : "阅读时间"}</dt>
-      <dd>{isEn ? `${readingMinutes} min` : `${readingMinutes} 分钟`}</dd>
+      <dd>{readingTimeLabel}</dd>
     </div>
     {
       formattedDate && (
@@ -87,77 +85,39 @@ const moduleHref = withBase(writingModulePath(moduleId, locale));
     }
   </dl>
 
-  {
-    prerequisites.length > 0 && (
-      <section>
-        <h2>{isEn ? "Before you start" : "开始前"}</h2>
-        <ul>
-          {prerequisites.map((item) => (
-            <li>{item}</li>
-          ))}
-        </ul>
-      </section>
-    )
-  }
+  <details class="writing-article-context__guide">
+    <summary>{isEn ? "Open prerequisites and table of contents" : "展开前置知识与目录"}</summary>
+    {
+      prerequisites.length > 0 && (
+        <section>
+          <h2>{isEn ? "Before you start" : "开始前"}</h2>
+          <ul>
+            {prerequisites.map((item) => (
+              <li>{item}</li>
+            ))}
+          </ul>
+        </section>
+      )
+    }
 
-  <section>
-    <h2>{isEn ? "You will learn" : "你将学会"}</h2>
-    <ul>{learningOutcomes.map((item) => <li>{item}</li>)}</ul>
-  </section>
+    <section>
+      <h2>{isEn ? "You will learn" : "你将学会"}</h2>
+      <ul>{learningOutcomes.map((item) => <li>{item}</li>)}</ul>
+    </section>
 
-  {
-    headings.length > 0 && (
-      <section>
-        <h2>{isEn ? "In this article" : "本文内容"}</h2>
-        <ol class="writing-toc">
-          {headings.map((heading) => (
-            <li>
-              <a href={`#${heading.slug}`}>{heading.text}</a>
-            </li>
-          ))}
-        </ol>
-      </section>
-    )
-  }
-
-  {
-    related.length > 0 && (
-      <section>
-        <h2>{isEn ? "Related work" : "关联内容"}</h2>
-        <ul class="writing-related-list">
-          {related.map((item) => (
-            <li>
-              <a href={item.href} data-kind={item.kind}>
-                <span>{item.kind.toUpperCase()}</span>
-                {item.label}
-              </a>
-            </li>
-          ))}
-        </ul>
-      </section>
-    )
-  }
-
-  {
-    (previous || next) && (
-      <nav class="writing-sequence" aria-label={isEn ? "Module sequence" : "模块顺序"}>
-        {previous ? (
-          <a href={previous.href} rel="prev">
-            <span>← {isEn ? "Previous" : "上一篇"}</span>
-            {previous.label}
-          </a>
-        ) : (
-          <span />
-        )}
-        {next ? (
-          <a href={next.href} rel="next">
-            <span>{isEn ? "Next" : "下一篇"} →</span>
-            {next.label}
-          </a>
-        ) : (
-          <span />
-        )}
-      </nav>
-    )
-  }
+    {
+      headings.length > 0 && (
+        <section>
+          <h2>{isEn ? "In this article" : "本文内容"}</h2>
+          <ol class="writing-toc">
+            {headings.map((heading) => (
+              <li>
+                <a href={`#${heading.slug}`}>{heading.text}</a>
+              </li>
+            ))}
+          </ol>
+        </section>
+      )
+    }
+  </details>
 </aside>

@@ -40,6 +40,8 @@ relatedProjects:
   - engine-systems-explorer
 relatedArticles:
   - render-graph-lifetime
+  - rhi-abstraction-boundaries
+  - frame-inspector-observability
 draft: false
 ---
 

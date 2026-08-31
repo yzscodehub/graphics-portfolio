@@ -31,7 +31,11 @@ const {
 } = Astro.props;
 const shouldNoindex = noindex || !site.features.indexing;
 const pageTitle = title.includes(handle) ? title : `${title} · ${handle}`;
-const canonical = new URL(Astro.url.pathname, Astro.site ?? Astro.url.origin);
+const metadataBase = new URL(
+  isNotFound ? withBase("/") : Astro.url.pathname,
+  Astro.site ?? Astro.url.origin,
+);
+const canonical = isNotFound ? undefined : metadataBase;
 const isWritingDetail =
   Astro.url.pathname.includes("/writing/") &&
   !Astro.url.pathname.includes("/writing/modules/") &&
@@ -61,7 +65,7 @@ const structuredJson = structuredData
     {shouldNoindex && <meta name="robots" content="noindex,nofollow" />}
     <link rel="icon" href={withBase("/favicon.svg")} type="image/svg+xml" />
     {alternate && <link rel="alternate" href={alternate} hreflang={otherLocale[locale]} />}
-    <link rel="alternate" href={canonical} hreflang={locale} />
+    {canonical && <link rel="alternate" href={canonical} hreflang={locale} />}
     {
       site.features.rss && (
         <link
@@ -72,13 +76,19 @@ const structuredJson = structuredData
         />
       )
     }
-    <link rel="canonical" href={canonical} />
-    <meta property="og:type" content={ogType} />
-    <meta property="og:title" content={pageTitle} />
-    <meta property="og:description" content={description} />
-    <meta property="og:url" content={canonical} />
-    <meta property="og:image" content={new URL(socialImage, canonical)} />
-    <meta name="twitter:card" content="summary_large_image" />
+    {canonical && <link rel="canonical" href={canonical} />}
+    {
+      !isNotFound && (
+        <>
+          <meta property="og:type" content={ogType} />
+          <meta property="og:title" content={pageTitle} />
+          <meta property="og:description" content={description} />
+          <meta property="og:url" content={metadataBase} />
+          <meta property="og:image" content={new URL(socialImage, metadataBase)} />
+          <meta name="twitter:card" content="summary_large_image" />
+        </>
+      )
+    }
     {structuredJson && <script type="application/ld+json" is:inline set:html={structuredJson} />}
     <title>{pageTitle}</title>
   </head>

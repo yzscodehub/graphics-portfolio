@@ -4,17 +4,14 @@ routeSlug: render-graph-lifetime
 locale: zh-CN
 title: Render Graph 的依赖、资源生命周期和 Pass Culling
 description: 从声明式 Pass 到拓扑排序、生命周期区间和别名复用，拆解 Render Graph 编译阶段真正要解决的问题。
-category: engine-architecture
 module: engine-systems
 moduleOrder: 2
 articleOrder: 2
-order: 2
 level: advanced
 tags:
   - Render Graph
   - Resource Lifetime
   - GPU
-readingMinutes: 18
 prerequisites:
   - 理解渲染 Pass、附件与资源读写
   - 了解有向图、拓扑排序和资源状态
@@ -30,6 +27,7 @@ relatedDemos:
 relatedArticles:
   - rhi-abstraction-boundaries
   - frame-inspector-observability
+  - multimedia-data-path
 englishTitle: Render Graph Dependencies, Resource Lifetimes, and Pass Culling
 englishDescription: From declarative passes to topology, lifetime intervals, and aliasing, a practical breakdown of render-graph compilation.
 publishedAt: 2026-08-30
@@ -99,34 +97,6 @@ BloomTemp : [4, 5]
 
 不要把“每个 Pass 前放一个全局屏障”当作正确实现。它可能掩盖声明错误、损失并行机会，也让性能分析失去意义。更好的做法是提供严格验证模式：发现未声明的读取、重复写入冲突或不兼容状态时直接报错。
 
-## 一个可测试的编译流程
-
-```text
-validate declarations
-→ find required passes
-→ topological sort
-→ calculate resource intervals
-→ allocate / alias transient resources
-→ plan barriers and queue edges
-→ emit executable schedule
-```
-
-每一步都应该有不依赖 GPU 的单元测试。测试一个被裁剪的 Pass 不会出现在计划中；测试环会被拒绝；测试两个不重叠且兼容的资源可以复用同一 slot；测试重叠或格式不兼容的资源不能复用。
-
-## 调试视图是正式输出
-
-Normal、Depth、Velocity 等调试视图不能绕过 Render Graph 直接从后端拷贝一份“神奇的纹理”。它们应该作为新的导出节点接入图，这样访客或开发者查看某个 Buffer 时，实际看到的依赖、生命周期和同步计划与正常渲染一致。
-
-## 常见误区
-
-- 把 Pass 列表叫作 Render Graph，却没有资源读写边。
-- 用执行顺序推断依赖，导致隐藏读写和偶现竞态。
-- 为了别名复用忽略并行队列和附件兼容性。
-- 在执行回调内创建临时资源，使编译器无法裁剪。
-- 用一个全局同步点修补声明错误。
-
-Render Graph 的收益不应只写成“节点看起来很漂亮”。真正需要验证的是：无效分支是否不再执行，临时资源是否按生命周期复用，屏障是否只覆盖必要范围，以及错误是否能在编译阶段被解释。图只是表面，声明和可验证的编译过程才是系统。
-
 ## 资源版本：一次写入创建一个新身份
 
 只用资源名建立依赖会遗漏覆盖写。假设 `history` 先被 Temporal Resolve 写入，后续 Debug Export 又写入同名资源；若两个写入仍被视为一个节点，读者无法说明自己消费的是哪次结果。
@@ -170,7 +140,7 @@ function markLive(pass: Pass) {
 
 资源生命周期是编译后执行序列中的 `[firstUse, lastUse]`。两个 transient 资源只有在区间不重叠且描述兼容时才可能共享物理分配。
 
-兼容键至少包括：
+生产级兼容键至少应包括：
 
 - 资源种类与维度；
 - 宽高深、mip、array layer、sample count；
@@ -178,24 +148,24 @@ function markLive(pass: Pass) {
 - usage 超集；
 - 对齐、内存类型与后端限制。
 
-一个简单分配器可以按 first use 排序，尝试复用已经在当前位置前结束的 slot：
+当前 RenderGraphCore 的教学范围更窄：它只比较 kind、format、width、height、size 和 sampleCount，并要求格式严格相同；它还没有建模 mip、array layer、usage superset、alignment、memory type 或并行队列。一个与当前规则一致的 first-fit 示例是：
 
 ```text
-depth@1    [0 ───── 3] → slot 0
-albedo@1      [1 ── 3] → slot 1
-ssao@1              [4] → slot 0  (interval disjoint + compatible)
-history@1       [2 ───── 5] → slot 2
+scratch-a@1  rgba16float [0 ─ 1] → slot 0
+scratch-b@1  rgba16float [3 ─ 4] → slot 0  (interval disjoint + exact descriptor match)
+depth@1      depth24plus [0 ─ 3] → slot 1
+ssao@1       r8unorm     [4 ─ 4] → slot 2  (format differs, therefore no alias)
 ```
 
-当前 Demo 使用确定性的 first-fit 兼容分配，目的是让 Inspector 可解释。生产实现还要考虑并行队列：两个 Pass 在拓扑顺序上相邻，不代表 GPU 时间上不重叠；没有跨队列 happens-before，就不能仅凭线性序号 alias。
+当前 Demo 使用这个受限、确定性的 first-fit 分配，目的是让 Inspector 可解释；没有发生复用时，每个 transient version 拥有独立 slot 也是正确结果。生产实现还要补齐完整兼容键并考虑并行队列：两个 Pass 在拓扑顺序上相邻，不代表 GPU 时间上不重叠；没有跨队列 happens-before，就不能仅凭线性序号 alias。
 
 ## Usage Transition Plan 与后端映射
 
 图编译器记录逻辑 usage 变化，例如：
 
 ```text
-depth: depth-attachment → texture-binding
-lighting: storage-binding → texture-binding
+depth: depth-attachment → sampled
+lighting: storage-write → sampled
 final: render-attachment → present
 ```
 
@@ -260,3 +230,9 @@ Debug Overlay 不连接 Present，也没有 side effect。它应保持 enabled �
 - Inspector 是否直接消费编译结果？
 
 只有这些问题有自动化答案，Render Graph 才是渲染系统，而不是一张维护成本更高的流程图。
+
+## 参考资料
+
+- [FrameGraph: Extensible Rendering Architecture in Frostbite](https://www.gdcvault.com/play/1024612/FrameGraph-Extensible-Rendering-Architecture-in)
+- [WebGPU Specification](https://www.w3.org/TR/webgpu/)
+- [Vulkan Synchronization and Cache Control](https://docs.vulkan.org/spec/latest/chapters/synchronization.html)

@@ -49,6 +49,14 @@ fn sphereHit(origin: vec3f, direction: vec3f, center: vec3f, radius: f32) -> f32
   return -b - sqrt(discriminant);
 }
 
+fn projectRawUv(point: vec3f, resolution: vec2f) -> vec2f {
+  let camera = vec3f(0.0, 0.35, -4.4);
+  let view = point - camera;
+  let aspect = resolution.x / max(resolution.y, 1.0);
+  let projected = vec2f(view.x / max(view.z, 0.0001), -view.y / max(view.z, 0.0001));
+  return projected / vec2f(aspect * 1.8, 1.8) * 0.5 + vec2f(0.5);
+}
+
 @fragment fn fs(input: VertexOutput) -> GBufferOutput {
   let resolution = params.resolutionTime.xy;
   let time = params.resolutionTime.z;
@@ -73,7 +81,8 @@ fn sphereHit(origin: vec3f, direction: vec3f, center: vec3f, radius: f32) -> f32
   var albedo = vec3f(0.17, 0.2, 0.19);
   var roughness = 0.82;
   var metalness = 0.04;
-  var velocity = jitter - previousJitter;
+  var movingHit = false;
+  var movingSurfaceOffset = vec3f(0.0);
 
   if (planeT > 0.001 && planeT < distance) {
     distance = planeT;
@@ -87,7 +96,8 @@ fn sphereHit(origin: vec3f, direction: vec3f, center: vec3f, radius: f32) -> f32
     albedo = vec3f(0.08, 0.76, 0.61);
     roughness = 0.28;
     metalness = 0.72;
-    velocity += vec2f((movingCenter.x - previousCenter.x) * 0.08, 0.0);
+    movingHit = true;
+    movingSurfaceOffset = origin + direction * movingT - movingCenter;
   }
   if (staticT > 0.001 && staticT < distance) {
     distance = staticT;
@@ -95,8 +105,22 @@ fn sphereHit(origin: vec3f, direction: vec3f, center: vec3f, radius: f32) -> f32
     albedo = vec3f(0.92, 0.48, 0.12);
     roughness = 0.6;
     metalness = 0.05;
+    movingHit = false;
   }
   if (distance > 99999.0) { discard; }
+
+  let worldPoint = origin + direction * distance;
+  let previousWorldPoint = select(
+    worldPoint,
+    previousCenter + movingSurfaceOffset,
+    movingHit,
+  );
+  let currentRawUv = projectRawUv(worldPoint, resolution);
+  let previousRawUv = projectRawUv(previousWorldPoint, resolution);
+  // Velocity is in render-target UV space: project both world positions, then
+  // remove their respective Halton jitters. Resolve can therefore reproject
+  // without guessing a motion scale from object-space displacement.
+  let velocity = (currentRawUv - jitter) - (previousRawUv - previousJitter);
 
   var output: GBufferOutput;
   output.albedoMetalness = vec4f(albedo, metalness);
@@ -304,22 +328,27 @@ fn fxaa(uv: vec2f, texel: vec2f) -> vec3f {
 
   if (aaMode == 2 && params.modesFrame.w > 0.5) {
     let velocity = textureLoad(velocityTexture, coordinate, 0).xy;
-    let previousUV = clamp(input.uv - velocity, vec2f(0.0), vec2f(0.9999));
-    let previousCoordinate = clamp(vec2i(previousUV * vec2f(dimensions)), vec2i(0), dimensions - 1);
-    let previousDepth = textureLoad(historyDepthTexture, previousCoordinate, 0).x;
-    var history = textureSampleLevel(historyTexture, linearSampler, previousUV, 0.0).rgb;
-    var neighborhoodMin = current;
-    var neighborhoodMax = current;
-    for (var y = -1; y <= 1; y = y + 1) {
-      for (var x = -1; x <= 1; x = x + 1) {
-        let sampleColor = textureLoad(lightingTexture, clamp(coordinate + vec2i(x, y), vec2i(0), dimensions - 1), 0).rgb;
-        neighborhoodMin = min(neighborhoodMin, sampleColor);
-        neighborhoodMax = max(neighborhoodMax, sampleColor);
+    // Preserve the raw reprojected coordinate for an explicit bounds reject.
+    // Clamping would turn off-screen motion into a false edge-history sample.
+    let previousUV = input.uv - velocity;
+    let previousUvInBounds = all(previousUV >= vec2f(0.0)) && all(previousUV < vec2f(1.0));
+    if (previousUvInBounds) {
+      let previousCoordinate = vec2i(previousUV * vec2f(dimensions));
+      let previousDepth = textureLoad(historyDepthTexture, previousCoordinate, 0).x;
+      var history = textureSampleLevel(historyTexture, linearSampler, previousUV, 0.0).rgb;
+      var neighborhoodMin = current;
+      var neighborhoodMax = current;
+      for (var y = -1; y <= 1; y = y + 1) {
+        for (var x = -1; x <= 1; x = x + 1) {
+          let sampleColor = textureLoad(lightingTexture, clamp(coordinate + vec2i(x, y), vec2i(0), dimensions - 1), 0).rgb;
+          neighborhoodMin = min(neighborhoodMin, sampleColor);
+          neighborhoodMax = max(neighborhoodMax, sampleColor);
+        }
       }
+      history = clamp(history, neighborhoodMin, neighborhoodMax);
+      let depthValid = abs(currentDepth - previousDepth) < 0.025;
+      current = mix(current, history, select(0.0, 0.9, depthValid));
     }
-    history = clamp(history, neighborhoodMin, neighborhoodMax);
-    let depthValid = abs(currentDepth - previousDepth) < 0.025;
-    current = mix(current, history, select(0.0, 0.9, depthValid));
   }
 
   var output: ResolveOutput;

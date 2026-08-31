@@ -4,7 +4,6 @@ routeSlug: frame-inspector-observability
 locale: zh-CN
 title: Frame Inspector：GBuffer、Velocity 与帧级可观察性
 description: 把 Render Pass、真实附件、格式、范围、last writer 和 frame index 组织成可查询证据，解释为什么调试视图是渲染系统的正式输出。
-category: engine-architecture
 module: debugging
 moduleOrder: 5
 articleOrder: 1
@@ -14,7 +13,6 @@ tags:
   - GBuffer
   - Velocity
   - Observability
-readingMinutes: 15
 prerequisites:
   - 了解延迟渲染与 Render Target
   - 熟悉深度、法线和屏幕空间速度的基本含义
@@ -63,16 +61,16 @@ Reference Scene
 
 每个调试视图都应有结构化描述，而不是只给一张彩色图片。当前 Reference Frame 发布八个附件：
 
-| 视图               | 格式          | 约定范围                     | Last writer        |
-| ------------------ | ------------- | ---------------------------- | ------------------ |
-| Final              | `bgra8unorm`  | display-referred             | Display / Tone Map |
-| Albedo + Metalness | `rgba8unorm`  | RGB `[0,1]`，A 为 metalness  | GBuffer            |
-| Normal + Roughness | `rgba16float` | RGB 编码法线，A 为 roughness | GBuffer            |
-| Linear Depth       | `r32float`    | view distance / 12           | GBuffer            |
-| Velocity           | `rg16float`   | screen UV delta              | GBuffer            |
-| HDR Lighting       | `rgba16float` | linear HDR                   | Deferred Lighting  |
-| SSAO               | `r8unorm`     | occlusion `[0,1]`            | SSAO               |
-| TAA History        | `rgba16float` | previous resolved linear HDR | Temporal Resolve   |
+| 视图               | 格式                    | 约定范围                                    | Last writer        |
+| ------------------ | ----------------------- | ------------------------------------------- | ------------------ |
+| Final              | preferred Canvas format | display-referred                            | Display / Tone Map |
+| Albedo + Metalness | `rgba8unorm`            | RGB `[0,1]`，A 为 metalness                 | GBuffer            |
+| Normal + Roughness | `rgba16float`           | world normal 编码到 `[0,1]`，A 为 roughness | GBuffer            |
+| Linear Depth       | `r32float`              | view distance / 12                          | GBuffer            |
+| Velocity           | `rg16float`             | screen UV delta                             | GBuffer            |
+| HDR Lighting       | `rgba16float`           | linear HDR                                  | Deferred Lighting  |
+| SSAO               | `r8unorm`               | occlusion `[0,1]`                           | SSAO               |
+| TAA History        | `rgba16float`           | latest resolved linear HDR                  | Temporal Resolve   |
 
 这个表比缩略图更重要。它让 UI、Shader、测试和文章引用同一契约，也能在格式或 Pass 重构后暴露不一致。
 
@@ -84,7 +82,7 @@ Albedo 的 alpha 存 Metalness，Normal 的 alpha 存 Roughness。如果 Inspect
 
 ## Velocity 需要前后两套状态
 
-Velocity 不是物体当前速度的世界空间向量，而是当前像素在前一帧的屏幕位置差。它依赖当前/上一帧变换、相机矩阵和 jitter 约定。一个静止物体在移动相机下仍有非零 Velocity；相反，错误复用上一帧矩阵会让所有像素看似静止。
+Velocity 不是物体当前速度的世界空间向量，而是当前表面点在当前/上一帧投影后的屏幕 UV 差。Reference Frame 使用固定程序化相机，把当前与上一帧的世界点分别投影，并把两帧 Halton jitter 纳入同一约定；它没有把物体中心位移乘经验常数冒充像素运动。生产场景若允许相机移动，同样必须保存前一帧 view-projection 和 object transform。
 
 排查 TAA 拖影时，先看 Velocity：
 
@@ -98,9 +96,9 @@ Velocity 不是物体当前速度的世界空间向量，而是当前像素在�
 
 ## History 视图必须读取真实历史资源
 
-一个常见“调试视图”错误是把 History 按钮接回 Final Texture，或者把历史再次乘 SSAO、Tone Map 后显示。这样画面看起来合理，却完全失去证据价值。
+一个常见“调试视图”错误是把 History 按钮接回 Final Texture，或把 Final 专用的 SSAO 调制写回历史。线性 HDR 仍需要一个明确的显示变换才能在普通屏幕上观察；关键是区分“被检查的源资源”和“仅用于显示的 visualization transform”。
 
-当前 Inspector 的 History 分支直接读取 Temporal Resolve 输出的 `rgba16float` history attachment；Final 则走独立 Display/Tone Map 路径。History 的 `last writer`、frame index 和有效状态也随 UI 展示。二者相似不代表它们是同一个资源。
+当前 Inspector 的 History 分支读取 Temporal Resolve 最新写入的 `rgba16float` attachment，显示时执行 ACES 与 sRGB 编码，但不乘 Final 的 SSAO 调制；Last writer 因而仍是 Temporal Resolve，而屏幕上的显示像素由 Display Pass 生成。UI 同时报告 frame index，以及 History 是 `warming` 还是 `valid`。二者与 Final 观感相似，不代表它们是同一个资源。
 
 ## Freeze 的语义
 
@@ -147,4 +145,10 @@ Freeze 不应只停止 UI 标签更新，同时让底层 GPU 继续写同一附�
 
 ## 当前边界
 
-Inspector 尚未提供像素探针、直方图、GPU capture 导出、跨帧 diff、通用 Render Graph 资源枚举或远程调试。它证明的是更基础的能力：真实附件可被选择，格式与来源可见，History 不冒充 Final，packed channel 不被隐藏，fallback 不冒充 GPU 捕获。
+Inspector 尚未提供像素探针、直方图、GPU capture 导出、跨帧 diff、通用 Render Graph 资源枚举或远程调试。Final 的实际格式来自运行时 `getPreferredCanvasFormat()`，而不是跨平台写死为 `bgra8unorm`。它证明的是更基础的能力：真实附件可被选择，格式与来源可见，History 不冒充 Final，packed channel 不被隐藏，fallback 不冒充 GPU 捕获。
+
+## 参考资料
+
+- [WebGPU Specification](https://www.w3.org/TR/webgpu/)
+- [RenderDoc Documentation](https://renderdoc.org/docs/)
+- [Temporal AA in Unreal Engine 4](https://advances.realtimerendering.com/s2014/epic/TemporalAA_small-5971869.pdf)

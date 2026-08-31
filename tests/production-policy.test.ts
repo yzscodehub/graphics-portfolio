@@ -19,8 +19,44 @@ describe("production privacy policy", () => {
     const fixtureRoot = mkdtempSync(path.join(os.tmpdir(), "graphics-release-policy-"));
 
     try {
-      mkdirSync(path.join(fixtureRoot, "public", "models"), { recursive: true });
-      writeFileSync(path.join(fixtureRoot, "public", "models", "neural-denoiser.onnx"), "model");
+      const modelRoot = path.join(fixtureRoot, "public", "models");
+      mkdirSync(path.join(modelRoot, "heldout"), { recursive: true });
+      const model = Buffer.from("model");
+      const heldout = Buffer.from('{"version":1}\n');
+      writeFileSync(path.join(modelRoot, "neural-denoiser.onnx"), model);
+      writeFileSync(path.join(modelRoot, "heldout", "manifest.json"), heldout);
+      writeFileSync(
+        path.join(modelRoot, "neural-denoiser.manifest.json"),
+        JSON.stringify({
+          version: 1,
+          model: {
+            file: "neural-denoiser.onnx",
+            bytes: model.length,
+            sha256: createHash("sha256").update(model).digest("hex"),
+            format: "onnx",
+            opset: 17,
+            input: {
+              name: "noisy_rgb",
+              dtype: "float32",
+              shape: [1, 3, 256, 256],
+              layout: "NCHW",
+              range: "[0,1]",
+            },
+            output: {
+              name: "denoised_rgb",
+              dtype: "float32",
+              shape: [1, 3, 256, 256],
+              layout: "NCHW",
+              range: "[0,1]",
+            },
+          },
+          heldoutManifest: {
+            file: "heldout/manifest.json",
+            bytes: heldout.length,
+            sha256: createHash("sha256").update(heldout).digest("hex"),
+          },
+        }),
+      );
       mkdirSync(path.join(fixtureRoot, "public", "media"), { recursive: true });
       const mediaAssets = Object.entries({
         "demo-poster": 7,
@@ -87,12 +123,65 @@ describe("production privacy policy", () => {
         path.join(fixtureRoot, "dist", "rss.xml"),
         '<rss version="2.0">https://yzscodehub.github.io/graphics-portfolio/</rss>',
       );
+      mkdirSync(path.join(fixtureRoot, "dist", "og"), { recursive: true });
+      writeFileSync(path.join(fixtureRoot, "dist", "og", "card-0.png"), "og-0");
+      writeFileSync(
+        path.join(fixtureRoot, "dist", "index.html"),
+        [
+          '<link rel="canonical" href="https://yzscodehub.github.io/graphics-portfolio/">',
+          '<meta property="og:url" content="https://yzscodehub.github.io/graphics-portfolio/">',
+          '<meta property="og:image" content="https://yzscodehub.github.io/graphics-portfolio/og/card-0.png">',
+          '<script type="application/ld+json">{}</script>',
+        ].join(""),
+      );
+      writeFileSync(
+        path.join(fixtureRoot, "dist", "404.html"),
+        '<meta name="robots" content="noindex,nofollow">',
+      );
 
       expect(policy.validateReleaseStage({ SITE_STAGE: "release" })).toEqual([]);
       expect(policy.validateReleaseStage({ SITE_STAGE: "preview" })).toEqual([
         expect.objectContaining({ code: "stage" }),
       ]);
       expect(policy.validateReleaseArtifacts(fixtureRoot)).toEqual([]);
+
+      writeFileSync(
+        path.join(fixtureRoot, "dist", "index.html"),
+        [
+          '<link rel="canonical" href="https://yzscodehub.github.io/graphics-portfolio/">',
+          '<meta property="og:url" content="https://yzscodehub.github.io/graphics-portfolio/">',
+          '<meta property="og:image" content="https://yzscodehub.github.io/graphics-portfolio/og/not-in-manifest.png">',
+          '<script type="application/ld+json">{}</script>',
+        ].join(""),
+      );
+      expect(
+        policy
+          .validateReleaseArtifacts(fixtureRoot)
+          .some((violation) => violation.code === "og-page-manifest"),
+      ).toBe(true);
+      writeFileSync(
+        path.join(fixtureRoot, "dist", "index.html"),
+        [
+          '<link rel="canonical" href="https://yzscodehub.github.io/graphics-portfolio/">',
+          '<meta property="og:url" content="https://yzscodehub.github.io/graphics-portfolio/">',
+          '<meta property="og:image" content="https://yzscodehub.github.io/graphics-portfolio/og/card-1.png">',
+          '<script type="application/ld+json">{}</script>',
+        ].join(""),
+      );
+      expect(
+        policy
+          .validateReleaseArtifacts(fixtureRoot)
+          .some((violation) => violation.code === "og-page-asset"),
+      ).toBe(true);
+      writeFileSync(
+        path.join(fixtureRoot, "dist", "404.html"),
+        '<meta name="robots" content="noindex,nofollow"><meta property="og:image" content="https://yzscodehub.github.io/graphics-portfolio/og/card-0.png">',
+      );
+      expect(
+        policy
+          .validateReleaseArtifacts(fixtureRoot)
+          .some((violation) => violation.code === "not-found-seo-metadata"),
+      ).toBe(true);
     } finally {
       rmSync(fixtureRoot, { recursive: true, force: true });
     }
@@ -126,6 +215,36 @@ describe("production privacy policy", () => {
     expect(violations.map((violation) => violation.code)).toEqual(
       expect.arrayContaining(["email-address", "email-link"]),
     );
+  });
+
+  it("rejects explicit identity fields without flagging ordinary technical vocabulary", async () => {
+    const policy = (await import("./verify-production.mjs")) as {
+      findPolicyViolations(text: string, relativePath: string): Array<{ code: string }>;
+    };
+    const violations = policy.findPolicyViolations(
+      [
+        "真实姓名：张三",
+        'streetAddress: "1 Example Way",',
+        'clientName: "Private Client",',
+        "身份证号：11010519491231002X",
+      ].join("\n"),
+      "fixture.md",
+    );
+
+    expect(violations.map((violation) => violation.code)).toEqual(
+      expect.arrayContaining([
+        "legal-name-field",
+        "home-address-field",
+        "employment-identity-field",
+        "prc-government-id",
+      ]),
+    );
+    expect(
+      policy.findPolicyViolations(
+        "A company may use a device address for a customer-facing graphics feature.",
+        "technical-note.md",
+      ),
+    ).toEqual([]);
   });
 
   it("blocks the unchecked public-identity placeholders before a release", () => {

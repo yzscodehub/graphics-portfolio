@@ -12,7 +12,8 @@ describe("Pages deployment policy", () => {
 
   it("keeps main verification active while gating only its deployment", () => {
     expect(preview).not.toMatch(/name: Verify and build preview\s*\n\s+if:/);
-    expect(preview).toContain("git tag --list 'v*'");
+    expect(preview).toContain("vars.ENABLE_PREVIEW_PAGES");
+    expect(preview).not.toContain("git tag --list 'v*'");
     expect(preview).toContain("if: steps.deployment-policy.outputs.deploy == 'true'");
     expect(preview).toContain("if: needs.build.outputs.deploy-pages == 'true'");
   });
@@ -21,5 +22,14 @@ describe("Pages deployment policy", () => {
     expect(release).toMatch(/tags:\s*\n\s+- "v\*"/);
     expect(release).not.toContain("workflow_dispatch:");
     expect(release).toContain("SITE_STAGE: release");
+    expect(release).toContain("vars.ENABLE_PREVIEW_PAGES");
+    expect(release).toContain(
+      "Set the persistent ENABLE_PREVIEW_PAGES repository variable to false",
+    );
+    expect(release).toContain("Release tags must use stable SemVer");
+    expect(release).toContain(
+      "git fetch origin +refs/heads/main:refs/remotes/origin/main --no-tags",
+    );
+    expect(release).toContain('git merge-base --is-ancestor "${GITHUB_SHA}" origin/main');
   });
 });

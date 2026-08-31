@@ -4,17 +4,14 @@ routeSlug: compute-geometry-performance
 locale: zh-CN
 title: Compute Shader 大规模几何处理与性能测量
 description: 用数据布局、工作组、间接绘制和同步边界分析 GPU 几何处理的性能，而不是只看粒子数量。
-category: gpu-performance
 module: gpu-compute
 moduleOrder: 3
 articleOrder: 1
-order: 1
 level: advanced
 tags:
   - Compute Shader
   - GPU Performance
   - Geometry
-readingMinutes: 17
 prerequisites:
   - 了解 GPU Buffer、线程组和 Dispatch
   - 熟悉基本性能分析与帧时间概念
@@ -29,6 +26,7 @@ relatedDemos:
 relatedArticles:
   - webgpu-particles-path-tracing
   - bvh-progressive-path-tracing
+  - rhi-abstraction-boundaries
 englishTitle: Large-Scale Geometry Processing with Compute Shaders
 englishDescription: Analyze GPU geometry work through data layout, workgroups, indirect drawing, and synchronization instead of particle counts alone.
 publishedAt: 2026-08-30
@@ -83,28 +81,6 @@ fn update(@builtin(global_invocation_id) id: vec3<u32>) {
 Compute 写入 Buffer 后，Render Pass 读取它，至少要有可见性和阶段上的先后关系。WebGPU 帮助验证资源使用，但开发者仍要准确声明 Storage、Vertex、Indirect 等用途。原生后端则可能需要更显式的状态或屏障。
 
 真正昂贵的往往不是一条指令，而是为了读取结果而让 CPU 等待 GPU，或者每个小批次都提交一次命令。保持数据留在 GPU、合并兼容工作、按帧组织命令，通常比微调一个乘法更值得先做。
-
-## 测量方法
-
-不要只使用浏览器总帧率。至少记录：
-
-- GPU Compute 阶段的时间（若平台提供时间戳查询）；
-- Render 阶段时间；
-- CPU 录制和提交时间；
-- Buffer 大小与每帧写入量；
-- 设备、后端、分辨率和质量等级。
-
-如果没有可靠的 GPU 时间戳，就明确显示“总帧时间”或“浏览器测量”，而不是将 RAF 间隔当成 Compute 时间。测量时预热资源创建，排除第一次管线编译的尖峰；同时重复运行并记录稳定区间，而不是挑一帧最好看的数字。
-
-## 质量等级应保持语义一致
-
-低、中、高质量可以调整粒子数量、积分步长、噪声采样或渲染分辨率，但每一档都应保持同一种物理更新含义。把高质量模式改成另一套算法，会让对比失去意义。移动端默认低质量不是“移动端不重要”，而是明确资源预算后仍让 Demo 可用。
-
-## 从结果回到代码
-
-当测量显示 Compute 占用主要时间，再看内存访问是否连续、是否重复读取常量、工作组是否因为寄存器压力降低占用率。当 Compute 很快但总帧慢，应该检查顶点扩展、透明混合、带宽和合成，而不是继续优化 Compute。若 CPU 提交占主导，则考虑合并命令、复用绑定和间接绘制。
-
-性能报告必须带上下文。本文不提供跨设备的固定 FPS 承诺；可公开的 Demo 只显示访客设备实时测量的数据和配置。一个可复现、能解释限制的测量，比一个缺少设备信息的漂亮数字更有工程价值。
 
 ## 建立每粒子的工作负载模型
 
@@ -195,4 +171,10 @@ RAF cadence 仍有价值，它描述用户看到的节奏，但它包含浏览�
 
 ## 当前实现与下一步
 
-当前实现验证了固定数量的 Ping-Pong Storage Buffer、生命周期重生、吸引子、暂停/重置和可选 timestamp-query。它没有 GPU-driven culling、prefix sum、compaction 或 indirect draw，也没有把粒子扩展成复杂网格。下一步只有在测量证明 CPU count 或无效粒子 Draw 成为瓶颈时，才应加入 GPU count 与 indirect path；否则只是增加同步和调试成本。
+当前实现验证了固定数量的 Ping-Pong Storage Buffer、生命周期重生、吸引子、暂停/重置和可选 timestamp-query。25K、100K 与 250K 只改变状态数量，不替换积分算法；移动端 Canvas 回退则明确属于另一条缩减路径，不能与 WebGPU preset 混作同一性能曲线。当前实现没有 GPU-driven culling、prefix sum、compaction 或 indirect draw，也没有把粒子扩展成复杂网格。下一步只有在测量证明 CPU count 或无效粒子 Draw 成为瓶颈时，才应加入 GPU count 与 indirect path；否则只是增加同步和调试成本。
+
+## 参考资料
+
+- [WebGPU Specification](https://www.w3.org/TR/webgpu/)
+- [WebGPU Shading Language Specification](https://www.w3.org/TR/WGSL/)
+- [WebGPU Timestamp Queries](https://www.w3.org/TR/webgpu/#timestamp-queries)

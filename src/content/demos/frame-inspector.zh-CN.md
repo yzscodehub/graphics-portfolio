@@ -54,16 +54,17 @@ relatedArticles:
   - render-graph-lifetime
   - frame-inspector-observability
   - shadow-temporal-aa
+  - rhi-abstraction-boundaries
 draft: false
 ---
 
 ## 实际运行内容
 
-原生 WebGPU 路径与 Shadow & Anti-Aliasing 研究共享参考帧，暴露八个 attachment：Final、Albedo + Metalness、Normal + Roughness、Linear Depth、Velocity、HDR Lighting、SSAO 和 TAA History。每个标签都带有格式、范围和最后写入者。
+原生 WebGPU 路径与 Shadow & Anti-Aliasing 研究共享参考帧，暴露八个 attachment：Final、Albedo + Metalness、Normal + Roughness、Linear Depth、Velocity、HDR Lighting、SSAO 和 TAA History。Final 格式来自浏览器 preferred Canvas format；其余标签带有实际格式、范围和最后写入者。History 标明 warming/valid 状态，并说明线性 HDR 只在显示时经过 ACES + sRGB 变换。
 
 ## 冻结与选择
 
-选择 attachment 只改变显示视图。Freeze 会停止渲染循环并保留当前纹理供检查；Resume 允许共享帧继续推进。设备丢失时，页面回退到带有相同 attachment 词汇的确定性 Canvas 图集。
+选择 attachment 只改变显示视图。Freeze 会停止渲染循环并保留当前纹理供检查；Resume 允许共享帧继续推进。页面因不可见而暂停后恢复时会重置时域历史，避免跨时间断点复用。设备丢失时，页面回退到带有相同 attachment 词汇的确定性 sibling Canvas 图集。
 
 ## 证据边界
 

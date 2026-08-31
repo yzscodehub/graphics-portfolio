@@ -48,8 +48,8 @@ fallbackImage: /media/demos/shadow-aa-poster.svg
 relatedProjects:
   - real-time-rendering-lab
 relatedArticles:
-  - rhi-abstraction-boundaries
   - shadow-temporal-aa
+  - frame-inspector-observability
 draft: false
 ---
 
@@ -59,7 +59,7 @@ The raw WebGPU reference frame encodes a shadow map, a multi-target G-Buffer, li
 
 ## Temporal behavior
 
-TAA uses jitter and previous-frame depth/velocity state. Changing the shadow mode, AA mode, scene revision, or explicit Reset History invalidates the accumulated history. Freeze is available through the Frame Inspector, which can display the same attachment family without advancing the frame.
+TAA uses UV velocity projected from current/previous world points, Halton jitter, and previous-frame depth. Reprojected coordinates are bounds-rejected before clamping, then pass depth rejection and neighborhood clamping. Changing the shadow mode, AA mode, scene revision, explicit Reset History, or resuming after a page pause invalidates the accumulated history. Freeze is available through the Frame Inspector, which can display the same attachment family without advancing the frame.
 
 ## Fallback boundary
 

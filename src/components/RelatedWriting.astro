@@ -4,6 +4,7 @@ import { writingModules } from "../data/writing-modules";
 import type { Locale } from "../lib/i18n";
 import { withBase } from "../lib/urls";
 import ArticleCard from "./ArticleCard.astro";
+import { resolveReadingTime } from "../content/reading-time";
 
 interface Props {
   locale: Locale;
@@ -45,16 +46,18 @@ const dateFormatter = new Intl.DateTimeFormat(isEn ? "en-US" : "zh-CN", {
         <div class="article-grid">
           {entries.map((entry) => {
             const module = writingModules.find((candidate) => candidate.id === entry.data.module);
+            const readingTime = resolveReadingTime(entry);
             return (
               <ArticleCard
                 title={isEn ? entry.data.englishTitle : entry.data.title}
                 description={isEn ? entry.data.englishDescription : entry.data.description}
-                category={entry.data.category}
+                moduleId={entry.data.module}
                 date={dateFormatter.format(entry.data.publishedAt)}
                 dateTime={entry.data.publishedAt.toISOString()}
                 moduleLabel={module?.title[locale]}
                 level={entry.data.level}
-                readingMinutes={entry.data.readingMinutes}
+                readingMinutes={readingTime.minutes}
+                readingTimeSource={readingTime.source}
                 locale={locale}
                 fullTextLanguage="zh-CN"
                 href={withBase(`/writing/${entry.data.routeSlug}/`)}

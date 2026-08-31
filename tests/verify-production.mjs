@@ -19,6 +19,33 @@ const sourceExtensions = new Set([
   ".xml",
 ]);
 const renderedExtensions = new Set([".html", ".json", ".xml"]);
+const labeledFieldDecorators = `(?:["'*\\x60]|&quot;)*`;
+
+function labeledFieldRule(code, labels) {
+  const field = String.raw`(?:^|[\n\r,{])\s*${labeledFieldDecorators}\s*(?:${labels})\s*${labeledFieldDecorators}\s*[:：]\s*${labeledFieldDecorators}\s*[^\n\r,}<]{2,}`;
+  const table = String.raw`<(?:dt|th|strong|b|span)[^>]*>\s*(?:${labels})\s*<\/[^>]+>\s*(?:[:：]\s*)?(?:<(?:dd|td|span)[^>]*>\s*)?[^<\n]{2,}`;
+  return { code, pattern: new RegExp(`${field}|${table}`, "gimu") };
+}
+
+const privacyFieldRules = [
+  {
+    code: "prc-government-id",
+    pattern:
+      /(?<![\dA-Za-z])[1-9]\d{5}(?:18|19|20)\d{2}(?:0[1-9]|1[0-2])(?:0[1-9]|[12]\d|3[01])\d{3}[\dXx](?![\dA-Za-z])/g,
+  },
+  labeledFieldRule(
+    "legal-name-field",
+    "真实\\s*姓名|法定\\s*姓名|姓名(?:全称)?|legal\\s*name|real\\s*name|full\\s*legal\\s*name",
+  ),
+  labeledFieldRule(
+    "home-address-field",
+    "家庭\\s*(?:住址|地址)|住宅\\s*地址|居住\\s*地址|详细\\s*住址|home\\s*address|residential\\s*address|street\\s*address|mailing\\s*address",
+  ),
+  labeledFieldRule(
+    "employment-identity-field",
+    "雇主(?:名称)?|任职\\s*公司|就职\\s*公司|所在\\s*公司|客户(?:名称|公司)?|内部\\s*项目(?:名称|代号|编号|代码)?|项目(?:代号|编号|代码)|employer(?:\\s*name)?|employing\\s*company|client(?:\\s*(?:name|company))?|customer(?:\\s*(?:name|company))?|internal\\s*project(?:\\s*(?:name|code|id))?|project\\s*(?:code|id)",
+  ),
+];
 
 const forbiddenRules = [
   {
@@ -37,6 +64,7 @@ const forbiddenRules = [
     pattern: /(?:薪资|薪酬|期望薪资|月薪)\s*[:：]?\s*\d+(?:\.\d+)?\s*(?:k|K|千|万|元)/g,
   },
   { code: "telephone-link", pattern: /tel:/gi },
+  ...privacyFieldRules,
 ];
 
 function walk(directory, extensions) {
@@ -55,6 +83,92 @@ function locationsFor(text, matchIndex) {
 
 function sha256(file) {
   return createHash("sha256").update(readFileSync(file)).digest("hex");
+}
+
+function validateReviewedModelArtifacts(root, violations) {
+  const modelRoot = path.join(root, "public", "models");
+  const model = path.join(modelRoot, "neural-denoiser.onnx");
+  const manifestPath = path.join(modelRoot, "neural-denoiser.manifest.json");
+  if (!existsSync(manifestPath)) {
+    violations.push({
+      code: "missing-model-manifest",
+      file: "public/models/neural-denoiser.manifest.json",
+      line: 0,
+      value: "reviewed ONNX manifest is required",
+    });
+    return;
+  }
+  let manifest;
+  try {
+    manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
+  } catch {
+    violations.push({
+      code: "model-manifest-json",
+      file: "public/models/neural-denoiser.manifest.json",
+      line: 0,
+      value: "manifest must be valid JSON",
+    });
+    return;
+  }
+  const modelEntry = manifest?.model;
+  const heldoutEntry = manifest?.heldoutManifest;
+  const validTensor = (tensor, name) =>
+    tensor?.name === name &&
+    tensor?.dtype === "float32" &&
+    tensor?.layout === "NCHW" &&
+    tensor?.range === "[0,1]" &&
+    JSON.stringify(tensor?.shape) === JSON.stringify([1, 3, 256, 256]);
+  if (
+    manifest?.version !== 1 ||
+    modelEntry?.file !== "neural-denoiser.onnx" ||
+    modelEntry?.format !== "onnx" ||
+    modelEntry?.opset !== 17 ||
+    !validTensor(modelEntry?.input, "noisy_rgb") ||
+    !validTensor(modelEntry?.output, "denoised_rgb") ||
+    heldoutEntry?.file !== "heldout/manifest.json"
+  ) {
+    violations.push({
+      code: "model-manifest-contract",
+      file: "public/models/neural-denoiser.manifest.json",
+      line: 0,
+      value: "model, tensor, and held-out contracts must match the reviewed artifact",
+    });
+    return;
+  }
+  for (const [entry, file, code] of [
+    [modelEntry, model, "model-artifact"],
+    [heldoutEntry, path.join(modelRoot, heldoutEntry.file), "heldout-manifest-artifact"],
+  ]) {
+    if (!existsSync(file)) {
+      violations.push({
+        code: `missing-${code}`,
+        file: path.relative(root, file),
+        line: 0,
+        value: "artifact missing",
+      });
+    } else if (
+      !Number.isSafeInteger(entry?.bytes) ||
+      entry.bytes <= 0 ||
+      statSync(file).size !== entry.bytes ||
+      !/^[a-f0-9]{64}$/i.test(entry?.sha256 ?? "") ||
+      sha256(file) !== entry.sha256
+    ) {
+      violations.push({
+        code: `${code}-hash`,
+        file: path.relative(root, file),
+        line: 0,
+        value: "bytes or SHA-256 mismatch",
+      });
+    }
+  }
+  if (existsSync(model) && statSync(model).size > 5 * 1024 * 1024) {
+    violations.push({
+      code: "model-size",
+      file: "public/models/neural-denoiser.onnx",
+      line: 0,
+      value: `${statSync(model).size} bytes`,
+    });
+  }
 }
 
 function isInsideHexDigest(text, match) {
@@ -154,28 +268,15 @@ export function scanReleaseFiles(root = projectRoot) {
 export function validateReleaseArtifacts(root = projectRoot) {
   const violations = [];
   const expectedBase = "https://yzscodehub.github.io/graphics-portfolio/";
-  const model = path.join(root, "public", "models", "neural-denoiser.onnx");
+  const expectedBaseUrl = new URL(expectedBase);
   const outputRoot = path.join(root, "dist");
   const robots = path.join(outputRoot, "robots.txt");
   const sitemap = path.join(outputRoot, "sitemap-index.xml");
   const rss = path.join(outputRoot, "rss.xml");
   const mediaManifest = path.join(root, "public", "media", "assets-manifest.json");
   const ogManifest = path.join(root, "public", "og", "manifest.json");
-  if (!existsSync(model)) {
-    violations.push({
-      code: "missing-model",
-      file: "public/models/neural-denoiser.onnx",
-      line: 0,
-      value: "reviewed ONNX model is required",
-    });
-  } else if (statSync(model).size > 5 * 1024 * 1024) {
-    violations.push({
-      code: "model-size",
-      file: "public/models/neural-denoiser.onnx",
-      line: 0,
-      value: `${statSync(model).size} bytes`,
-    });
-  }
+  const manifestOgPaths = new Set();
+  validateReviewedModelArtifacts(root, violations);
 
   if (!existsSync(outputRoot)) {
     violations.push({
@@ -340,6 +441,7 @@ export function validateReleaseArtifacts(root = projectRoot) {
         value: `expected 22 cards, found ${(manifest.cards ?? []).length}`,
       });
     for (const card of manifest.cards ?? []) {
+      if (typeof card.path === "string") manifestOgPaths.add(card.path);
       const file = path.join(root, "public", card.path.replace(/^\//, ""));
       if (!existsSync(file))
         violations.push({
@@ -425,22 +527,50 @@ export function validateReleaseArtifacts(root = projectRoot) {
         value: "indexed release pages must not emit noindex",
       });
     const canonical = source.match(/<link\s+rel=["']canonical["']\s+href=["']([^"']+)/i)?.[1];
-    if (!canonical?.startsWith(expectedBase))
+    const ogUrl = source.match(/<meta\s+property=["']og:url["']\s+content=["']([^"']+)/i)?.[1];
+    const ogImage = source.match(/<meta\s+property=["']og:image["']\s+content=["']([^"']+)/i)?.[1];
+    if (isNotFound) {
+      if (canonical || ogUrl || ogImage)
+        violations.push({
+          code: "not-found-seo-metadata",
+          file: relative,
+          line: 0,
+          value: "404 must not publish canonical or Open Graph URL/image metadata",
+        });
+    } else if (!canonical?.startsWith(expectedBase)) {
       violations.push({
         code: "canonical-base",
         file: relative,
         line: 0,
         value: canonical ?? "missing canonical",
       });
-    const ogUrl = source.match(/<meta\s+property=["']og:url["']\s+content=["']([^"']+)/i)?.[1];
-    const ogImage = source.match(/<meta\s+property=["']og:image["']\s+content=["']([^"']+)/i)?.[1];
-    if (!ogUrl?.startsWith(expectedBase) || !ogImage?.startsWith(expectedBase))
+    }
+    if (!isNotFound && (!ogUrl?.startsWith(expectedBase) || !ogImage?.startsWith(expectedBase)))
       violations.push({
         code: "open-graph-base",
         file: relative,
         line: 0,
         value: "og:url and og:image must use the production base",
       });
+    if (!isNotFound && ogImage?.startsWith(expectedBase) && manifestOgPaths.size > 0) {
+      const imageUrl = new URL(ogImage);
+      const manifestPath = `/${imageUrl.pathname.slice(expectedBaseUrl.pathname.length)}`;
+      const outputAsset = path.join(outputRoot, manifestPath.slice(1));
+      if (!manifestOgPaths.has(manifestPath))
+        violations.push({
+          code: "og-page-manifest",
+          file: relative,
+          line: 0,
+          value: `${manifestPath} is not listed in public/og/manifest.json`,
+        });
+      else if (!existsSync(outputAsset))
+        violations.push({
+          code: "og-page-asset",
+          file: relative,
+          line: 0,
+          value: `${manifestPath} is missing from dist`,
+        });
+    }
     const requiresStructuredData =
       relative === "dist/index.html" ||
       relative === "dist/en/index.html" ||

@@ -56,7 +56,6 @@ fallbackImage: /media/demos/material-lighting-poster.svg
 relatedProjects:
   - real-time-rendering-lab
 relatedArticles:
-  - rhi-abstraction-boundaries
   - material-lighting-color-pipeline
 draft: false
 ---

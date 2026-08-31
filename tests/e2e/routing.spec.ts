@@ -1,3 +1,5 @@
+import { readdirSync } from "node:fs";
+import path from "node:path";
 import { expect, test, type Page } from "@playwright/test";
 
 const isPreview = process.env.SITE_STAGE !== "release";
@@ -17,6 +19,17 @@ const routes = [
   ["en/lab/", "en"],
   ["en/about/", "en"],
 ] as const;
+
+function generatedRoutes(directory = path.resolve("dist"), prefix = ""): string[] {
+  return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
+    const relative = `${prefix}${entry.name}`;
+    if (entry.isDirectory())
+      return generatedRoutes(path.join(directory, entry.name), `${relative}/`);
+    if (!entry.isFile() || !relative.endsWith(".html") || relative === "404.html") return [];
+    if (relative === "index.html") return [""];
+    return [relative.endsWith("/index.html") ? relative.slice(0, -"index.html".length) : relative];
+  });
+}
 
 for (const [route, expectedLanguage] of routes) {
   test(`${route || "home"} responds with the declared language`, async ({ page }) => {
@@ -43,6 +56,22 @@ for (const [route, expectedLanguage] of routes) {
   });
 }
 
+test("every generated content route responds successfully", async ({ page }) => {
+  test.setTimeout(90_000);
+  const generated = generatedRoutes().sort();
+  expect(generated).toHaveLength(58);
+
+  for (const route of generated) {
+    const response = await page.goto(route);
+    expect(response?.status(), route || "home").toBe(200);
+    await expect(page.locator("html"), route || "home").toHaveAttribute(
+      "lang",
+      route.startsWith("en/") ? /^en/ : /^zh/,
+    );
+    await expect(page.locator("main"), route || "home").toBeVisible();
+  }
+});
+
 test("deferred resume routes return 404", async ({ page }) => {
   for (const route of ["resume/", "en/resume/"]) {
     const response = await page.goto(route);
@@ -58,10 +87,8 @@ test("the shared 404 offers both language entry points", async ({ page }) => {
     "href",
     "/graphics-portfolio/en/",
   );
-  await expect(page.locator('link[rel="alternate"][hreflang="en"]')).toHaveAttribute(
-    "href",
-    "https://yzscodehub.github.io/graphics-portfolio/en/",
-  );
+  const alternate = await page.locator('link[rel="alternate"][hreflang="en"]').getAttribute("href");
+  expect(new URL(alternate!).pathname).toBe("/graphics-portfolio/en/");
 });
 
 test("contact controls remain GitHub-only", async ({ page }) => {
@@ -132,8 +159,14 @@ test("Frame Inspector keeps one visible output surface on a narrow desktop", asy
   await page.goto("demos/frame-inspector/");
   const shell = page.locator("[data-demo-shell]");
 
-  await expect(shell).toHaveAttribute("data-demo-state", "running");
-  await expect(shell.locator("[data-demo-state]")).toHaveText("运行中");
+  await expect(shell).toHaveAttribute("data-demo-state", /^(?:running|fallback)$/);
+  const runtimeState = await shell.getAttribute("data-demo-state");
+  await expect(shell.locator("[data-demo-state]")).toHaveText(
+    runtimeState === "running" ? "运行中" : "静态预览",
+  );
+  if (runtimeState === "fallback") {
+    await expect(shell.locator("[data-demo-metrics]")).toContainText("Canvas fallback");
+  }
   await expect(shell.locator("[data-demo-controls] button")).toHaveCount(9);
   await expect(shell.locator("canvas:visible")).toHaveCount(1);
   await expect(shell.locator("[data-demo-fallback]")).toHaveCSS("display", "none");

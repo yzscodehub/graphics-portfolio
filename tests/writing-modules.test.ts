@@ -5,6 +5,7 @@ import {
   writingModulePath,
   writingModules,
 } from "../src/data/writing-modules";
+import { deriveReadingMinutes, resolveReadingTime } from "../src/content/reading-time";
 
 describe("writing module map", () => {
   it("keeps six graphics tracks followed by one adjacent multimedia track", () => {
@@ -33,5 +34,37 @@ describe("writing module map", () => {
       expect(writingModulePath(module.id, "zh-CN")).toBe(`/writing/modules/${module.id}/`);
       expect(writingModulePath(module.id, "en")).toBe(`/en/writing/modules/${module.id}/`);
     }
+  });
+});
+
+describe("writing reading-time contract", () => {
+  it("derives time from CJK prose, Latin words, and fenced code", () => {
+    expect(deriveReadingMinutes("图".repeat(600))).toBe(2);
+    expect(deriveReadingMinutes(Array.from({ length: 180 }, () => "word").join(" "))).toBe(1);
+    expect(
+      deriveReadingMinutes(
+        `\`\`\`wgsl\n${Array.from({ length: 13 }, (_, index) => `line${index}`).join("\n")}\n\`\`\``,
+      ),
+    ).toBe(2);
+  });
+
+  it("uses an explicitly reasoned editorial override only when supplied", () => {
+    expect(resolveReadingTime({ body: "图".repeat(300), data: {} })).toEqual({
+      minutes: 1,
+      source: "derived",
+    });
+    expect(
+      resolveReadingTime({
+        body: "short",
+        data: {
+          readingMinutesOverride: 6,
+          readingMinutesOverrideReason: "Interactive exercise includes a timed device run.",
+        },
+      }),
+    ).toEqual({
+      minutes: 6,
+      source: "editorial-override",
+      overrideReason: "Interactive exercise includes a timed device run.",
+    });
   });
 });

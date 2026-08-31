@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import * as os from "node:os";
@@ -38,6 +39,36 @@ describe("preview privacy policy", () => {
     ).toEqual([]);
   });
 
+  it("rejects explicit identity fields without treating technical prose as PII", async () => {
+    const policy = (await import("./verify-preview.mjs")) as {
+      findPreviewPolicyViolations(text: string, relativePath: string): Array<{ code: string }>;
+    };
+    const violations = policy.findPreviewPolicyViolations(
+      [
+        'legalName: "Ada Lovelace",',
+        "家庭住址：北京市海淀区示例路 1 号",
+        'employer: "Example Graphics Studio",',
+        "身份证号：11010519491231002X",
+      ].join("\n"),
+      "fixture.md",
+    );
+
+    expect(violations.map((violation) => violation.code)).toEqual(
+      expect.arrayContaining([
+        "legal-name-field",
+        "home-address-field",
+        "employment-identity-field",
+        "prc-government-id",
+      ]),
+    );
+    expect(
+      policy.findPreviewPolicyViolations(
+        "The company uses a GPU address calculation in an internal rendering architecture.",
+        "technical-note.md",
+      ),
+    ).toEqual([]);
+  });
+
   it("requires noindex, blocked robots, no PDFs, and a small model", async () => {
     const policy = (await import("./verify-preview.mjs")) as {
       validatePreviewArtifacts(root: string): Array<{ code: string }>;
@@ -45,16 +76,78 @@ describe("preview privacy policy", () => {
     const fixtureRoot = mkdtempSync(path.join(os.tmpdir(), "graphics-preview-policy-"));
 
     try {
-      mkdirSync(path.join(fixtureRoot, "public", "models"), { recursive: true });
+      const modelRoot = path.join(fixtureRoot, "public", "models");
+      mkdirSync(path.join(modelRoot, "heldout"), { recursive: true });
       mkdirSync(path.join(fixtureRoot, "dist"), { recursive: true });
-      writeFileSync(path.join(fixtureRoot, "public", "models", "neural-denoiser.onnx"), "model");
+      const model = Buffer.from("model");
+      const heldout = Buffer.from('{"version":1}\n');
+      writeFileSync(path.join(modelRoot, "neural-denoiser.onnx"), model);
+      writeFileSync(path.join(modelRoot, "heldout", "manifest.json"), heldout);
+      writeFileSync(
+        path.join(modelRoot, "neural-denoiser.manifest.json"),
+        JSON.stringify({
+          version: 1,
+          model: {
+            file: "neural-denoiser.onnx",
+            bytes: model.length,
+            sha256: createHash("sha256").update(model).digest("hex"),
+            format: "onnx",
+            opset: 17,
+            input: {
+              name: "noisy_rgb",
+              dtype: "float32",
+              shape: [1, 3, 256, 256],
+              layout: "NCHW",
+              range: "[0,1]",
+            },
+            output: {
+              name: "denoised_rgb",
+              dtype: "float32",
+              shape: [1, 3, 256, 256],
+              layout: "NCHW",
+              range: "[0,1]",
+            },
+          },
+          heldoutManifest: {
+            file: "heldout/manifest.json",
+            bytes: heldout.length,
+            sha256: createHash("sha256").update(heldout).digest("hex"),
+          },
+        }),
+      );
       writeFileSync(path.join(fixtureRoot, "dist", "robots.txt"), "User-agent: *\nDisallow: /\n");
       writeFileSync(
         path.join(fixtureRoot, "dist", "index.html"),
         '<meta name="robots" content="noindex,nofollow">',
       );
+      writeFileSync(
+        path.join(fixtureRoot, "dist", "404.html"),
+        '<meta name="robots" content="noindex,nofollow">',
+      );
 
       expect(policy.validatePreviewArtifacts(fixtureRoot)).toEqual([]);
+
+      writeFileSync(
+        path.join(fixtureRoot, "dist", "404.html"),
+        '<meta name="robots" content="noindex,nofollow"><link rel="canonical" href="https://example.invalid/404.html">',
+      );
+      expect(
+        policy
+          .validatePreviewArtifacts(fixtureRoot)
+          .some((violation) => violation.code === "not-found-seo-metadata"),
+      ).toBe(true);
+      writeFileSync(
+        path.join(fixtureRoot, "dist", "404.html"),
+        '<meta name="robots" content="noindex,nofollow">',
+      );
+
+      writeFileSync(path.join(modelRoot, "neural-denoiser.onnx"), "tampered");
+      expect(
+        policy
+          .validatePreviewArtifacts(fixtureRoot)
+          .some((violation) => violation.code === "model-artifact-hash"),
+      ).toBe(true);
+      writeFileSync(path.join(modelRoot, "neural-denoiser.onnx"), model);
 
       writeFileSync(path.join(fixtureRoot, "dist", "resume.pdf"), "not a real PDF");
       const violations = policy.validatePreviewArtifacts(fixtureRoot);

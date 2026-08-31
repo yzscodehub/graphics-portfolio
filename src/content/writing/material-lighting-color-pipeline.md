@@ -4,7 +4,6 @@ routeSlug: material-lighting-color-pipeline
 locale: zh-CN
 title: 从 PBR 参数到显示像素：材质、IBL 与颜色链路
 description: 以可校准场景拆解 Base Color、Metalness、Roughness、直接光、IBL、曝光和 Tone Mapping，建立可调试的实时材质工作流。
-category: rendering
 module: rendering
 moduleOrder: 1
 articleOrder: 1
@@ -14,7 +13,6 @@ tags:
   - IBL
   - Color Pipeline
   - TSL
-readingMinutes: 16
 prerequisites:
   - 理解线性代数、法线和点积
   - 了解纹理采样与线性颜色空间
@@ -26,10 +24,8 @@ relatedProjects:
   - real-time-rendering-lab
 relatedDemos:
   - material-lighting
-  - frame-inspector
 relatedArticles:
   - shadow-temporal-aa
-  - frame-inspector-observability
 englishTitle: "From PBR Inputs to Display Pixels: Materials, IBL, and the Color Pipeline"
 englishDescription: A calibration-driven breakdown of material parameters, direct and image-based lighting, exposure, tone mapping, and debug views.
 publishedAt: 2026-08-31
@@ -106,9 +102,11 @@ Direct 和 Indirect 都不是“更漂亮的滤镜”。它们是同一个材质
 
 Demo 提供 ACES、AgX 和 Linear 三种输出模式。Linear 不是推荐的最终观感，而是诊断工具：当 ACES 与 AgX 差异很大时，可以回到 Linear 检查问题是否已经存在于光照阶段。曝光也不应隐藏材质错误；它应该作用于整帧，而不是只修一个物体。
 
-## Buffer 视图如何缩短定位路径
+## 调试视图如何缩短定位路径
 
-最终颜色只能告诉我们“结果不对”，无法说明哪一层出错。Normal、Roughness 和 Metalness 视图把材质输入从光照中剥离；Frame Inspector 进一步显示 Albedo + Metalness、Normal + Roughness、HDR Lighting、Depth 与 Final 的真实附件来源。
+最终颜色只能告诉我们“结果不对”，无法说明哪一层出错。Material Demo 内的 Normal、Roughness 和 Metalness 模式会替换球体材质，Direct/Indirect 模式则分别关闭环境或显式灯光；它们是受控的重新渲染视图，不是从 G-Buffer 读取的附件。
+
+独立的 Frame Inspector 使用另一套程序化 Reference Scene，展示 Albedo + Metalness、Normal + Roughness、HDR Lighting、Depth 与 Final 的真实附件契约。它适合说明“生产者、格式和范围应如何被检查”，但不能用来证明 Material Demo 当前球体的参数已经写入那些附件。两套场景必须分别记录，不能把 Inspector 截图当作 Material Renderer 的帧捕获。
 
 建议按以下顺序排查：
 
@@ -137,7 +135,7 @@ Demo 提供 ACES、AgX 和 Linear 三种输出模式。Linear 不是推荐的最
 2. Roughness 从低到高分三档，观察高光面积而不是只比较峰值亮度；
 3. 在 Final、Direct、Indirect 间切换，确认三者的能量关系；
 4. 保持材质不变，对比 ACES、AgX、Linear；
-5. 打开 Frame Inspector，对照材质输入附件与 HDR Lighting；
+5. 另行打开 Frame Inspector，对照附件契约与排查顺序，并明确它不是该球体的同帧捕获；
 6. 记录当前浏览器、Three.js 版本和实际 backend 标签。
 
 实验不要求得出跨设备性能数字。它要验证的是：参数变化能被对应 Buffer 解释，直接光和 IBL 可以独立观察，显示变换不会反向污染材质判断。
@@ -145,3 +143,9 @@ Demo 提供 ACES、AgX 和 Linear 三种输出模式。Linear 不是推荐的最
 ## 当前边界
 
 本实验没有覆盖纹理化材质、各向异性、Clearcoat 分层、透射、HDR 显示输出或生产级资产导入。程序化 PMREM 也不是对所有 HDR 环境的代表。它的价值是建立一条小而完整的校准链路，为更复杂的渲染功能提供可重复基线。
+
+## 参考资料
+
+- [Three.js WebGPU Renderer](https://threejs.org/manual/en/webgpurenderer)
+- [Three.js Color Management](https://threejs.org/manual/en/color-management.html)
+- [Filament: Physically Based Rendering in Filament](https://google.github.io/filament/Filament.html)

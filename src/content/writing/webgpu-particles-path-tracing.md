@@ -4,17 +4,14 @@ routeSlug: webgpu-particles-path-tracing
 locale: zh-CN
 title: 原生 WebGPU 粒子和渐进式路径追踪
 description: 用两个小型实验理解 WebGPU 的 Storage Buffer、Compute Pass、累积纹理和设备丢失处理。
-category: gpu-performance
 module: gpu-compute
 moduleOrder: 3
 articleOrder: 2
-order: 2
 level: intermediate
 tags:
   - WebGPU
   - WGSL
   - Path Tracing
-readingMinutes: 15
 prerequisites:
   - 了解 WebGPU Device、Queue、Buffer 与 Texture
   - 读过基本 WGSL Compute Shader
@@ -30,6 +27,7 @@ relatedDemos:
 relatedArticles:
   - compute-geometry-performance
   - bvh-progressive-path-tracing
+  - path-tracing-to-neural-denoising
 englishTitle: Native WebGPU Particles and Progressive Path Tracing
 englishDescription: Two compact experiments for understanding storage buffers, compute passes, accumulation textures, and device loss in WebGPU.
 publishedAt: 2026-08-30
@@ -83,18 +81,6 @@ struct Particle {
 ```
 
 绑定组只包含实际使用的资源；不需要的纹理不应为了“以后可能用到”一直保持绑定。Command Encoder 结束前，所有 Pass 的依赖和资源用途都应已经确定。
-
-## 设备丢失与回退
-
-GPU 设备可能因驱动重置、浏览器策略或系统资源变化而丢失。Demo 需要监听 device lost，停止提交、释放监听器和控制器，并将状态交给页面层。恢复并不等于继续使用旧 Buffer：资源、管线和绑定都要按能力重新创建。
-
-不支持 WebGPU 的环境不应看到空白区域。粒子和路径追踪页使用明确标注的缩减 Canvas 实现或静态 Poster，同时保留管线、参数和限制说明；这样内容价值不会被浏览器能力绑架，也不会把回退画面冒充 GPU 证据。
-
-## 测量与边界
-
-区分 CPU 录制、队列提交、Compute、Render 和浏览器合成时间。没有时间戳查询时，不要把 `requestAnimationFrame` 间隔写成 GPU 时间。路径追踪实验不包含生产级光源采样、压缩 BVH 或去噪，粒子实验也不以粒子总数作为跨设备性能承诺。
-
-WebGPU 的工程价值在于让资源和命令关系更明确。通过两个小实验，可以把这些关系从 API 调用变成可观察的数据和可解释的回退行为。
 
 ## Adapter、Device 与能力实测
 
@@ -150,7 +136,9 @@ WebGPU validation error 不一定以普通 JavaScript 异常出现在同步 `cre
 
 初始化可能在 device、Buffer、Shader、Pipeline、Texture 或 Bind Group 任一步失败。如果 catch 只切换 UI，却没有释放已经创建的对象，就会在每次 Retry 后累积资源。
 
-可把初始化视为事务：局部收集创建成功的资源，全部完成后才发布为 `active`；中途失败则逆序销毁。Resize 同样需要先创建完整的新纹理/Bind Group，再替换旧集合，避免半更新状态。
+可把初始化视为事务：局部收集创建成功的资源，全部完成后才发布为 `active`；中途失败则逆序销毁。理想的 Resize 也应先创建完整的新纹理/Bind Group，再替换旧集合，避免半更新状态。
+
+当前 Path Tracer 与 Reference Frame 的 Resize 仍会先销毁旧尺寸资源，再创建新集合；页面运行时会捕获失败并进入明确 fallback，但这不等于完成了无缝事务替换。因此“create new → publish → destroy old”保留为下一阶段边界，而不是已经验证的当前能力。
 
 页面层还有 generation guard：较早的异步初始化即使晚到，也不能覆盖新的 Controller。旧 scope 会立即 abort 和释放，Controller 返回后再次执行 dispose。
 
@@ -199,3 +187,9 @@ Canvas 一旦取得 `webgpu` context，不应在 device lost 后对同一元素�
 ## 当前边界
 
 这篇文章关注 WebGPU 资源与执行模型。粒子性能模型在 Compute 模块展开；BVH、材质散射和 Monte Carlo 积分在 Ray Tracing 模块展开。当前实现没有 GPU culling、indirect draw、SAH BVH 或通用 Shader reflection。把边界拆开，反而能避免两个 Demo 的视觉差异掩盖它们共享的资源生命周期问题。
+
+## 参考资料
+
+- [WebGPU Specification](https://www.w3.org/TR/webgpu/)
+- [WebGPU Shading Language Specification](https://www.w3.org/TR/WGSL/)
+- [GPUWeb Device Lost Design](https://github.com/gpuweb/gpuweb/blob/main/design/DeviceLost.md)

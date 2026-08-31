@@ -55,6 +55,12 @@ python training/generate_dataset.py `
   --clean-spp 64
 ```
 
+The generator writes the first validation pair as `scene-0064` after the 64
+training scenes. The browser keeps a stable public asset prefix, `scene-0001`,
+but its held-out manifest records `sourceDatasetStem: scene-0064`, the source
+dataset-manifest SHA-256, and the distinct export version. The alias is only a
+public filename; it is not a second validation scene.
+
 The renderer estimates direct area-light illumination, analytic shadows, and
 a deterministic ambient approximation. The 64-SPP reference remains a finite
 Monte Carlo estimate, not full global-illumination ground truth.
@@ -68,6 +74,9 @@ Monte Carlo estimate, not full global-illumination ground truth.
 - ONNX size: 62,986 bytes.
 - ONNX SHA-256:
   `f42af8be960e17c61bb19d4b82268541d3773eae0e5c14092c6f8d83c68e8413`.
+- Browser artifact manifest: `public/models/neural-denoiser.manifest.json`;
+  it binds the exact ONNX byte length/hash, input/output names, fixed NCHW
+  shape, opset, and the hashed held-out manifest.
 
 ## Validation results
 
@@ -111,5 +120,7 @@ deployed browser.
 ## Reproduction
 
 Commands and environment requirements are documented in `training/README.md`.
-Raw datasets and checkpoints remain ignored because the manifest, model card,
-and final ONNX artifact are sufficient to reproduce and audit the public demo.
+Raw datasets and checkpoints remain ignored. The published artifacts reproduce
+and audit the browser's single held-out pair and its byte-level contracts; they
+do **not** independently recompute the complete 16-scene offline validation or
+PyTorch/ONNX parity without the retained private dataset and checkpoint record.

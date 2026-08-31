@@ -82,6 +82,7 @@ export function createDemo(): DemoController {
     fallback.setUserPaused(userPaused);
     active = fallback;
     if (running) fallback.resume();
+    context.setRuntimeState?.("fallback");
     context.setStatus(`${reason} Showing labeled CPU path-like fallback.`, "warning");
   };
 
@@ -101,6 +102,7 @@ export function createDemo(): DemoController {
       renderer.setUserPaused(userPaused);
       active = renderer;
       if (running) renderer.resume();
+      context.setRuntimeState?.("running");
       context.setStatus(
         "WebGPU compute path tracer active: CPU BVH, Diffuse/Metal/Dielectric materials, linear rgba16float accumulation and separate tone map.",
         "success",

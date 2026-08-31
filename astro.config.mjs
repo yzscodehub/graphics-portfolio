@@ -29,8 +29,9 @@ export default defineConfig({
   vite: {
     build: {
       target: "es2022",
-      // The 665 kB raw Three.js WebGPU chunk is click/viewport-lazy and has a
-      // separate 220 kB gzip budget enforced by tests/performance-budget.mjs.
+      // The WebGPU renderer component is click/viewport-lazy. Its entry chunk
+      // has a 220 kB gzip budget and its complete transitive Three runtime has
+      // a separate 320 kB budget enforced by tests/performance-budget.mjs.
       chunkSizeWarningLimit: 700,
     },
   },

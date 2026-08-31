@@ -48,8 +48,8 @@ fallbackImage: /media/demos/shadow-aa-poster.svg
 relatedProjects:
   - real-time-rendering-lab
 relatedArticles:
-  - rhi-abstraction-boundaries
   - shadow-temporal-aa
+  - frame-inspector-observability
 draft: false
 ---
 
@@ -59,7 +59,7 @@ draft: false
 
 ## 时间行为
 
-TAA 使用抖动以及上一帧深度/速度状态。改变阴影模式、抗锯齿模式、场景版本或点击 Reset History 后，会使历史失效。Frame Inspector 提供 Freeze，通过冻结当前帧检查相同的 attachment 家族。
+TAA 使用当前/上一帧世界点投影得到的 UV Velocity、Halton 抖动和上一帧深度。重投影坐标在 clamp 前执行 bounds reject，再进行深度拒绝与邻域裁剪。改变阴影模式、抗锯齿模式、场景版本、点击 Reset History 或从页面暂停恢复，都会使历史失效。Frame Inspector 提供 Freeze，通过冻结当前帧检查相同的 attachment 家族。
 
 ## 回退边界
 

@@ -4,6 +4,12 @@
   "split": "val",
   "stem": "scene-0001",
   "sceneSeed": 91103,
+  "export": {
+    "version": "reviewed-web-pair-v2",
+    "assetStem": "scene-0001",
+    "sourceDatasetStem": "scene-0064",
+    "datasetManifestSha256": "7b6eacc3eb5f32ed9e1ae14d76a1ffdf4fb426b7ac5fffeb025cac177fc7dd4c"
+  },
   "shape": [
     1,
     3,

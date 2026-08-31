@@ -10,6 +10,7 @@ import {
 } from "./shaders";
 import {
   attachmentInfo,
+  type AttachmentInfo,
   type AaTechnique,
   type ReferenceView,
   type ShadowTechnique,
@@ -298,6 +299,21 @@ export class ReferenceFrameRenderer {
     return this.frozen;
   }
 
+  get isFallback(): false {
+    return false;
+  }
+
+  get historyStatus(): string {
+    return this.historyValid
+      ? `valid / Temporal Resolve frame ${Math.max(0, this.frameIndex - 1)}`
+      : "warming / no reusable history";
+  }
+
+  getAttachmentInfo(view: ReferenceView): AttachmentInfo {
+    const info = attachmentInfo(view);
+    return view === "final" ? { ...info, format: this.canvasFormat } : info;
+  }
+
   resize(width: number, height: number): void {
     if (this.disposed) return;
     const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
@@ -355,6 +371,7 @@ export class ReferenceFrameRenderer {
   }
 
   pause(): void {
+    if (this.running && !this.frozen) this.resetHistory();
     this.running = false;
     cancelAnimationFrame(this.raf);
   }
@@ -415,7 +432,7 @@ export class ReferenceFrameRenderer {
     const info = attachmentInfo(this.options.view);
     this.shell.setMetrics({
       backend: this.backendLabel,
-      status: `${info.label} / frame ${this.frameIndex}`,
+      status: `${info.label} / frame ${this.frameIndex} / history ${this.historyStatus}`,
     });
     this.raf = requestAnimationFrame(this.renderLoop);
   };

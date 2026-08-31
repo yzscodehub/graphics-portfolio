@@ -7,8 +7,8 @@ import { clearInterval, setInterval, setTimeout } from "node:timers";
 const root = process.cwd();
 const distRoot = path.resolve(root, "dist");
 const basePath = "/graphics-portfolio/";
-const host = "127.0.0.1";
-const port = 4321;
+const host = process.env.GRAPHICS_PORTFOLIO_E2E_HOST ?? "127.0.0.1";
+const port = parsePort(process.env.GRAPHICS_PORTFOLIO_E2E_PORT ?? "4173");
 
 const contentTypes = new Map([
   [".css", "text/css; charset=utf-8"],
@@ -64,6 +64,7 @@ const server = createServer(async (request, response) => {
         contentTypes.get(path.extname(target).toLowerCase()) ?? "application/octet-stream",
       "Content-Length": targetStat.size,
       "Cache-Control": "no-store",
+      "X-Graphics-Portfolio-Preview": "1",
     });
     if (request.method === "HEAD") response.end();
     else createReadStream(target).pipe(response);
@@ -75,6 +76,11 @@ const server = createServer(async (request, response) => {
 
 server.listen(port, host, () => {
   console.log(`Static preview listening on http://${host}:${port}${basePath}`);
+});
+
+server.on("error", (error) => {
+  console.error(`Static preview failed: ${error instanceof Error ? error.message : error}`);
+  process.exitCode = 1;
 });
 
 const parentPid = process.ppid;
@@ -97,3 +103,12 @@ const parentMonitor = setInterval(() => {
   }
 }, 500);
 parentMonitor.unref();
+
+function parsePort(value) {
+  if (!/^\d+$/.test(value)) throw new Error(`Invalid GRAPHICS_PORTFOLIO_E2E_PORT: ${value}`);
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed < 1 || parsed > 65_535) {
+    throw new Error(`Invalid GRAPHICS_PORTFOLIO_E2E_PORT: ${value}`);
+  }
+  return parsed;
+}

@@ -3,12 +3,20 @@ import path from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 
 const root = process.cwd();
-const baseUrl = "http://127.0.0.1:4321/graphics-portfolio/";
+const host = process.env.GRAPHICS_PORTFOLIO_E2E_HOST ?? "127.0.0.1";
+const port = parsePort(process.env.GRAPHICS_PORTFOLIO_E2E_PORT ?? "4173");
+const baseUrl = `http://${host}:${port}/graphics-portfolio/`;
+const e2eEnvironment = {
+  ...process.env,
+  GRAPHICS_PORTFOLIO_E2E_HOST: host,
+  GRAPHICS_PORTFOLIO_E2E_PORT: String(port),
+  GRAPHICS_PORTFOLIO_E2E_BASE_URL: baseUrl,
+};
 const cliArguments = process.argv.slice(2);
 if (cliArguments[0] === "--") cliArguments.shift();
 const server = spawn(process.execPath, [path.join(root, "scripts", "serve-dist.mjs")], {
   cwd: root,
-  env: process.env,
+  env: e2eEnvironment,
   stdio: "inherit",
 });
 
@@ -30,7 +38,7 @@ try {
   const playwright = spawn(
     process.execPath,
     [path.join(root, "node_modules", "@playwright", "test", "cli.js"), "test", ...cliArguments],
-    { cwd: root, env: process.env, stdio: "inherit" },
+    { cwd: root, env: e2eEnvironment, stdio: "inherit" },
   );
   const exitCode = await new Promise((resolve) =>
     playwright.once("exit", (code) => resolve(code ?? 1)),
@@ -47,11 +55,20 @@ async function waitForServer() {
       throw new Error(`Static server exited before E2E started (${server.exitCode}).`);
     try {
       const response = await globalThis.fetch(baseUrl);
-      if (response.ok) return;
+      if (response.ok && response.headers.get("x-graphics-portfolio-preview") === "1") return;
     } catch {
       // The foreground server is still starting.
     }
     await delay(100);
   }
   throw new Error(`Static server did not become ready at ${baseUrl}.`);
+}
+
+function parsePort(value) {
+  if (!/^\d+$/.test(value)) throw new Error(`Invalid GRAPHICS_PORTFOLIO_E2E_PORT: ${value}`);
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed < 1 || parsed > 65_535) {
+    throw new Error(`Invalid GRAPHICS_PORTFOLIO_E2E_PORT: ${value}`);
+  }
+  return parsed;
 }

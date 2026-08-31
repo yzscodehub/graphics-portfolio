@@ -4,7 +4,6 @@ routeSlug: shadow-temporal-aa
 locale: zh-CN
 title: 从 Shadow Map 到 TAA：深度、速度与历史重投影
 description: 在同一 Reference Frame 中拆解 Hard、PCF、PCSS、FXAA 与 TAA，解释阴影采样、Velocity、Depth Rejection、Neighborhood Clamp 和历史重置。
-category: rendering
 module: rendering
 moduleOrder: 1
 articleOrder: 2
@@ -14,7 +13,6 @@ tags:
   - PCSS
   - TAA
   - Motion Vectors
-readingMinutes: 18
 prerequisites:
   - 理解投影矩阵、深度缓冲和纹理采样
   - 了解离屏 Render Target 与多 Pass 渲染
@@ -101,14 +99,15 @@ TAA 将连续帧当作多次采样。当前帧相机投影加入 Halton jitter�
 
 ```wgsl
 let previousUV = uv - velocity;
+let uvValid = all(previousUV >= vec2f(0.0)) && all(previousUV < vec2f(1.0));
 ```
 
-这只是入口。`previousUV` 越界时历史无效；前后帧深度差异过大时，像素往往发生了遮挡变化，也应拒绝历史。若深度通过，历史颜色仍可能来自错误表面，因此还要把它限制在当前像素邻域的颜色范围中。
+这只是入口。实现必须先保留未 clamp 的 `previousUV` 并判断边界；只有通过后才能对采样坐标做 clamp。前后帧深度差异过大时，像素往往发生了遮挡变化，也应拒绝历史。若深度通过，历史颜色仍可能来自错误表面，因此还要把它限制在当前像素邻域的颜色范围中。
 
 当前 Reference Frame 的 resolve 顺序是：
 
-1. 用 Velocity 计算上一帧坐标；
-2. 检查坐标与历史有效标记；
+1. 用由当前/上一帧世界点投影得到的 Velocity 计算上一帧坐标；
+2. 在 clamp 前检查坐标与历史有效标记；
 3. 比较当前 Depth 和 History Depth；
 4. 计算当前 3×3 邻域的最小、最大颜色；
 5. 将历史颜色 clamp 到邻域范围；
@@ -125,7 +124,9 @@ Depth Rejection 解决明显的 disocclusion，Neighborhood Clamp 限制历史�
 - Shadow 模式变化；
 - 场景 revision 变化；
 - 用户显式点击 Reset；
-- WebGPU device lost 后重建。
+- 页面暂停后恢复，因为程序化场景时间已经出现不连续。
+
+WebGPU device lost 不会尝试复用旧资源或自动宣称已经重建。当前页面销毁失效的 Reference Frame，切换到独立 sibling Canvas fallback，并将历史视为无效；恢复实时 WebGPU 需要一次新的初始化。
 
 相机切换、FOV 改变、曝光链路重构也应进入生产版状态签名。宁可丢掉一帧积累，也不要把不兼容历史解释成当前数据。
 
@@ -156,4 +157,10 @@ Frame Inspector 应同时查看 Velocity、Linear Depth、HDR Lighting 和 Histo
 
 ## 当前边界
 
-Reference Frame 没有实现级联阴影、蓝噪声采样、透明物体 Velocity、动态分辨率、反应遮罩或锐化。PCSS 与 TAA 都是可审查的教学范围实现。它们证明的是资源和历史契约，而不是替代成熟引擎的完整后处理栈。
+Reference Frame 没有实现级联阴影、蓝噪声采样、透明物体 Velocity、动态分辨率、反应遮罩或锐化。PCSS 与 TAA 都是可审查的教学范围实现；所谓 FXAA 也是基于当前颜色亮度差的简化五点重建，不等同于完整生产实现。它们证明的是资源和历史契约，而不是替代成熟引擎的完整后处理栈。
+
+## 参考资料
+
+- [Percentage-Closer Soft Shadows](https://research.nvidia.com/publication/2005-07_percentage-closer-soft-shadows)
+- [Temporal AA in Unreal Engine 4](https://advances.realtimerendering.com/s2014/epic/TemporalAA_small-5971869.pdf)
+- [WebGPU Specification](https://www.w3.org/TR/webgpu/)

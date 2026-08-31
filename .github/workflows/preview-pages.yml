@@ -1,9 +1,9 @@
 name: Deploy Public Preview
 
 # FINAL CUTOVER:
-# Main always verifies. It deploys Preview only while ENABLE_PREVIEW_PAGES is
-# not false and no v* tag exists; after the first version tag, main becomes
-# verify-only automatically so it cannot replace an indexed release.
+# Main always verifies. Preview deployment is controlled by the persistent
+# ENABLE_PREVIEW_PAGES repository variable. Set it to false in the release PR
+# before creating the first stable version tag so main cannot replace Release.
 
 on:
   push:
@@ -40,8 +40,6 @@ jobs:
         shell: bash
         run: |
           if [[ "${{ vars.ENABLE_PREVIEW_PAGES }}" == "false" ]]; then
-            echo "deploy=false" >> "$GITHUB_OUTPUT"
-          elif [[ -n "$(git tag --list 'v*')" ]]; then
             echo "deploy=false" >> "$GITHUB_OUTPUT"
           else
             echo "deploy=true" >> "$GITHUB_OUTPUT"

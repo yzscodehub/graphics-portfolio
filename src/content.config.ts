@@ -178,41 +178,46 @@ const writing = defineCollection({
       routeSlug: z.string().min(1),
       title: z.string().min(1),
       description: z.string().min(1),
-      category: z.enum([
-        "rendering",
-        "engine-architecture",
-        "gpu-performance",
-        "multimedia",
-        "deep-learning",
-      ]),
       module: z.enum(writingModuleIds),
       moduleOrder: z.number().int().positive(),
       articleOrder: z.number().int().positive(),
       level: z.enum(["foundation", "intermediate", "advanced"]),
-      prerequisites: z.array(z.string().min(1)),
-      learningOutcomes: z.array(z.string().min(1)).min(1),
+      prerequisites: z.array(z.string().min(1)).min(2),
+      learningOutcomes: z.array(z.string().min(1)).min(3),
       relatedArticles: z.array(z.string().min(1)),
       relatedProjects: z.array(z.string().min(1)),
       relatedDemos: z.array(z.string().min(1)),
       tags: z.array(z.string()).min(1),
-      readingMinutes: z.number().int().positive(),
+      readingMinutesOverride: z.number().int().positive().optional(),
+      readingMinutesOverrideReason: z.string().min(12).optional(),
       englishTitle: z.string().min(1),
       englishDescription: z.string().min(1),
       publishedAt: z.coerce.date(),
       updatedAt: z.coerce.date(),
     })
-    .loose(),
+    .strict()
+    .superRefine((entry, context) => {
+      const hasMinutes = entry.readingMinutesOverride !== undefined;
+      const hasReason = entry.readingMinutesOverrideReason !== undefined;
+      if (hasMinutes !== hasReason)
+        context.addIssue({
+          code: "custom",
+          message:
+            "readingMinutesOverride and readingMinutesOverrideReason must be provided together.",
+          path: hasMinutes ? ["readingMinutesOverrideReason"] : ["readingMinutesOverride"],
+        });
+    }),
 });
 
 const experience = defineCollection({
   loader: glob({ pattern: "**/*.{md,mdx}", base: "./src/content/experience" }),
   schema: z
     .object({
-      ...commonFields,
+      locale,
+      translationKey: z.string().min(1),
+      draft: z.boolean().default(false),
       title: z.string().min(1),
       industry: z.string().min(1),
-      startYear: z.number().int().min(2000),
-      endYear: z.number().int().min(2000).optional(),
       summary: z.string().min(1),
       responsibilities: z.array(z.string()).min(1),
       results: z
@@ -224,7 +229,7 @@ const experience = defineCollection({
         )
         .default([]),
     })
-    .loose(),
+    .strict(),
 });
 
 export const collections = { projects, demos, writing, experience };

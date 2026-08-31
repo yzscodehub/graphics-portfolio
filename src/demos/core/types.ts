@@ -5,6 +5,7 @@ export type DemoBackend =
 
 export type DemoCapability = "webgpu" | "webgl2" | "wasm";
 export type DemoQuality = "auto" | "low" | "high";
+export type DemoRuntimeState = "running" | "fallback";
 export type EvidenceLevel = "verified" | "measured";
 export type MetricSource =
   | "animation-frame"
@@ -78,6 +79,7 @@ export interface DemoContext {
   quality: DemoQuality;
   setMetrics(metrics: DemoMetrics): void;
   setStatus(message: string, tone?: "info" | "success" | "warning" | "error"): void;
+  setRuntimeState?(state: DemoRuntimeState): void;
   addCleanup(cleanup: () => void): void;
   resources?: DemoResourceScope;
   onDeviceLost?: (

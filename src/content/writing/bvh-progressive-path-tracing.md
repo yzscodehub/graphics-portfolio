@@ -4,7 +4,6 @@ routeSlug: bvh-progressive-path-tracing
 locale: zh-CN
 title: WebGPU 路径追踪器：BVH、材质散射与线性累积
 description: 从 CPU median-split BVH 到 WGSL 遍历、Diffuse/Metal/Dielectric、矩形光源采样、rgba16float 累积和独立 Tone Map，拆解一个可验证的渐进式路径追踪器。
-category: rendering
 module: ray-tracing
 moduleOrder: 4
 articleOrder: 1
@@ -14,7 +13,6 @@ tags:
   - BVH
   - Monte Carlo
   - WebGPU
-readingMinutes: 20
 prerequisites:
   - 理解射线与三角形求交
   - 了解概率采样、期望和线性颜色空间
@@ -30,6 +28,7 @@ relatedDemos:
 relatedArticles:
   - webgpu-particles-path-tracing
   - path-tracing-to-neural-denoising
+  - compute-geometry-performance
 englishTitle: "A WebGPU Path Tracer: BVH Traversal, Material Scattering, and Linear Accumulation"
 englishDescription: From a CPU median-split BVH to WGSL traversal, three material classes, rectangular-light sampling, rgba16float accumulation, and a separate display pass.
 publishedAt: 2026-08-31
@@ -174,3 +173,9 @@ WGSL 中等价地使用 `mix(previous, sample, 1 / (frame + 1))`。两张 `rgba1
 ## 当前边界
 
 该路径追踪器没有纹理、实例、运动模糊、景深、MIS、Russian Roulette、环境重要性采样、SAH BVH 或真正 HDR 输出。它也没有证明误差在每个像素单调下降；Monte Carlo 单样本误差本来就会波动。可验证的结论是：历史平均公式正确、BVH 与 brute force 在测试射线上一致、状态变化会 reset、材质介质方向可被测试，且显示变换不会污染线性累积。
+
+## 参考资料
+
+- [Physically Based Rendering, 4th edition](https://pbr-book.org/4ed/Introduction)
+- [Fast, Minimum Storage Ray/Triangle Intersection](https://doi.org/10.1080/10867651.1997.10487468)
+- [WebGPU Shading Language Specification](https://www.w3.org/TR/WGSL/)
