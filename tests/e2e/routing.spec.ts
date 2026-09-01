@@ -175,12 +175,26 @@ test("standalone mode keeps only the focused Demo runtime surface", async ({ pag
   await expect(page.locator("#demo-runtime")).toBeVisible();
 });
 
-test("Demo evidence separates the reference target, implementation limit, and fallback", async ({
-  page,
-}) => {
+test("Demo evidence exposes implementation and pending hardware acceptance", async ({ page }) => {
   await page.goto("demos/material-lighting/");
   const evidence = page.locator(".demo-evidence-panel");
-  await expect(evidence.getByText("REFERENCE TARGET", { exact: true })).toBeVisible();
+  for (const label of [
+    "IMPLEMENTATION",
+    "RUNTIME BACKEND",
+    "METRIC SOURCE",
+    "ASSET STATE",
+    "HARDWARE REVIEW",
+    "CURRENT LIMIT",
+  ]) {
+    await expect(evidence.locator("dt", { hasText: label })).toHaveCount(1);
+  }
+  await expect(evidence.getByText("ACCEPTANCE PENDING", { exact: true })).toBeVisible();
+  await expect(
+    evidence.locator("dt", { hasText: "IMPLEMENTATION" }).locator("..").locator("dd"),
+  ).toContainText("IN-PROGRESS / VERIFIED");
+  await expect(
+    evidence.locator("dt", { hasText: "HARDWARE REVIEW" }).locator("..").locator("dd"),
+  ).toContainText("PENDING / REFERENCE TARGET");
   await expect(evidence.getByText("MEASURED ON", { exact: true })).toHaveCount(0);
   await expect(
     evidence.locator("dt", { hasText: "CURRENT LIMIT" }).locator("..").locator("dd"),
@@ -192,10 +206,10 @@ test("Demo evidence separates the reference target, implementation limit, and fa
 
   await page.goto("demos/clustered-lighting/");
   await expect(
-    page.locator(".demo-evidence-panel dt", { hasText: "ASSETS" }).locator("..").locator("dd"),
+    page.locator(".demo-evidence-panel dt", { hasText: "ASSET STATE" }).locator("..").locator("dd"),
   ).toContainText("clustered-courtyard-proxy");
   await expect(
-    page.locator(".demo-evidence-panel dt", { hasText: "SCENE STATE" }).locator("..").locator("dd"),
+    page.locator(".demo-evidence-panel dt", { hasText: "ASSET STATE" }).locator("..").locator("dd"),
   ).toContainText("preview-placeholder / metadata-locked");
 });
 
@@ -205,7 +219,7 @@ test("the legacy gpu-particles URL exposes the upgraded GPU-driven study", async
   await expect(page.getByRole("heading", { level: 1 })).toContainText(
     "GPU-Driven Visibility & Compute",
   );
-  await expect(page.locator(".demo-evidence-panel")).toContainText("simulation / visibility");
+  await expect(page.locator(".demo-evidence-panel")).toContainText("WebGPU");
 });
 
 test("Frame Inspector keeps one visible output surface on a narrow desktop", async ({ page }) => {
@@ -293,4 +307,28 @@ test("mobile navigation focuses its first item, scrolls, and returns focus on Es
   await expect(nav).not.toHaveClass(/is-open/);
   await expect(toggle).toHaveAttribute("aria-expanded", "false");
   await expect(toggle).toBeFocused();
+});
+test("home and Demos index expose the same canonical eight studies", async ({ page }) => {
+  await page.goto("");
+  expect(
+    await page
+      .locator("[data-home-section]:visible")
+      .evaluateAll((sections) =>
+        sections.map((section) => section.getAttribute("data-home-section")),
+      ),
+  ).toEqual(["work", "demos", "writing", "lab", "contact"]);
+  await expect(page.locator(".demo-grid .demo-card")).toHaveCount(8);
+  await expect(page.getByText("Clustered / Deferred Lighting", { exact: true })).toBeVisible();
+  await expect(page.getByText("Neural Denoising", { exact: true })).toBeVisible();
+
+  await page.goto("demos/");
+  await expect(page.locator(".demo-listing")).toHaveCount(8);
+  await expect(page.locator(".demo-listing").first().locator("a")).toHaveAttribute(
+    "href",
+    "/graphics-portfolio/demos/material-lighting/",
+  );
+  await expect(page.locator(".demo-listing").nth(1).locator("a")).toHaveAttribute(
+    "href",
+    "/graphics-portfolio/demos/clustered-lighting/",
+  );
 });

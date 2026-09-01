@@ -3,9 +3,10 @@ import type { Locale } from "../lib/i18n";
 
 interface Props {
   locale: Locale;
-  technique: string;
+  maturity: "in-progress" | "completed";
+  evidenceLevel: string;
   backends: string;
-  modes: string[];
+  metricSources: string[];
   assetIds: string[];
   sourceUrl: string;
   standaloneHref: string;
@@ -13,38 +14,45 @@ interface Props {
   referenceTarget?: string;
   currentLimit: string;
   sceneState: string;
+  hardwareReview: "pending" | "passed";
 }
 
 const {
   locale,
-  technique,
+  maturity,
+  evidenceLevel,
   backends,
-  modes,
+  metricSources,
   assetIds,
   sourceUrl,
   standaloneHref,
   measuredOn,
-  referenceTarget = "Windows 11 / RTX 4070 class / Chromium Stable / 1920×1080 / DPR 1.0",
+  referenceTarget = "Windows 11 / RTX 4070 class / Chromium Stable / 1920x1080 / DPR 1.0",
   currentLimit,
   sceneState,
+  hardwareReview,
 } = Astro.props;
 const isEn = locale === "en";
-const environmentLabel = measuredOn ? "MEASURED ON" : "REFERENCE TARGET";
-const environmentValue = measuredOn ?? referenceTarget;
+const hardwareValue =
+  hardwareReview === "passed" && measuredOn
+    ? `PASSED / MEASURED ON: ${measuredOn}`
+    : `PENDING / REFERENCE TARGET: ${referenceTarget}`;
+const assetValue = `${sceneState} / ${assetIds.join(" / ") || "procedural"}`;
 const rows = [
-  ["TECHNIQUE", technique],
-  ["BACKEND", backends],
-  ["MODES", modes.join(" / ") || "single"],
-  ["ASSETS", assetIds.join(" / ") || "procedural"],
-  ["SCENE STATE", sceneState],
-  [environmentLabel, environmentValue],
+  ["IMPLEMENTATION", `${maturity.toUpperCase()} / ${evidenceLevel.toUpperCase()}`],
+  ["RUNTIME BACKEND", backends],
+  ["METRIC SOURCE", metricSources.join(" / ") || "unavailable"],
+  ["ASSET STATE", assetValue],
+  ["HARDWARE REVIEW", hardwareValue],
   ["CURRENT LIMIT", currentLimit],
 ];
 ---
 
 <section class="demo-evidence-panel" aria-label={isEn ? "Demo evidence" : "Demo 证据"}>
   <div class="demo-evidence-panel__rail" aria-hidden="true">
-    <span>RUNTIME CONTRACT</span><span>REVIEWED SURFACE</span>
+    <span>RUNTIME CONTRACT</span><span
+      >{hardwareReview === "passed" ? "HARDWARE REVIEW PASSED" : "ACCEPTANCE PENDING"}</span
+    >
   </div>
   <dl>
     {

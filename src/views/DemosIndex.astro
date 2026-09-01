@@ -4,6 +4,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
 import PageHero from "../components/PageHero.astro";
 import DemoCard from "../components/DemoCard.astro";
 import { profile } from "../data/profile";
+import { compareDemoSlugs } from "../data/demo-order";
 import type { Locale } from "../lib/i18n";
 import { localePath } from "../lib/i18n";
 import { withBase } from "../lib/urls";
@@ -31,7 +32,9 @@ type DemoPresentationData = {
 const { locale } = Astro.props;
 const isEn = locale === "en";
 const allEntries = (await getCollection("demos")) as CollectionEntry<"demos">[];
-const entries = allEntries.filter((entry) => entry.data.locale === locale && !entry.data.draft);
+const entries = allEntries
+  .filter((entry) => entry.data.locale === locale && !entry.data.draft)
+  .sort((left, right) => compareDemoSlugs(left.data.routeSlug, right.data.routeSlug));
 const slugOf = (entry: (typeof entries)[number]) => entry.data.routeSlug;
 const categories = ["all", "rendering", "engine", "gpu", "machine-learning"];
 const completedCount = entries.filter((entry) => entry.data.maturity === "completed").length;

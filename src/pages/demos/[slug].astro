@@ -7,6 +7,7 @@ import DemoEvidencePanel from "../../components/DemoEvidencePanel.astro";
 import RelatedWriting from "../../components/RelatedWriting.astro";
 import { profile } from "../../data/profile";
 import { renderingAssetManifest, renderingSourceLock } from "../../data/rendering-assets";
+import { effectiveHardwareReview, referenceTargetLabel } from "../../data/rendering-acceptance";
 import { sourceRef } from "../../data/site";
 import { demoRegistry } from "../../demos/core/registry";
 import { withBase, withSourceRef } from "../../lib/urls";
@@ -38,6 +39,9 @@ const sceneState =
   definition.referenceScene === "research-courtyard"
     ? `${renderingAssetManifest.status} / ${renderingSourceLock.policy.stage}`
     : "self-authored contract";
+const hardwareReview = effectiveHardwareReview(entry.data.routeSlug);
+const referenceTarget = referenceTargetLabel();
+const measuredOn = hardwareReview === "passed" ? referenceTarget : undefined;
 const standaloneHref = `${withBase(`/demos/${entry.data.routeSlug}/`)}?standalone=1#demo-runtime`;
 ---
 
@@ -68,13 +72,17 @@ const standaloneHref = `${withBase(`/demos/${entry.data.routeSlug}/`)}?standalon
     <div class="section-inner">
       <DemoEvidencePanel
         locale="zh-CN"
-        technique={`${entry.data.category} / ${entry.data.evidence}`}
+        maturity={entry.data.maturity}
+        evidenceLevel={entry.data.evidence}
         backends={backendLabel}
-        modes={definition.modes}
+        metricSources={definition.metricSources}
         assetIds={assetLabels}
         sourceUrl={withSourceRef(definition.sourceUrl, sourceRef)}
         standaloneHref={standaloneHref}
         currentLimit={entry.data.currentLimit}
+        hardwareReview={hardwareReview}
+        referenceTarget={referenceTarget}
+        measuredOn={measuredOn}
         sceneState={sceneState}
       />
       <DemoShell
