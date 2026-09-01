@@ -6,7 +6,7 @@ import DemoShell from "../../../components/DemoShell.astro";
 import DemoEvidencePanel from "../../../components/DemoEvidencePanel.astro";
 import RelatedWriting from "../../../components/RelatedWriting.astro";
 import { profile } from "../../../data/profile";
-import { renderingAssetManifest } from "../../../data/rendering-assets";
+import { renderingAssetManifest, renderingSourceLock } from "../../../data/rendering-assets";
 import { sourceRef } from "../../../data/site";
 import { demoRegistry } from "../../../demos/core/registry";
 import { withBase, withSourceRef } from "../../../lib/urls";
@@ -34,6 +34,10 @@ const assetLabels = definition.assetIds.map((id) => {
   const record = renderingAssetManifest.assets.find((asset) => asset.id === id);
   return record?.role.includes("placeholder") ? `${id} [PREVIEW PLACEHOLDER]` : id;
 });
+const sceneState =
+  definition.referenceScene === "research-courtyard"
+    ? `${renderingAssetManifest.status} / ${renderingSourceLock.policy.stage}`
+    : "self-authored contract";
 const standaloneHref = `${withBase(`/en/demos/${entry.data.routeSlug}/`)}?standalone=1#demo-runtime`;
 ---
 
@@ -71,6 +75,7 @@ const standaloneHref = `${withBase(`/en/demos/${entry.data.routeSlug}/`)}?standa
         sourceUrl={withSourceRef(definition.sourceUrl, sourceRef)}
         standaloneHref={standaloneHref}
         currentLimit={entry.data.currentLimit}
+        sceneState={sceneState}
       />
       <DemoShell
         slug={entry.data.routeSlug}

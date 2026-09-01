@@ -12,6 +12,7 @@ interface Props {
   measuredOn?: string;
   referenceTarget?: string;
   currentLimit: string;
+  sceneState: string;
 }
 
 const {
@@ -25,6 +26,7 @@ const {
   measuredOn,
   referenceTarget = "Windows 11 / RTX 4070 class / Chromium Stable / 1920×1080 / DPR 1.0",
   currentLimit,
+  sceneState,
 } = Astro.props;
 const isEn = locale === "en";
 const environmentLabel = measuredOn ? "MEASURED ON" : "REFERENCE TARGET";
@@ -34,6 +36,7 @@ const rows = [
   ["BACKEND", backends],
   ["MODES", modes.join(" / ") || "single"],
   ["ASSETS", assetIds.join(" / ") || "procedural"],
+  ["SCENE STATE", sceneState],
   [environmentLabel, environmentValue],
   ["CURRENT LIMIT", currentLimit],
 ];

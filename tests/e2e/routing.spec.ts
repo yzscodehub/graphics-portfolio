@@ -150,6 +150,7 @@ test("interactive Demo keeps a stable stage and hides its fallback", async ({ pa
   await page.goto("demos/render-graph/");
   const shell = page.locator("[data-demo-shell]");
   const stage = shell.locator("[data-demo-stage]");
+  await shell.scrollIntoViewIfNeeded();
   await expect(shell).toHaveAttribute("data-demo-state", "running");
   await expect(shell.locator("[data-demo-state]")).toHaveText("运行中");
   await expect(shell.locator("[data-demo-state]")).toHaveAttribute("aria-live", "polite");
@@ -193,6 +194,9 @@ test("Demo evidence separates the reference target, implementation limit, and fa
   await expect(
     page.locator(".demo-evidence-panel dt", { hasText: "ASSETS" }).locator("..").locator("dd"),
   ).toContainText("clustered-courtyard-proxy");
+  await expect(
+    page.locator(".demo-evidence-panel dt", { hasText: "SCENE STATE" }).locator("..").locator("dd"),
+  ).toContainText("preview-placeholder / metadata-locked");
 });
 
 test("the legacy gpu-particles URL exposes the upgraded GPU-driven study", async ({ page }) => {
