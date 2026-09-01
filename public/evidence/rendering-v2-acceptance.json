@@ -1,0 +1,55 @@
+{
+  "version": 1,
+  "status": "pending",
+  "target": {
+    "os": "Windows 11",
+    "adapterClass": "NVIDIA RTX 4070 class",
+    "browser": "Chromium Stable",
+    "viewportWidth": 1920,
+    "viewportHeight": 1080,
+    "dpr": 1
+  },
+  "reviewedRun": null,
+  "demos": [
+    {
+      "slug": "material-lighting",
+      "status": "pending",
+      "required": ["fpsP50 >= 60", "frameTimeP95Ms <= 22"]
+    },
+    {
+      "slug": "clustered-lighting",
+      "status": "pending",
+      "required": ["fpsP50 >= 60", "frameTimeP95Ms <= 22", "cluster512Overflow = 0"]
+    },
+    {
+      "slug": "shadow-aa",
+      "status": "pending",
+      "required": ["fpsP50 >= 60", "frameTimeP95Ms <= 22"]
+    },
+    {
+      "slug": "render-graph",
+      "status": "pending",
+      "required": ["functionalReview = true"]
+    },
+    {
+      "slug": "frame-inspector",
+      "status": "pending",
+      "required": ["fpsP50 >= 60", "frameTimeP95Ms <= 22", "attachmentReadback = true"]
+    },
+    {
+      "slug": "gpu-particles",
+      "status": "pending",
+      "required": ["instances100kFpsP50 >= 60", "particles250kFpsP50 >= 60"]
+    },
+    {
+      "slug": "path-tracer",
+      "status": "pending",
+      "required": ["progressiveUpdatesPerSecond >= 30"]
+    },
+    {
+      "slug": "neural-denoising",
+      "status": "pending",
+      "required": ["webgpuP50Ms <= 20", "webgpuP95Ms <= 30", "wasmP50Ms <= 250"]
+    }
+  ]
+}

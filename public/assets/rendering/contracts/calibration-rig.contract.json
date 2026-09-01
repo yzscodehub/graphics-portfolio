@@ -1,0 +1,30 @@
+{
+  "format": "graphics-portfolio-scene-contract",
+  "version": 1,
+  "assetId": "calibration-rig",
+  "generator": "scripts/assets/build-placeholder-pack.mjs",
+  "coordinateSystem": "right-handed-y-up-meters",
+  "geometry": [
+    "calibration-sphere",
+    "beveled-cube",
+    "roughness-plane",
+    "metal-ring",
+    "thin-sheet",
+    "normal-groove"
+  ],
+  "materials": [
+    "dielectric",
+    "metal",
+    "rough",
+    "clearcoat"
+  ],
+  "debugAttachments": [
+    "final",
+    "normal",
+    "roughness",
+    "metalness",
+    "direct",
+    "indirect"
+  ],
+  "externalAssets": false
+}

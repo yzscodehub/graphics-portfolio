@@ -43,7 +43,11 @@ jobs:
         env:
           SITE_URL: https://${{ github.repository_owner }}.github.io
           SITE_STAGE: preview
+          SOURCE_REF: ${{ github.head_ref || github.ref_name }}
         run: pnpm run build:preview
+
+      - name: Verify build identity manifest
+        run: pnpm run build:manifest:verify
 
       - name: Install Chromium
         run: pnpm exec playwright install --with-deps chromium

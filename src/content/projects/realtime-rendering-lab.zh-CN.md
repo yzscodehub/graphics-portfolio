@@ -3,9 +3,9 @@ routeSlug: real-time-rendering-lab
 translationKey: real-time-rendering-lab
 locale: zh-CN
 title: Real-Time Rendering Lab
-summary: 一个完成的 Three.js WebGPURenderer 与 TSL 材质实验台，自动回退到 WebGL2 和 Canvas。
+summary: 一个进行中的渲染工作台，覆盖可审计的材质与颜色管线，以及 Reference Frame 阴影/时域路径。
 year: 2026
-status: completed
+status: in-progress
 role: 独立开发 / Rendering Engineer
 platforms:
   - WebGPU
@@ -40,10 +40,12 @@ featureSlugs:
   - webgl2-fallback
 demoSlugs:
   - material-lighting
+  - clustered-lighting
   - shadow-aa
   - frame-inspector
 articleSlugs:
   - material-lighting-color-pipeline
+  - clustered-deferred-lighting
   - shadow-temporal-aa
   - frame-inspector-observability
 evidence: verified

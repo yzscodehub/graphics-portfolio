@@ -79,8 +79,8 @@ def main() -> None:
     output_root.mkdir(parents=True, exist_ok=True)
     outputs: dict[str, dict[str, object]] = {}
     for label, image in (("noisy", noisy), ("reference", reference)):
-        target = output_root / f"{args.asset_stem}-{label}.f32"
-        nchw = np.ascontiguousarray(np.transpose(image, (2, 0, 1)), dtype="<f4")
+        target = output_root / f"{args.asset_stem}-{label}.f16"
+        nchw = np.ascontiguousarray(np.transpose(image, (2, 0, 1)), dtype="<f2")
         nchw.tofile(target)
         outputs[label] = {
             "file": target.name,
@@ -101,7 +101,7 @@ def main() -> None:
             "datasetManifestSha256": sha256(dataset_manifest),
         },
         "shape": [1, 3, int(noisy.shape[0]), int(noisy.shape[1])],
-        "dtype": "float32-le",
+        "dtype": "float16-le",
         "noisySamplesPerPixel": 1,
         "referenceSamplesPerPixel": 64,
         "layout": "NCHW",

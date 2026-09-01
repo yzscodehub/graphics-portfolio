@@ -8,6 +8,7 @@ import ArticleCard from "../components/ArticleCard.astro";
 import DemoShell from "../components/DemoShell.astro";
 import WritingModuleNav from "../components/WritingModuleNav.astro";
 import { profile } from "../data/profile";
+import { compareDemoSlugs } from "../data/demo-order";
 import { site } from "../data/site";
 import { writingModules } from "../data/writing-modules";
 import { resolveReadingTime } from "../content/reading-time";
@@ -33,15 +34,6 @@ const projectOrder = [
   "webgpu-compute-lab",
   "neural-graphics-lab",
 ];
-const demoOrder = [
-  "material-lighting",
-  "render-graph",
-  "gpu-particles",
-  "shadow-aa",
-  "path-tracer",
-  "frame-inspector",
-  "neural-denoising",
-];
 const projects = allProjects
   .filter((entry) => entry.data.locale === locale && !entry.data.draft)
   .sort(
@@ -51,11 +43,7 @@ const projects = allProjects
   .slice(0, 4);
 const demos = allDemos
   .filter((entry) => entry.data.locale === locale && !entry.data.draft)
-  .sort(
-    (left, right) =>
-      demoOrder.indexOf(left.data.routeSlug) - demoOrder.indexOf(right.data.routeSlug),
-  )
-  .slice(0, 7);
+  .sort((left, right) => compareDemoSlugs(left.data.routeSlug, right.data.routeSlug));
 const publishedWriting = allWriting.filter(
   (entry) => entry.data.locale === "zh-CN" && !entry.data.draft,
 );
@@ -90,7 +78,7 @@ const copy = isEn
       workDescription:
         "Four public projects turn low-level graphics concepts into inspectable, runnable case studies.",
       demoLabel: "Public prototypes",
-      demoTitle: "Seven focused technical studies.",
+      demoTitle: "Eight focused rendering-system studies.",
       demoDescription:
         "Each prototype states its current backend, implemented controls, limitations and planned next step.",
       evidenceLabel: "Professional evidence",
@@ -118,7 +106,7 @@ const copy = isEn
       workTitle: "让系统变得可观察。",
       workDescription: "四个公开项目把底层图形概念整理为可检查、可运行、可复盘的案例。",
       demoLabel: "公开技术原型",
-      demoTitle: "七个聚焦的技术研究。",
+      demoTitle: "八个聚焦的渲染系统研究。",
       demoDescription: "每个原型明确说明当前后端、已实现控件、限制和下一步路线。",
       evidenceLabel: "职业能力证据",
       evidenceTitle: "脱敏，但不空泛。",
@@ -199,7 +187,7 @@ const copy = isEn
           class="hero-demo-shell"
           slug="material-lighting"
           locale={locale}
-          title="Material & Lighting"
+          title="Material & Color Pipeline"
           fallbackImage="/media/demos/material-lighting-poster.svg"
           description={isEn ? "Interactive PBR calibration scene." : "交互式 PBR 校准场景。"}
         />
@@ -211,7 +199,7 @@ const copy = isEn
     <div class="signal-track">{profile.focus.map((item) => <span>{item}</span>)}</div>
   </div>
 
-  <section class="home-learning-path frame" aria-labelledby="home-learning-path-title">
+  <section class="home-learning-path frame" aria-labelledby="home-learning-path-title" hidden>
     <div class="home-learning-path__heading">
       <span>{isEn ? "TECHNICAL MODULES / READING MAP" : "技术模块 / 阅读地图"}</span>
       <h2 id="home-learning-path-title">
@@ -221,7 +209,7 @@ const copy = isEn
     <WritingModuleNav locale={locale} />
   </section>
 
-  <section class="section">
+  <section class="section" data-home-section="work">
     <div class="section-inner">
       <SectionHeading
         index="01"
@@ -246,7 +234,7 @@ const copy = isEn
     </div>
   </section>
 
-  <section class="section">
+  <section class="section" data-home-section="demos">
     <div class="section-inner">
       <SectionHeading
         index="02"
@@ -271,7 +259,7 @@ const copy = isEn
     </div>
   </section>
 
-  <section class="section">
+  <section class="section" hidden aria-hidden="true">
     <div class="section-inner">
       <SectionHeading
         index="03"
@@ -311,10 +299,10 @@ const copy = isEn
     </div>
   </section>
 
-  <section class="section">
+  <section class="section" data-home-section="writing">
     <div class="section-inner">
       <SectionHeading
-        index="04"
+        index="03"
         label={copy.writingLabel}
         title={copy.writingTitle}
         description={copy.writingDescription}
@@ -344,13 +332,20 @@ const copy = isEn
           })
         }
       </div>
+      <section class="home-learning-path frame" aria-labelledby="home-learning-path-title-visible">
+        <div class="home-learning-path__heading">
+          <span>{copy.writingLabel} / READING MAP</span>
+          <h2 id="home-learning-path-title-visible">{copy.writingTitle}</h2>
+        </div>
+        <WritingModuleNav locale={locale} />
+      </section>
     </div>
   </section>
 
-  <section class="section">
+  <section class="section" data-home-section="lab">
     <div class="section-inner">
       <SectionHeading
-        index="05"
+        index="04"
         label={copy.labLabel}
         title={copy.labTitle}
         description={copy.labDescription}
@@ -380,7 +375,7 @@ const copy = isEn
     </div>
   </section>
 
-  <section class="section">
+  <section class="section" data-home-section="contact">
     <div class="section-inner contact-panel reveal">
       <div><span class="kicker">CONTACT / OPEN CHANNEL</span><h2>{copy.contactTitle}</h2></div>
       <div class="contact-actions">

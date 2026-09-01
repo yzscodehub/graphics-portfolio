@@ -21,9 +21,10 @@ const projects = [
 ];
 
 const demos = [
-  ["material-lighting", "Material & Lighting", "WEBGPU / TSL / PBR / IBL"],
+  ["material-lighting", "Material & Color Pipeline", "WEBGPU / TSL / PBR / IBL"],
+  ["clustered-lighting", "Clustered / Deferred Lighting", "GBUFFER / CLUSTER LIGHT LIST"],
   ["render-graph", "Render Graph Explorer", "CULL / LIFETIME / ALIAS"],
-  ["gpu-particles", "GPU Compute Particles", "PING-PONG / TIMESTAMP"],
+  ["gpu-particles", "GPU-Driven Visibility & Compute", "SIMULATION / LOD / INDIRECT"],
   ["shadow-aa", "Shadow & Temporal AA", "PCSS / FXAA / TAA"],
   ["path-tracer", "Progressive Path Tracer", "BVH / WGSL / LINEAR HDR"],
   ["frame-inspector", "Frame Inspector", "GBUFFER / VELOCITY / HISTORY"],

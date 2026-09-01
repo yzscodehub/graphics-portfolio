@@ -179,3 +179,15 @@ WGSL 中等价地使用 `mix(previous, sample, 1 / (frame + 1))`。两张 `rgba1
 - [Physically Based Rendering, 4th edition](https://pbr-book.org/4ed/Introduction)
 - [Fast, Minimum Storage Ray/Triangle Intersection](https://doi.org/10.1080/10867651.1997.10487468)
 - [WebGPU Shading Language Specification](https://www.w3.org/TR/WGSL/)
+
+## 本 Demo 的收敛与 overflow 证据
+
+页面不再把 1/sqrt(SPP) 当作实测图像误差。它显示的是固定低频
+direct-light 估计器相对于自制 4096-sample reference 的实际 MSE 曲线：
+1、2、4、8、16、32、64 SPP，16 条固定采样序列，reference 数据用
+SHA-256 绑定。该曲线只证明这个小型估计器的采样误差行为，不能外推为
+完整路径图像的逐像素误差或跨设备 GPU 性能。
+
+WGSL 有界栈饱和时会原子累加 traversal overflow，而不是静默丢失
+child-pair。当前 Cornell 场景的预期计数为零；任何非零结果都应被视为
+BVH 容量证据失败，而不是继续展示为完整的路径追踪结果。

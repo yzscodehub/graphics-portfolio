@@ -3,6 +3,31 @@ import { buildMedianBvh, encodeBvhNodes, encodeTriangles } from "./bvh";
 import { createCornellScene, encodeMaterials } from "./scene";
 import { PATH_COMPUTE_WGSL, PATH_DISPLAY_WGSL } from "./shaders";
 
+import { analyzeBvhTraversalCapacity } from "./bvh";
+
+export interface PathTracerEvidence {
+  samples: number;
+  triangles: number;
+  bvhNodes: number;
+  bvhOverflowCount: number;
+  estimatedMonteCarloError: number;
+}
+
+export function estimatedMonteCarloError(samples: number): number {
+  if (!Number.isInteger(samples) || samples < 0) throw new Error("samples must be non-negative");
+  return 1 / Math.sqrt(Math.max(1, samples));
+}
+
+export function replaceResourcesAfterSuccess<T>(
+  previous: T | undefined,
+  create: () => T,
+  dispose: (resource: T) => void,
+): T {
+  const next = create();
+  if (previous) dispose(previous);
+  return next;
+}
+
 export class WebGpuPathTracer {
   private constructor(
     private readonly shell: DemoContext,
@@ -16,7 +41,11 @@ export class WebGpuPathTracer {
     private readonly nodeBuffer: GPUBuffer,
     private readonly materialBuffer: GPUBuffer,
     private readonly uniformBuffer: GPUBuffer,
+    private readonly traversalStatsBuffer: GPUBuffer,
+    private readonly traversalReadbackBuffer: GPUBuffer,
     private readonly sampler: GPUSampler,
+    private readonly triangleCount: number,
+    private readonly bvhNodeCount: number,
   ) {}
 
   private accumulations: [GPUTexture, GPUTexture] | undefined;
@@ -32,6 +61,10 @@ export class WebGpuPathTracer {
   private disposed = false;
   private raf = 0;
   private cameraRevision = 0;
+  private bvhOverflowCount = 0;
+  private overflowReadPending = false;
+  private overflowEpoch = 0;
+  private evidenceSink: ((evidence: PathTracerEvidence) => void) | undefined;
 
   static async create(
     shell: DemoContext,
@@ -52,6 +85,9 @@ export class WebGpuPathTracer {
       const canvasFormat = navigator.gpu.getPreferredCanvasFormat();
       const scene = createCornellScene();
       const bvh = buildMedianBvh(scene.triangles);
+      const capacity = analyzeBvhTraversalCapacity(bvh);
+      if (capacity.overflowCount > 0)
+        throw new Error("The fixed Cornell BVH exceeds the WGSL traversal stack capacity.");
       const triangleData = encodeTriangles(bvh.triangles);
       const nodeData = encodeBvhNodes(bvh.nodes);
       const materialData = encodeMaterials(scene.materials);
@@ -65,22 +101,37 @@ export class WebGpuPathTracer {
         device.queue.writeBuffer(buffer, 0, data);
         return buffer;
       };
-      const [triangleBuffer, nodeBuffer, materialBuffer, uniformBuffer] = await withValidationScope(
-        device,
-        "Path tracer buffer setup",
-        () => {
-          const triangles = storage("PathTracer/Triangles", triangleData);
-          const nodes = storage("PathTracer/BVH", nodeData);
-          const materials = storage("PathTracer/Materials", materialData);
-          const uniforms = device.createBuffer({
-            label: "PathTracer/Params",
-            size: 32,
-            usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
-          });
-          allocations.push(uniforms);
-          return [triangles, nodes, materials, uniforms] as const;
-        },
-      );
+      const [
+        triangleBuffer,
+        nodeBuffer,
+        materialBuffer,
+        uniformBuffer,
+        traversalStatsBuffer,
+        traversalReadbackBuffer,
+      ] = await withValidationScope(device, "Path tracer buffer setup", () => {
+        const triangles = storage("PathTracer/Triangles", triangleData);
+        const nodes = storage("PathTracer/BVH", nodeData);
+        const materials = storage("PathTracer/Materials", materialData);
+        const uniforms = device.createBuffer({
+          label: "PathTracer/Params",
+          size: 32,
+          usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+        });
+        allocations.push(uniforms);
+        const traversalStats = device.createBuffer({
+          label: "PathTracer/TraversalOverflow",
+          size: 4,
+          usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
+        });
+        const traversalReadback = device.createBuffer({
+          label: "PathTracer/TraversalOverflowReadback",
+          size: 4,
+          usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ,
+        });
+        allocations.push(traversalStats, traversalReadback);
+        device.queue.writeBuffer(traversalStats, 0, new Uint32Array([0]));
+        return [triangles, nodes, materials, uniforms, traversalStats, traversalReadback] as const;
+      });
       const computeModule = device.createShaderModule({
         label: "PathTracer/ComputeWGSL",
         code: PATH_COMPUTE_WGSL,
@@ -130,7 +181,11 @@ export class WebGpuPathTracer {
         nodeBuffer,
         materialBuffer,
         uniformBuffer,
+        traversalStatsBuffer,
+        traversalReadbackBuffer,
         sampler,
+        bvh.triangles.length,
+        bvh.nodes.length,
       );
       renderer.bounces = bounces;
       await withValidationScope(device, "Path tracer initial targets", () => {
@@ -160,6 +215,11 @@ export class WebGpuPathTracer {
     return this.samples;
   }
 
+  setEvidenceSink(sink: (evidence: PathTracerEvidence) => void): void {
+    this.evidenceSink = sink;
+    this.reportEvidence();
+  }
+
   resize(width: number, height: number): void {
     if (this.disposed) return;
     const bounds = this.shell.stage.getBoundingClientRect();
@@ -175,7 +235,7 @@ export class WebGpuPathTracer {
       Math.min(768, Math.floor((height || bounds.height) * dpr * qualityScale)),
     );
     if (targetWidth === this.width && targetHeight === this.height && this.accumulations) return;
-    this.destroyAccumulations();
+    const previousAccumulations = this.accumulations;
     const textures: GPUTexture[] = [];
     try {
       this.shell.canvas.width = targetWidth;
@@ -207,6 +267,7 @@ export class WebGpuPathTracer {
             { binding: 3, resource: { buffer: this.nodeBuffer } },
             { binding: 4, resource: { buffer: this.materialBuffer } },
             { binding: 5, resource: { buffer: this.uniformBuffer } },
+            { binding: 6, resource: { buffer: this.traversalStatsBuffer } },
           ],
         }),
       ) as [GPUBindGroup, GPUBindGroup];
@@ -222,9 +283,13 @@ export class WebGpuPathTracer {
       ) as [GPUBindGroup, GPUBindGroup];
       this.width = targetWidth;
       this.height = targetHeight;
-      this.accumulations = accumulations;
       this.computeBindGroups = computeBindGroups;
       this.displayBindGroups = displayBindGroups;
+      this.accumulations = replaceResourcesAfterSuccess(
+        previousAccumulations,
+        () => accumulations,
+        (textures) => textures.forEach((texture) => texture.destroy()),
+      );
     } catch (error) {
       textures.forEach((texture) => texture.destroy());
       throw error;
@@ -260,6 +325,10 @@ export class WebGpuPathTracer {
     this.samples = 0;
     this.readIndex = 0;
     this.cameraRevision += 1;
+    this.bvhOverflowCount = 0;
+    this.overflowEpoch += 1;
+    this.device.queue.writeBuffer(this.traversalStatsBuffer, 0, new Uint32Array([0]));
+    this.reportEvidence();
   }
 
   pause(): void {
@@ -283,6 +352,8 @@ export class WebGpuPathTracer {
     this.nodeBuffer.destroy();
     this.materialBuffer.destroy();
     this.uniformBuffer.destroy();
+    this.traversalStatsBuffer.destroy();
+    this.traversalReadbackBuffer.destroy();
     this.device.destroy();
   }
 
@@ -314,8 +385,14 @@ export class WebGpuPathTracer {
     compute.setBindGroup(0, this.computeBindGroups[this.readIndex]);
     compute.dispatchWorkgroups(Math.ceil(this.width / 8), Math.ceil(this.height / 8));
     compute.end();
+    const readOverflow = !this.overflowReadPending && this.samples % 16 === 0;
+    if (readOverflow) {
+      encoder.copyBufferToBuffer(this.traversalStatsBuffer, 0, this.traversalReadbackBuffer, 0, 4);
+      this.overflowReadPending = true;
+    }
     this.encodeDisplay(encoder, writeIndex);
     this.device.queue.submit([encoder.finish()]);
+    if (readOverflow) this.readOverflowCount(this.overflowEpoch);
     this.readIndex = writeIndex;
     this.samples += 1;
     this.shell.setMetrics({
@@ -324,8 +401,41 @@ export class WebGpuPathTracer {
       samples: this.samples,
       metricSource: "animation-frame",
     });
+    this.reportEvidence();
     this.schedule();
   };
+
+  private reportEvidence(): void {
+    this.evidenceSink?.({
+      samples: this.samples,
+      triangles: this.triangleCount,
+      bvhNodes: this.bvhNodeCount,
+      bvhOverflowCount: this.bvhOverflowCount,
+      estimatedMonteCarloError: estimatedMonteCarloError(this.samples),
+    });
+  }
+
+  private readOverflowCount(epoch: number): void {
+    void (async () => {
+      try {
+        await this.traversalReadbackBuffer.mapAsync(GPUMapMode.READ);
+        const count = new Uint32Array(this.traversalReadbackBuffer.getMappedRange())[0];
+        this.traversalReadbackBuffer.unmap();
+        if (this.disposed || epoch !== this.overflowEpoch) return;
+        this.bvhOverflowCount = count;
+        if (count > 0)
+          this.shell.setStatus(
+            "BVH traversal overflow detected: " + count + " skipped child-pair pushes.",
+            "warning",
+          );
+        this.reportEvidence();
+      } catch {
+        // Readback is evidence only; rendering remains valid when unavailable.
+      } finally {
+        this.overflowReadPending = false;
+      }
+    })();
+  }
 
   private watchDeviceLoss(onDeviceLost: (message: string) => void): void {
     void this.device.lost.then((info) => {

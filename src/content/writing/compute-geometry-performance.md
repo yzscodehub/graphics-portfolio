@@ -25,6 +25,7 @@ relatedDemos:
   - gpu-particles
 relatedArticles:
   - webgpu-particles-path-tracing
+  - gpu-driven-visibility-indirect
   - bvh-progressive-path-tracing
   - rhi-abstraction-boundaries
 englishTitle: Large-Scale Geometry Processing with Compute Shaders

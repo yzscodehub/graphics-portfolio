@@ -26,6 +26,7 @@ relatedDemos:
   - path-tracer
 relatedArticles:
   - compute-geometry-performance
+  - gpu-driven-visibility-indirect
   - bvh-progressive-path-tracing
   - path-tracing-to-neural-denoising
 englishTitle: Native WebGPU Particles and Progressive Path Tracing

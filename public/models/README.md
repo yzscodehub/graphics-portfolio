@@ -13,3 +13,9 @@ changes.
 See `training/model-card.md` and `neural-denoiser.metrics.json` for provenance,
 validation, numerical parity, and limitations. The browser Demo retains a
 deterministic fallback for unsupported devices or failed model loading.
+
+Manifest v2 keeps that reviewed RGB ONNX as model rgb. Its guided entry is
+currently a hash-bound **candidate** static output paired with public Albedo
+and World Normal artifacts. It is not an ONNX model, does not claim a quality
+improvement, and intentionally blocks production verification until a reviewed
+9-channel model replaces it.

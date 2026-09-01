@@ -1,0 +1,150 @@
+---
+import type { Locale } from "../lib/i18n";
+
+interface Props {
+  locale: Locale;
+  maturity: "in-progress" | "completed";
+  evidenceLevel: string;
+  backends: string;
+  metricSources: string[];
+  assetIds: string[];
+  sourceUrl: string;
+  standaloneHref: string;
+  measuredOn?: string;
+  referenceTarget?: string;
+  currentLimit: string;
+  sceneState: string;
+  hardwareReview: "pending" | "passed";
+}
+
+const {
+  locale,
+  maturity,
+  evidenceLevel,
+  backends,
+  metricSources,
+  assetIds,
+  sourceUrl,
+  standaloneHref,
+  measuredOn,
+  referenceTarget = "Windows 11 / RTX 4070 class / Chromium Stable / 1920x1080 / DPR 1.0",
+  currentLimit,
+  sceneState,
+  hardwareReview,
+} = Astro.props;
+const isEn = locale === "en";
+const hardwareValue =
+  hardwareReview === "passed" && measuredOn
+    ? `PASSED / MEASURED ON: ${measuredOn}`
+    : `PENDING / REFERENCE TARGET: ${referenceTarget}`;
+const assetValue = `${sceneState} / ${assetIds.join(" / ") || "procedural"}`;
+const rows = [
+  ["IMPLEMENTATION", `${maturity.toUpperCase()} / ${evidenceLevel.toUpperCase()}`],
+  ["RUNTIME BACKEND", backends],
+  ["METRIC SOURCE", metricSources.join(" / ") || "unavailable"],
+  ["ASSET STATE", assetValue],
+  ["HARDWARE REVIEW", hardwareValue],
+  ["CURRENT LIMIT", currentLimit],
+];
+---
+
+<section class="demo-evidence-panel" aria-label={isEn ? "Demo evidence" : "Demo 证据"}>
+  <div class="demo-evidence-panel__rail" aria-hidden="true">
+    <span>RUNTIME CONTRACT</span><span
+      >{hardwareReview === "passed" ? "HARDWARE REVIEW PASSED" : "ACCEPTANCE PENDING"}</span
+    >
+  </div>
+  <dl>
+    {
+      rows.map(([label, value]) => (
+        <div>
+          <dt>{label}</dt>
+          <dd>{value}</dd>
+        </div>
+      ))
+    }
+  </dl>
+  <div class="demo-evidence-panel__actions">
+    <a class="button button-primary" href={standaloneHref}>
+      {isEn ? "RUN STANDALONE" : "独立运行"}
+    </a>
+    <a
+      class="button button-secondary"
+      href={sourceUrl}
+      target="_blank"
+      rel="noreferrer"
+      data-demo-source-link
+    >
+      {isEn ? "VIEW SOURCE" : "查看源码"}
+    </a>
+  </div>
+</section>
+
+<style>
+  .demo-evidence-panel {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    border: 1px solid var(--line-strong);
+    background:
+      linear-gradient(90deg, rgba(87, 227, 194, 0.055), transparent 44%), rgba(8, 13, 14, 0.88);
+  }
+  .demo-evidence-panel__rail {
+    display: flex;
+    grid-column: 1 / -1;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--line);
+    padding: 7px 12px;
+    color: var(--dim);
+    font: 0.58rem var(--font-mono);
+    letter-spacing: 0.11em;
+  }
+  .demo-evidence-panel dl {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    margin: 0;
+  }
+  .demo-evidence-panel dl > div {
+    min-width: 0;
+    border-right: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
+    padding: 12px 14px;
+  }
+  .demo-evidence-panel dt {
+    color: var(--dim);
+    font: 0.58rem var(--font-mono);
+    letter-spacing: 0.08em;
+  }
+  .demo-evidence-panel dd {
+    margin: 5px 0 0;
+    overflow-wrap: anywhere;
+    color: var(--text);
+    font: 0.7rem/1.45 var(--font-mono);
+  }
+  .demo-evidence-panel__actions {
+    display: grid;
+    min-width: 185px;
+    align-content: center;
+    gap: 8px;
+    padding: 14px;
+  }
+  .demo-evidence-panel__actions .button {
+    justify-content: center;
+    white-space: nowrap;
+  }
+  @media (max-width: 760px) {
+    .demo-evidence-panel {
+      grid-template-columns: 1fr;
+    }
+    .demo-evidence-panel dl {
+      grid-template-columns: 1fr 1fr;
+    }
+    .demo-evidence-panel__actions {
+      min-width: 0;
+    }
+  }
+  @media (max-width: 460px) {
+    .demo-evidence-panel dl {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>

@@ -30,20 +30,21 @@ def main() -> None:
     if checkpoint.get("architecture") != "ResidualDenoiser-8conv":
         raise ValueError("Checkpoint architecture is not ResidualDenoiser-8conv")
     features = int(checkpoint.get("features", 32))
-    shape = checkpoint.get("input_shape", [1, 3, 256, 256])
-    if list(shape) != [1, 3, 256, 256]:
-        raise ValueError(f"Expected fixed input shape [1, 3, 256, 256], got {shape}")
 
-    model = ResidualDenoiser(features=features)
+    input_channels = int(checkpoint['state_dict']['stem.0.weight'].shape[1])
+    if input_channels not in (3, 9):
+        raise ValueError(f'Unsupported checkpoint input channels: {input_channels}')
+    input_name = 'noisy_rgb' if input_channels == 3 else 'noisy_albedo_world_normal'
+    model = ResidualDenoiser(input_channels=input_channels, features=features)
     model.load_state_dict(checkpoint["state_dict"])
     model.eval()
-    example = torch.zeros(1, 3, 256, 256, dtype=torch.float32)
+    example = torch.zeros(1, input_channels, 256, 256, dtype=torch.float32)
     args.output.parent.mkdir(parents=True, exist_ok=True)
     torch.onnx.export(
         model,
         example,
         args.output,
-        input_names=["noisy_rgb"],
+        input_names=[input_name],
         output_names=["denoised_rgb"],
         opset_version=args.opset,
         dynamo=False,

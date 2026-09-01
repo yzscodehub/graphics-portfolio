@@ -45,10 +45,18 @@ class ResidualDenoiser(nn.Module):
 
     conv_layers = 8
 
-    def __init__(self, channels: int = 3, features: int = 32) -> None:
+    def __init__(
+        self,
+        input_channels: int = 3,
+        output_channels: int = 3,
+        features: int = 32,
+    ) -> None:
         super().__init__()
+        if input_channels not in (3, 9) or output_channels != 3:
+            raise ValueError('ResidualDenoiser supports RGB or RGB+albedo+normal input and RGB output')
+        self.output_channels = output_channels
         self.stem = nn.Sequential(
-            nn.Conv2d(channels, features, kernel_size=3, padding=1),
+            nn.Conv2d(input_channels, features, kernel_size=3, padding=1),
             nn.ReLU(inplace=True),
         )
         self.blocks = nn.Sequential(
@@ -56,7 +64,7 @@ class ResidualDenoiser(nn.Module):
             ResidualBlock(features),
             ResidualBlock(features),
         )
-        self.head = nn.Conv2d(features, channels, kernel_size=3, padding=1)
+        self.head = nn.Conv2d(features, output_channels, kernel_size=3, padding=1)
         # Start as an exact identity mapping. This prevents an untrained
         # residual head from being worse than the noisy input and makes any
         # published gain attributable to learned residuals.
@@ -65,7 +73,7 @@ class ResidualDenoiser(nn.Module):
 
     def forward(self, noisy: Tensor) -> Tensor:
         residual = self.head(self.blocks(self.stem(noisy)))
-        return torch.clamp(noisy + residual, 0.0, 1.0)
+        return torch.clamp(noisy[:, : self.output_channels] + residual, 0.0, 1.0)
 
 
 def _npy_files(directory: Path) -> dict[str, Path]:
@@ -75,15 +83,15 @@ def _npy_files(directory: Path) -> dict[str, Path]:
     return files
 
 
-def _as_chw(path: Path) -> Tensor:
+def _as_chw(path: Path, expected_channels: int = 3) -> Tensor:
     array = np.load(path, allow_pickle=False)
     if array.dtype.kind not in "fiu":
         raise ValueError(f"{path} must contain a numeric array")
     if array.ndim != 3:
         raise ValueError(f"{path} must be HxWxC or CxHxW, got {array.shape}")
-    if array.shape[-1] == 3:
+    if array.shape[-1] == expected_channels:
         array = np.transpose(array, (2, 0, 1))
-    elif array.shape[0] != 3:
+    elif array.shape[0] != expected_channels:
         raise ValueError(f"{path} must have three RGB channels, got {array.shape}")
     tensor = torch.from_numpy(np.ascontiguousarray(array)).float()
     if not torch.isfinite(tensor).all() or tensor.min() < 0.0 or tensor.max() > 1.0:
@@ -100,6 +108,7 @@ class PairedNpyDataset(Dataset[tuple[Tensor, Tensor]]):
         clean_dir: Path,
         patch_size: int,
         augment: bool,
+        input_channels: int = 3,
     ) -> None:
         noisy = _npy_files(noisy_dir)
         clean = _npy_files(clean_dir)
@@ -118,14 +127,15 @@ class PairedNpyDataset(Dataset[tuple[Tensor, Tensor]]):
         self.pairs = [(noisy[name], clean[name]) for name in names]
         self.patch_size = patch_size
         self.augment = augment
+        self.input_channels = input_channels
 
     def __len__(self) -> int:
         return len(self.pairs)
 
     def __getitem__(self, index: int) -> tuple[Tensor, Tensor]:
-        noisy = _as_chw(self.pairs[index][0])
+        noisy = _as_chw(self.pairs[index][0], self.input_channels)
         clean = _as_chw(self.pairs[index][1])
-        if noisy.shape != clean.shape:
+        if noisy.shape[1:] != clean.shape[1:]:
             raise ValueError(f"Pair shape mismatch: {self.pairs[index]} -> {noisy.shape} vs {clean.shape}")
         _, height, width = noisy.shape
         if height < self.patch_size or width < self.patch_size:
@@ -158,6 +168,7 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--workers", type=int, default=0)
     parser.add_argument("--seed", type=int, default=7)
     parser.add_argument("--device", choices=("auto", "cpu", "cuda"), default="auto")
+    parser.add_argument('--input-channels', choices=(3, 9), type=int, default=3)
     return parser.parse_args()
 
 
@@ -208,11 +219,25 @@ def main() -> None:
     root = args.data_root.resolve()
     train = PairedNpyDataset(root / "train" / "noisy", root / "train" / "clean", args.patch_size, augment=True)
     validation = PairedNpyDataset(root / "val" / "noisy", root / "val" / "clean", args.patch_size, augment=False)
+    train = PairedNpyDataset(
+        root / 'train' / 'noisy',
+        root / 'train' / 'clean',
+        args.patch_size,
+        augment=True,
+        input_channels=args.input_channels,
+    )
+    validation = PairedNpyDataset(
+        root / 'val' / 'noisy',
+        root / 'val' / 'clean',
+        args.patch_size,
+        augment=False,
+        input_channels=args.input_channels,
+    )
     train_loader = DataLoader(train, batch_size=args.batch_size, shuffle=True, num_workers=args.workers)
     validation_loader = DataLoader(validation, batch_size=args.batch_size, shuffle=False, num_workers=args.workers)
 
     device = _device(args.device)
-    model = ResidualDenoiser(features=args.features).to(device)
+    model = ResidualDenoiser(input_channels=args.input_channels, features=args.features).to(device)
     criterion = nn.L1Loss()
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.learning_rate)
     best = float("inf")

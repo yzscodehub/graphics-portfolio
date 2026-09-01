@@ -3,9 +3,9 @@ routeSlug: webgpu-compute-lab
 translationKey: webgpu-compute-lab
 locale: en
 title: WebGPU Compute Lab
-summary: Completed raw-WebGPU studies for ping-pong particle simulation and a BVH-backed progressive path tracer.
+summary: In-progress raw-WebGPU studies for particles, true three-LOD indirect visibility, and a BVH-backed progressive path tracer.
 year: 2026
-status: completed
+status: in-progress
 role: Independent development / GPU systems engineering
 platforms:
   - WebGPU
@@ -45,6 +45,7 @@ demoSlugs:
 articleSlugs:
   - compute-geometry-performance
   - webgpu-particles-path-tracing
+  - gpu-driven-visibility-indirect
   - bvh-progressive-path-tracing
 evidence: measured
 backends:

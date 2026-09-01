@@ -2208,6 +2208,45 @@ h3 {
   }
 }
 
+html.demo-standalone {
+  background: #05090a;
+}
+
+html.demo-standalone .site-header,
+html.demo-standalone .site-footer,
+html.demo-standalone .page-hero,
+html.demo-standalone [data-demo-detail-secondary],
+html.demo-standalone .demo-evidence-panel {
+  display: none !important;
+}
+
+html.demo-standalone body,
+html.demo-standalone main {
+  min-height: 100svh;
+  background: #05090a;
+}
+
+html.demo-standalone [data-demo-detail-runtime] {
+  min-height: 100svh;
+  border: 0;
+  padding: 0;
+}
+
+html.demo-standalone [data-demo-detail-runtime] > .section-inner {
+  width: 100%;
+  max-width: none;
+}
+
+html.demo-standalone .demo-shell {
+  min-height: 100svh;
+  border: 0;
+}
+
+html.demo-standalone .demo-shell__stage,
+html.demo-standalone .demo-shell canvas {
+  min-height: calc(100svh - 188px);
+}
+
 @media (prefers-reduced-motion: reduce) {
   html {
     scroll-behavior: auto;

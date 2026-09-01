@@ -7,8 +7,8 @@ summary: 通过显式点击对经哈希校验的留出配对执行 ONNX 推理�
 category: machine-learning
 renderer: ONNX Runtime WebGPU/WASM + 确定性 Canvas probe
 backend: onnx-web
-status: completed
-maturity: completed
+status: in-progress
+maturity: in-progress
 evidence: measured
 backends:
   - id: onnx-web
@@ -43,6 +43,7 @@ controls:
   - REFERENCE
   - ERROR
   - RUN REVIEWED MODEL
+  - SHOW GUIDED CANDIDATE
 metrics:
   - label: 验证集 L1 降幅
     value: 38.9%
@@ -63,17 +64,33 @@ metrics:
 metricSource:
   kind: offline-validation
   description: 确认的 L1/PSNR 来自独立留出配对与离线验证记录；P50/P95 仅在浏览器显式运行后测量，并随设备/后端变化。
+currentLimit: Guided 仍是未审核的静态 candidate，没有 ONNX 质量声明；只有已审核 RGB 模型属于 completed 部分。
 fallbackImage: /media/demos/neural-denoising-poster.svg
 relatedProjects:
   - neural-graphics-lab
 relatedArticles:
   - path-tracing-to-neural-denoising
+assetIds:
+  - neural-heldout-v2
+modes:
+  - rgb
+  - guided
+sourceUrl: https://github.com/yzscodehub/graphics-portfolio/blob/main/src/demos/neural-denoising.ts
 draft: false
 ---
 
 ## 实际运行内容
 
 页面初始显示确定性的程序化 probe，不会静默下载模型数据。点击 `RUN REVIEWED MODEL` 后，页面获取版本化留出 manifest 和配对浮点资源，校验字节长度与 SHA-256，然后优先选择 ONNX Runtime WebGPU，不可用时使用单线程 WASM。
+
+## 模型状态
+
+RGB 模型已完成审核，是本 Demo 中标为 completed 的部分；页面所列 L1 与
+PSNR 仅属于该已审核 RGB 模型。
+
+Guided 是经哈希绑定的静态 candidate，不是已审核 ONNX 模型，也没有发布
+质量提升声明。只有同一验证划分上的已审核模型同时改善 L1 与 PSNR 后，才可
+解除 Release 门禁。
 
 ## 证据与指标
 

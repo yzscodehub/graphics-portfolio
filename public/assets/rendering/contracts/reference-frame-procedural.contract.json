@@ -1,0 +1,26 @@
+{
+  "format": "graphics-portfolio-procedural-scene-contract",
+  "version": 1,
+  "assetId": "reference-frame-procedural",
+  "generator": "src/demos/reference-frame/shaders.ts",
+  "coordinateSystem": "right-handed-y-up-meters",
+  "geometry": "analytical plane and two spheres evaluated in the G-Buffer shader",
+  "runtimeConsumers": [
+    "shadow-aa",
+    "frame-inspector"
+  ],
+  "attachments": [
+    "albedo-metalness",
+    "normal-roughness",
+    "linear-depth",
+    "velocity",
+    "lighting",
+    "ssao",
+    "history",
+    "history-reject",
+    "cluster-light-count",
+    "final"
+  ],
+  "externalAssets": false,
+  "limitation": "This contract is not the reviewed Poly Haven packed Research Courtyard."
+}

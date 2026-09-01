@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { defaultLocale, isLocale, otherLocale } from "../../src/lib/i18n";
-import { localePath, otherLocalePath, siteBase, withBase } from "../../src/lib/urls";
+import { localePath, otherLocalePath, siteBase, withBase, withSourceRef } from "../../src/lib/urls";
 
 describe("i18n helpers", () => {
   it("uses Chinese as the default locale", () => {
@@ -39,5 +39,15 @@ describe("route helpers", () => {
     expect(withBase("https://github.com/example")).toBe("https://github.com/example");
     expect(withBase("mailto:contact@example.com")).toBe("mailto:contact@example.com");
     expect(withBase("#contact")).toBe("#contact");
+  });
+
+  it("binds public source links to the reviewed build ref", () => {
+    const source =
+      "https://github.com/yzscodehub/graphics-portfolio/blob/main/src/demos/clustered-lighting.ts";
+    expect(withSourceRef(source, "feature/rendering-demo-v2")).toBe(
+      "https://github.com/yzscodehub/graphics-portfolio/blob/feature/rendering-demo-v2/src/demos/clustered-lighting.ts",
+    );
+    expect(withSourceRef(source, "v1.0.0")).toContain("/blob/v1.0.0/");
+    expect(() => withSourceRef(source, "../main")).toThrow(/Unsafe Git source ref/);
   });
 });

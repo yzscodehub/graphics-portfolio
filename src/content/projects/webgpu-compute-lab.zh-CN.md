@@ -3,9 +3,9 @@ routeSlug: webgpu-compute-lab
 translationKey: webgpu-compute-lab
 locale: zh-CN
 title: WebGPU Compute Lab
-summary: 已完成的原生 WebGPU 实验，覆盖 Ping-Pong 粒子模拟和 BVH 支持的渐进式路径追踪。
+summary: 进行中的原生 WebGPU 实验，覆盖粒子模拟、真实三档 LOD 间接可见性与 BVH 渐进式路径追踪。
 year: 2026
-status: completed
+status: in-progress
 role: 独立开发 / GPU Systems Engineer
 platforms:
   - WebGPU
@@ -45,6 +45,7 @@ demoSlugs:
 articleSlugs:
   - compute-geometry-performance
   - webgpu-particles-path-tracing
+  - gpu-driven-visibility-indirect
   - bvh-progressive-path-tracing
 evidence: measured
 backends:

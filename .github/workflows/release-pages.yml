@@ -24,6 +24,7 @@ jobs:
     env:
       SITE_URL: https://${{ github.repository_owner }}.github.io
       SITE_STAGE: release
+      SOURCE_REF: ${{ github.ref_name }}
     steps:
       - name: Check out source
         uses: actions/checkout@v5
@@ -68,6 +69,9 @@ jobs:
 
       - name: Create guarded release build
         run: pnpm run build:release
+
+      - name: Verify build identity manifest
+        run: pnpm run build:manifest:verify
 
       - name: Install Chromium
         run: pnpm exec playwright install --with-deps chromium

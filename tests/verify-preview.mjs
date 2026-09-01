@@ -3,7 +3,7 @@ import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { execFileSync } from "node:child_process";
 import path from "node:path";
-import { resolveSiteFeatures } from "../src/data/site-stage.mjs";
+import { resolveSiteFeatures, resolveSourceRef } from "../src/data/site-stage.mjs";
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const sourceExtensions = new Set([".astro", ".css", ".html", ".json", ".md", ".mdx", ".ts"]);
@@ -80,7 +80,17 @@ function sha256(file) {
   return createHash("sha256").update(readFileSync(file)).digest("hex");
 }
 
+import { validateNeuralModelV2Artifacts } from "./neural-model-gate.mjs";
+
 function validateReviewedModelArtifacts(root, violations) {
+  const neuralManifestPath = path.join(root, "public", "models", "neural-denoiser.manifest.json");
+  if (
+    existsSync(neuralManifestPath) &&
+    /[\x22]version[\x22]\s*:\s*2/.test(readFileSync(neuralManifestPath, "utf8"))
+  ) {
+    validateNeuralModelV2Artifacts(root, violations, false);
+    return;
+  }
   const modelRoot = path.join(root, "public", "models");
   const model = path.join(modelRoot, "neural-denoiser.onnx");
   const manifestPath = path.join(modelRoot, "neural-denoiser.manifest.json");
@@ -227,6 +237,7 @@ export function validatePreviewArtifacts(root = projectRoot) {
   const violations = [];
   const outputRoot = path.join(root, "dist");
   const robots = path.join(outputRoot, "robots.txt");
+  const expectedSourceRef = resolveSourceRef(process.env.SOURCE_REF, "preview");
 
   validateReviewedModelArtifacts(root, violations);
 
@@ -238,6 +249,50 @@ export function validatePreviewArtifacts(root = projectRoot) {
       value: "run astro build first",
     });
     return violations;
+  }
+
+  const acceptanceRelativePath = path.join("evidence", "rendering-v2-acceptance.json");
+  const acceptanceSource = path.join(root, "public", acceptanceRelativePath);
+  const acceptanceOutput = path.join(outputRoot, acceptanceRelativePath);
+  if (!existsSync(acceptanceSource) || !existsSync(acceptanceOutput)) {
+    violations.push({
+      code: "rendering-acceptance-manifest",
+      file: "public/evidence/rendering-v2-acceptance.json",
+      line: 0,
+      value: "Preview must publish the high-end rendering acceptance state",
+    });
+  } else {
+    try {
+      const manifest = JSON.parse(readFileSync(acceptanceSource, "utf8"));
+      const slugs = new Set((manifest.demos ?? []).map((entry) => entry.slug));
+      if (
+        manifest.version !== 1 ||
+        !["pending", "reviewed"].includes(manifest.status) ||
+        manifest.target?.os !== "Windows 11" ||
+        manifest.target?.adapterClass !== "NVIDIA RTX 4070 class" ||
+        slugs.size !== 8
+      )
+        violations.push({
+          code: "rendering-acceptance-contract",
+          file: "public/evidence/rendering-v2-acceptance.json",
+          line: 0,
+          value: "Preview acceptance target or eight-Demo inventory is invalid",
+        });
+      if (sha256(acceptanceSource) !== sha256(acceptanceOutput))
+        violations.push({
+          code: "rendering-acceptance-artifact",
+          file: "dist/evidence/rendering-v2-acceptance.json",
+          line: 0,
+          value: "published acceptance manifest differs from its source",
+        });
+    } catch {
+      violations.push({
+        code: "rendering-acceptance-json",
+        file: "public/evidence/rendering-v2-acceptance.json",
+        line: 0,
+        value: "acceptance manifest must be valid JSON",
+      });
+    }
   }
 
   const prohibitedPaths = ["resume", path.join("en", "resume")];
@@ -300,6 +355,16 @@ export function validatePreviewArtifacts(root = projectRoot) {
     const html = readFileSync(htmlFile, "utf8");
     const relativePath = path.relative(root, htmlFile).replaceAll(path.sep, "/");
     const isNotFound = relativePath === "dist/404.html";
+    for (const sourceLink of html.matchAll(/<a\b[^>]*data-demo-source-link[^>]*>/gi)) {
+      const href = sourceLink[0].match(/href=["']([^"']+)["']/i)?.[1] ?? "";
+      if (!href.includes(`/blob/${expectedSourceRef}/src/demos/`))
+        violations.push({
+          code: "demo-source-ref",
+          file: relativePath,
+          line: 0,
+          value: `Demo source links must use build ref ${expectedSourceRef}`,
+        });
+    }
     if (!/<meta\s+name=["']robots["']\s+content=["']noindex,nofollow["']\s*\/?\s*>/i.test(html)) {
       violations.push({
         code: "missing-noindex",

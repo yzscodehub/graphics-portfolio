@@ -1,0 +1,22 @@
+{
+  "format": "graphics-portfolio-procedural-scene-contract",
+  "version": 1,
+  "assetId": "visibility-instance-field",
+  "generator": "src/demos/gpu-visibility.ts",
+  "coordinateSystem": "right-handed-y-up-meters",
+  "geometry": "deterministic procedural instance field",
+  "instanceCounts": [
+    10000,
+    50000,
+    100000
+  ],
+  "attributes": [
+    "position-radius",
+    "color"
+  ],
+  "runtimeConsumers": [
+    "gpu-particles"
+  ],
+  "externalAssets": false,
+  "limitation": "This contract does not consume the reviewed Research Courtyard packed scene."
+}

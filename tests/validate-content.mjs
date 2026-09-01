@@ -7,8 +7,8 @@ const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "
 const contentRoot = path.join(projectRoot, "src", "content");
 const expectedChineseEntries = {
   projects: 4,
-  demos: 7,
-  writing: 10,
+  demos: 8,
+  writing: 12,
 };
 const writingModules = new Set([
   "rendering",
@@ -20,9 +20,9 @@ const writingModules = new Set([
   "multimedia",
 ]);
 const expectedWritingModules = new Map([
-  ["rendering", { order: 1, articles: 2 }],
+  ["rendering", { order: 1, articles: 3 }],
   ["engine-systems", { order: 2, articles: 2 }],
-  ["gpu-compute", { order: 3, articles: 2 }],
+  ["gpu-compute", { order: 3, articles: 3 }],
   ["ray-tracing", { order: 4, articles: 1 }],
   ["debugging", { order: 5, articles: 1 }],
   ["neural-graphics", { order: 6, articles: 1 }],
@@ -69,6 +69,39 @@ function parseFrontmatter(source, file) {
       values[activeArray].push(item[1].replace(/^['"]|['"]$/g, ""));
   }
   return values;
+}
+
+function parseRegistryDemoContracts() {
+  const registryFile = path.join(projectRoot, "src", "demos", "core", "registry.ts");
+  const source = readFileSync(registryFile, "utf8");
+  const entries = [...source.matchAll(/^\s{2}"([^"]+)": \{/gm)];
+  const contracts = new Map();
+  for (let index = 0; index < entries.length; index += 1) {
+    const slug = entries[index][1];
+    const start = entries[index].index;
+    const end = entries[index + 1]?.index ?? source.indexOf("\n};\n\nexport type DemoSlug");
+    const block = source.slice(start, end);
+    const array = (field) => {
+      const match = block.match(new RegExp(`${field}:\\s*\\[([\\s\\S]*?)\\],`));
+      return match ? [...match[1].matchAll(/"([^"]+)"/g)].map((entry) => entry[1]) : undefined;
+    };
+    const scalar = (field) => block.match(new RegExp(`${field}:\\s*"([^"]+)"`))?.[1];
+    contracts.set(slug, {
+      relatedProjects: array("relatedProjects"),
+      relatedArticles: array("relatedArticles"),
+      assetIds: array("assetIds"),
+      modes: array("modes"),
+      referenceScene: scalar("referenceScene"),
+      sourceUrl: scalar("sourceUrl"),
+    });
+  }
+  return contracts;
+}
+
+function sameList(left, right) {
+  return (
+    Array.isArray(left) && Array.isArray(right) && JSON.stringify(left) === JSON.stringify(right)
+  );
 }
 
 function validateCollection(name) {
@@ -211,10 +244,26 @@ function main() {
     }
     if (collection === "demos")
       for (const { file, meta } of result.entries.filter(({ meta }) => meta.draft !== "true")) {
-        if (meta.status !== "completed" || meta.maturity !== "completed")
-          errors.push(`${file}: published Demo status and maturity must both be completed.`);
+        if (!["in-progress", "completed"].includes(meta.status) || meta.maturity !== meta.status)
+          errors.push(
+            `${file}: published Demo status and maturity must match as in-progress or completed.`,
+          );
+        if (process.env.SITE_STAGE === "release" && meta.maturity !== "completed")
+          errors.push(`${file}: Release requires every Demo maturity to be completed.`);
         if (/media\/placeholders\//.test(meta.fallbackImage ?? ""))
           errors.push(`${file}: published Demo fallbackImage must be reviewed media.`);
+        if (!Array.isArray(meta.assetIds))
+          errors.push(`${file}: published Demo assetIds must be an array.`);
+        if (!Array.isArray(meta.modes) || meta.modes.length < 1)
+          errors.push(`${file}: published Demo needs at least one explicit mode.`);
+        if (typeof meta.currentLimit !== "string" || meta.currentLimit.trim().length < 12)
+          errors.push(`${file}: published Demo needs an explicit Current Limit statement.`);
+        if (
+          !/^https:\/\/github\.com\/yzscodehub\/graphics-portfolio\/blob\/main\//.test(
+            meta.sourceUrl ?? "",
+          )
+        )
+          errors.push(`${file}: published Demo sourceUrl must point to the public repository.`);
       }
   }
 
@@ -245,6 +294,35 @@ function main() {
     ({ meta }) => meta.locale === "zh-CN" && meta.draft !== "true",
   );
   const demoBySlug = new Map(publishedDemos.map((entry) => [entry.meta.routeSlug, entry]));
+  const registryContracts = parseRegistryDemoContracts();
+  const contentDemoSlugs = new Set(
+    collections.demos.entries
+      .filter(({ meta }) => meta.draft !== "true")
+      .map(({ meta }) => meta.routeSlug),
+  );
+  for (const slug of registryContracts.keys()) {
+    if (!contentDemoSlugs.has(slug))
+      errors.push(`registry:${slug}: has no published Demo content contract.`);
+  }
+  for (const { file, meta } of collections.demos.entries.filter(
+    ({ meta }) => meta.draft !== "true",
+  )) {
+    const registry = registryContracts.get(meta.routeSlug);
+    if (!registry) {
+      errors.push(`${file}: published Demo has no Registry contract.`);
+      continue;
+    }
+    for (const field of ["relatedProjects", "relatedArticles", "assetIds", "modes"]) {
+      if (!sameList(registry[field], meta[field]))
+        errors.push(
+          `${file}: Registry ${field} must exactly match this locale's public frontmatter.`,
+        );
+    }
+    if ((registry.referenceScene ?? "") !== (meta.referenceScene ?? ""))
+      errors.push(`${file}: Registry referenceScene must match public frontmatter.`);
+    if (registry.sourceUrl !== meta.sourceUrl)
+      errors.push(`${file}: Registry sourceUrl must match public frontmatter.`);
+  }
   for (const { file, meta } of collections.projects.entries.filter(
     ({ meta }) => meta.draft !== "true",
   )) {

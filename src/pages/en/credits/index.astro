@@ -1,0 +1,20 @@
+---
+import PageHero from "../../../components/PageHero.astro";
+import RenderingCredits from "../../../components/RenderingCredits.astro";
+import BaseLayout from "../../../layouts/BaseLayout.astro";
+import { profile } from "../../../data/profile";
+---
+
+<BaseLayout
+  locale="en"
+  title="Credits & Asset Ledger"
+  description="A public ledger for rendering asset sources, licenses, hashes, and transfer budgets."
+  handle={profile.displayName}
+>
+  <PageHero
+    eyebrow="CREDITS / ASSET GOVERNANCE"
+    title="Sources, licenses, and build evidence."
+    description="The public ledger for assets that ship today, their hashes and budgets, and the CC0 sources reserved for the future Research Courtyard."
+  />
+  <RenderingCredits locale="en" />
+</BaseLayout>

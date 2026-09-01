@@ -32,6 +32,12 @@ export interface TriangleHit {
   triangleIndex: number;
 }
 
+export interface BvhTraversalCapacity {
+  stackCapacity: number;
+  maxPendingNodes: number;
+  overflowCount: number;
+}
+
 const LEAF_TRIANGLES = 4;
 
 export function buildMedianBvh(triangles: Triangle[]): BvhBuild {
@@ -101,6 +107,33 @@ export function intersectBvh(ray: Ray, bvh: BvhBuild): TriangleHit | undefined {
     }
   }
   return closest;
+}
+
+/**
+ * Mirrors the bounded DFS stack contract used by PATH_COMPUTE_WGSL. The
+ * production shader counts saturation instead of silently dropping children;
+ * this CPU analysis proves whether the fixed scene can reach that boundary.
+ */
+export function analyzeBvhTraversalCapacity(
+  bvh: BvhBuild,
+  stackCapacity = 64,
+): BvhTraversalCapacity {
+  if (!Number.isInteger(stackCapacity) || stackCapacity < 2)
+    throw new Error("stackCapacity must be an integer of at least two.");
+  const stack = [0];
+  let maxPendingNodes = stack.length;
+  let overflowCount = 0;
+  while (stack.length) {
+    const node = bvh.nodes[stack.pop()!];
+    if (node.leaf) continue;
+    if (stack.length + 2 > stackCapacity) {
+      overflowCount += 1;
+      continue;
+    }
+    stack.push(node.right, node.left);
+    maxPendingNodes = Math.max(maxPendingNodes, stack.length);
+  }
+  return { stackCapacity, maxPendingNodes, overflowCount };
 }
 
 export function intersectTriangle(ray: Ray, triangle: Triangle): number | undefined {

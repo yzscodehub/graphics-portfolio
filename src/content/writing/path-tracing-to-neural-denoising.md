@@ -133,7 +133,7 @@ PSNR = 10 × log10(MAX² / MSE)
 1. 在受控 Python 环境中生成 64/16 个 `256²` 场景，明确指定 `--noisy-spp 1 --clean-spp 64`，保存 `dataset-manifest.json` 及其 SHA-256。
 2. 以固定种子训练 16-channel、8-conv 网络；将 checkpoint、环境版本、训练参数和验证记录一并保存。不要将原始数据或随机权重当作网页素材提交。
 3. 在完整 validation split 上运行离线评估，记录 noisy 与 denoised 的 L1、MSE、PSNR；导出 ONNX 后运行 PyTorch/ONNX parity，且用明确容差拒绝不一致结果。
-4. 将经审核的 ONNX、held-out `.f32` 配对和两层 manifest 放到静态资源路径。重新计算 ONNX、held-out manifest 与配对文件的字节数和 SHA-256，确保网页只接受这些最终字节。
+4. 将经审核的 ONNX、held-out Float16 Pack 和两层 manifest 放到静态资源路径。浏览器在 SHA-256 校验后解码为 Float32 Tensor；重新计算 ONNX、held-out manifest 与配对文件的字节数和 SHA-256，确保网页只接受这些最终字节。
 5. 打开页面后先确认未点击时没有模型请求。点击 `RUN REVIEWED MODEL`，记录选择的后端、任何回退原因、5 次预热后 20 次样本的 P50/P95；将这些设备数据标注为运行时数据，而不是离线质量结论。
 
 这个过程允许实验失败：缺模型、哈希不匹配、WebGPU 不可用或 parity 超容差都应该停止相应断言，而不是修改文字去迎合页面展示。

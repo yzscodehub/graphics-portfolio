@@ -57,9 +57,132 @@ describe("production privacy policy", () => {
           },
         }),
       );
+      const renderingRoot = path.join(fixtureRoot, "public", "assets", "rendering");
+      mkdirSync(path.join(renderingRoot, "packs"), { recursive: true });
+      mkdirSync(path.join(renderingRoot, "textures"), { recursive: true });
+      const courtyardPath = "public/assets/rendering/packs/research-courtyard.pack.json";
+      writeFileSync(
+        path.join(fixtureRoot, courtyardPath),
+        JSON.stringify({ version: 1, placeholder: false, meshes: [], materials: [] }),
+      );
+      writeFileSync(path.join(renderingRoot, "textures", "courtyard.ktx2"), "ktx2");
+      writeFileSync(path.join(renderingRoot, "textures", "courtyard.webp"), "webp");
+      writeFileSync(
+        path.join(renderingRoot, "manifest.json"),
+        JSON.stringify({
+          version: 1,
+          status: "reviewed",
+          generatedBy: "fixture-asset-compiler",
+          assets: [
+            {
+              id: "research-courtyard",
+              role: "packed-scene",
+              path: courtyardPath,
+            },
+          ],
+        }),
+      );
+      writeFileSync(
+        path.join(renderingRoot, "sources.lock.json"),
+        JSON.stringify({
+          version: 2,
+          policy: { downloaded: true, stage: "integrated" },
+          sources: [
+            {
+              id: "fixture-courtyard",
+              authors: ["Fixture Author"],
+              license: "CC0",
+              files: [
+                {
+                  directUrl: "https://dl.polyhaven.org/file/fixture/courtyard.glb",
+                  sha256: "a".repeat(64),
+                  status: "reviewed",
+                },
+              ],
+            },
+          ],
+        }),
+      );
+      const courtyardRuntimeRoot = path.join(fixtureRoot, "src", "demos", "research-courtyard");
+      mkdirSync(courtyardRuntimeRoot, { recursive: true });
+      writeFileSync(
+        path.join(courtyardRuntimeRoot, "scene.ts"),
+        'export const source = "packed";\n',
+      );
+      const evidenceRoot = path.join(fixtureRoot, "public", "evidence");
+      mkdirSync(evidenceRoot, { recursive: true });
+      const capture = Buffer.from("reviewed hardware capture");
+      const captureRelativePath = "public/evidence/reviewed-hardware-capture.bin";
+      writeFileSync(path.join(fixtureRoot, captureRelativePath), capture);
+      writeFileSync(
+        path.join(evidenceRoot, "rendering-v2-acceptance.json"),
+        JSON.stringify({
+          version: 1,
+          status: "reviewed",
+          target: {
+            os: "Windows 11",
+            adapterClass: "NVIDIA RTX 4070 class",
+            browser: "Chromium Stable",
+            viewportWidth: 1920,
+            viewportHeight: 1080,
+            dpr: 1,
+          },
+          reviewedRun: {
+            os: "Windows 11",
+            adapter: "NVIDIA GeForce RTX 4070",
+            browser: "Chromium Stable",
+            browserVersion: "fixture",
+            viewportWidth: 1920,
+            viewportHeight: 1080,
+            dpr: 1,
+            reviewer: "fixture-reviewer",
+            reviewedAt: "2026-08-31T00:00:00Z",
+            evidencePath: captureRelativePath,
+            evidenceSha256: createHash("sha256").update(capture).digest("hex"),
+          },
+          demos: [
+            {
+              slug: "material-lighting",
+              status: "passed",
+              metrics: { fpsP50: 60, frameTimeP95Ms: 22 },
+            },
+            {
+              slug: "clustered-lighting",
+              status: "passed",
+              metrics: { fpsP50: 60, frameTimeP95Ms: 22, cluster512Overflow: 0 },
+            },
+            {
+              slug: "shadow-aa",
+              status: "passed",
+              metrics: { fpsP50: 60, frameTimeP95Ms: 22 },
+            },
+            { slug: "render-graph", status: "passed", metrics: { functionalReview: true } },
+            {
+              slug: "frame-inspector",
+              status: "passed",
+              metrics: { fpsP50: 60, frameTimeP95Ms: 22, attachmentReadback: true },
+            },
+            {
+              slug: "gpu-particles",
+              status: "passed",
+              metrics: { instances100kFpsP50: 60, particles250kFpsP50: 60 },
+            },
+            {
+              slug: "path-tracer",
+              status: "passed",
+              metrics: { progressiveUpdatesPerSecond: 30 },
+            },
+            {
+              slug: "neural-denoising",
+              status: "passed",
+              metrics: { webgpuP50Ms: 20, webgpuP95Ms: 30, wasmP50Ms: 250 },
+            },
+          ],
+        }),
+      );
       mkdirSync(path.join(fixtureRoot, "public", "media"), { recursive: true });
       const mediaAssets = Object.entries({
-        "demo-poster": 7,
+        "demo-poster": 8,
         "project-cover": 4,
         "project-architecture": 4,
         "demo-runtime-capture": 4,
@@ -90,7 +213,7 @@ describe("production privacy policy", () => {
         }),
       );
       mkdirSync(path.join(fixtureRoot, "public", "og"), { recursive: true });
-      const cards = Array.from({ length: 22 }, (_, index) => {
+      const cards = Array.from({ length: 25 }, (_, index) => {
         const relative = `/og/card-${index}.png`;
         const og = Buffer.from(`og-${index}`);
         writeFileSync(path.join(fixtureRoot, "public", relative), og);
@@ -146,6 +269,42 @@ describe("production privacy policy", () => {
       expect(policy.validateReleaseArtifacts(fixtureRoot)).toEqual([]);
 
       writeFileSync(
+        path.join(renderingRoot, "manifest.json"),
+        JSON.stringify({
+          version: 1,
+          status: "preview-placeholder",
+          generatedBy: "build-placeholder-pack",
+          assets: [
+            {
+              id: "research-courtyard",
+              role: "packed-scene-placeholder",
+              path: courtyardPath,
+            },
+          ],
+        }),
+      );
+      expect(
+        policy
+          .validateReleaseArtifacts(fixtureRoot)
+          .some((violation) => violation.code === "rendering-assets-not-reviewed"),
+      ).toBe(true);
+      writeFileSync(
+        path.join(renderingRoot, "manifest.json"),
+        JSON.stringify({
+          version: 1,
+          status: "reviewed",
+          generatedBy: "fixture-asset-compiler",
+          assets: [
+            {
+              id: "research-courtyard",
+              role: "packed-scene",
+              path: courtyardPath,
+            },
+          ],
+        }),
+      );
+
+      writeFileSync(
         path.join(fixtureRoot, "dist", "index.html"),
         [
           '<link rel="canonical" href="https://yzscodehub.github.io/graphics-portfolio/">',
@@ -182,6 +341,26 @@ describe("production privacy policy", () => {
           .validateReleaseArtifacts(fixtureRoot)
           .some((violation) => violation.code === "not-found-seo-metadata"),
       ).toBe(true);
+    } finally {
+      rmSync(fixtureRoot, { recursive: true, force: true });
+    }
+  });
+
+  it("keeps a pending high-end WebGPU review as a release blocker", async () => {
+    const policy = (await import("./verify-production.mjs")) as {
+      validateRenderingAcceptanceEvidence(root: string): Array<{ code: string }>;
+    };
+    const fixtureRoot = mkdtempSync(path.join(os.tmpdir(), "graphics-hardware-evidence-"));
+    try {
+      const evidenceRoot = path.join(fixtureRoot, "public", "evidence");
+      mkdirSync(evidenceRoot, { recursive: true });
+      writeFileSync(
+        path.join(evidenceRoot, "rendering-v2-acceptance.json"),
+        JSON.stringify({ version: 1, status: "pending" }),
+      );
+      expect(policy.validateRenderingAcceptanceEvidence(fixtureRoot)).toEqual([
+        expect.objectContaining({ code: "high-end-rendering-evidence-pending" }),
+      ]);
     } finally {
       rmSync(fixtureRoot, { recursive: true, force: true });
     }

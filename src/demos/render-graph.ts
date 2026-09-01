@@ -96,7 +96,7 @@ export function createDemo(): DemoController {
           if (enabled.has(pass.id)) enabled.delete(pass.id);
           else enabled.add(pass.id);
           button.setAttribute("aria-pressed", String(enabled.has(pass.id)));
-          if (selected === pass.id && !enabled.has(pass.id)) selected = "tone";
+          if (selected === pass.id && !enabled.has(pass.id)) selected = "display";
           render();
         };
         listen(context, button, "click", toggle);

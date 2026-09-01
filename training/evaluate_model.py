@@ -57,15 +57,15 @@ def _pairs(root: Path, split: str, maximum: int | None) -> list[tuple[Path, Path
     return [(noisy[name], clean[name]) for name in names]
 
 
-def _load_chw(path: Path, expected_size: int) -> np.ndarray:
+def _load_chw(path: Path, expected_size: int, expected_channels: int = 3) -> np.ndarray:
     image = np.load(path, allow_pickle=False)
     if image.dtype.kind not in "fiu" or image.ndim != 3:
         raise ValueError(f"{path} must contain a numeric HxWx3 or 3xHxW array")
-    if image.shape[-1] == 3:
+    if image.shape[-1] == expected_channels:
         image = np.transpose(image, (2, 0, 1))
-    elif image.shape[0] != 3:
+    elif image.shape[0] != expected_channels:
         raise ValueError(f"{path} has no three-channel RGB axis: {image.shape}")
-    if image.shape != (3, expected_size, expected_size):
+    if image.shape != (expected_channels, expected_size, expected_size):
         raise ValueError(f"{path} shape {image.shape} does not match checkpoint input 3x{expected_size}x{expected_size}")
     image = np.ascontiguousarray(image, dtype=np.float32)
     if not np.isfinite(image).all() or image.min() < 0.0 or image.max() > 1.0:
@@ -101,7 +101,7 @@ def _batches(items: list[tuple[Path, Path]], size: int) -> Iterable[list[tuple[P
         yield items[offset : offset + size]
 
 
-def _load_model(checkpoint_path: Path, device: torch.device) -> tuple[ResidualDenoiser, int]:
+def _load_model(checkpoint_path: Path, device: torch.device) -> tuple[ResidualDenoiser, int, int]:
     if not checkpoint_path.is_file():
         raise FileNotFoundError(f"Checkpoint does not exist: {checkpoint_path}")
     checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=False)
@@ -111,10 +111,13 @@ def _load_model(checkpoint_path: Path, device: torch.device) -> tuple[ResidualDe
     if not isinstance(shape, list) or len(shape) != 4 or shape[:2] != [1, 3] or shape[2] != shape[3]:
         raise ValueError(f"Invalid checkpoint input_shape: {shape}")
     features = int(checkpoint.get("features", 32))
-    model = ResidualDenoiser(features=features).to(device)
+    input_channels = int(checkpoint['state_dict']['stem.0.weight'].shape[1])
+    if input_channels not in (3, 9):
+        raise ValueError(f'Unsupported checkpoint input channels: {input_channels}')
+    model = ResidualDenoiser(input_channels=input_channels, features=features).to(device)
     model.load_state_dict(checkpoint["state_dict"])
     model.eval()
-    return model, int(shape[2])
+    return model, int(shape[2]), input_channels
 
 
 def _onnx_session(path: Path):
@@ -136,7 +139,7 @@ def main() -> None:
     if args.onnx_tolerance <= 0.0:
         raise ValueError("--onnx-tolerance must be positive")
     device = _device(args.device)
-    model, image_size = _load_model(args.checkpoint, device)
+    model, image_size, input_channels = _load_model(args.checkpoint, device)
     pairs = _pairs(args.data_root.resolve(), args.split, args.max_samples)
     session = _onnx_session(args.onnx) if args.onnx else None
     noisy_metrics = Metrics()
@@ -147,11 +150,13 @@ def main() -> None:
 
     with torch.inference_mode():
         for batch in _batches(pairs, args.batch_size):
-            noisy = np.stack([_load_chw(noisy_path, image_size) for noisy_path, _ in batch])
+            noisy = np.stack(
+                [_load_chw(noisy_path, image_size, input_channels) for noisy_path, _ in batch]
+            )
             clean = np.stack([_load_chw(clean_path, image_size) for _, clean_path in batch])
             input_tensor = torch.from_numpy(noisy).to(device)
             prediction = model(input_tensor).cpu().numpy()
-            noisy_metrics.add(noisy, clean)
+            noisy_metrics.add(noisy[:, :3], clean)
             denoised_metrics.add(prediction, clean)
             if session is not None:
                 onnx_input = session.get_inputs()[0].name

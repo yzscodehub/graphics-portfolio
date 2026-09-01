@@ -27,6 +27,7 @@ relatedDemos:
 relatedArticles:
   - rhi-abstraction-boundaries
   - frame-inspector-observability
+  - gpu-driven-visibility-indirect
   - multimedia-data-path
 englishTitle: Render Graph Dependencies, Resource Lifetimes, and Pass Culling
 englishDescription: From declarative passes to topology, lifetime intervals, and aliasing, a practical breakdown of render-graph compilation.
@@ -193,7 +194,7 @@ validate declarations
 
 ## 三个可复现图变体
 
-使用当前 Demo 的 Depth、GBuffer、SSAO、Lighting、Temporal Resolve、Present 和 Debug Overlay：
+使用由 Reference Frame Manifest 生成的 Shadow Map、G-Buffer、Cluster Light Count、Deferred Lighting、SSAO、Temporal Resolve、Display，以及唯一的合成 Diagnostic Debug Overlay：
 
 ### 基线
 
@@ -201,7 +202,7 @@ validate declarations
 
 ### 裁剪分支
 
-Debug Overlay 不连接 Present，也没有 side effect。它应保持 enabled 但被编译器标记 culled；相关 transient 资源不进入最终分配。
+Diagnostic Debug Overlay 不连接 Display/Present，也没有 side effect。它应保持 enabled 但被编译器标记 culled；相关 transient 资源不进入最终分配。其他 Pass 与资源全部来自 Reference Frame 的同一份 Manifest，因而检查器不会维护第二份手写执行图。
 
 ### 缺失 Producer
 

@@ -29,6 +29,7 @@ jobs:
     env:
       SITE_URL: https://${{ github.repository_owner }}.github.io
       SITE_STAGE: preview
+      SOURCE_REF: main
     steps:
       - name: Check out source
         uses: actions/checkout@v5
@@ -71,6 +72,9 @@ jobs:
 
       - name: Build public preview
         run: pnpm run build
+
+      - name: Verify build identity manifest
+        run: pnpm run build:manifest:verify
 
       - name: Validate content contract
         run: pnpm run test:content

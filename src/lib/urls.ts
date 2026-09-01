@@ -36,3 +36,14 @@ export function withBase(path: string): string {
   }
   return `${siteBase}${normalized}${suffix}`;
 }
+
+export function withSourceRef(url: string, sourceRef: string): string {
+  if (!/^https:\/\/github\.com\/yzscodehub\/graphics-portfolio\/blob\/main\//.test(url)) {
+    return url;
+  }
+  const normalizedRef = sourceRef.replace(/^refs\/(?:heads|tags)\//, "");
+  if (!normalizedRef || !/^[A-Za-z0-9._/-]+$/.test(normalizedRef) || normalizedRef.includes("..")) {
+    throw new Error(`Unsafe Git source ref: ${sourceRef}`);
+  }
+  return url.replace("/blob/main/", `/blob/${normalizedRef}/`);
+}

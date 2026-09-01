@@ -4,6 +4,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
 import PageHero from "../components/PageHero.astro";
 import DemoCard from "../components/DemoCard.astro";
 import { profile } from "../data/profile";
+import { compareDemoSlugs } from "../data/demo-order";
 import type { Locale } from "../lib/i18n";
 import { localePath } from "../lib/i18n";
 import { withBase } from "../lib/urls";
@@ -23,14 +24,24 @@ type DemoPresentationData = {
   requirements?: DemoRequirement[];
   fallback?: DemoFallback;
   metricSource?: DemoMetricSource;
+  assetIds?: string[];
+  modes?: string[];
+  sourceUrl?: string;
 };
 
 const { locale } = Astro.props;
 const isEn = locale === "en";
 const allEntries = (await getCollection("demos")) as CollectionEntry<"demos">[];
-const entries = allEntries.filter((entry) => entry.data.locale === locale && !entry.data.draft);
+const entries = allEntries
+  .filter((entry) => entry.data.locale === locale && !entry.data.draft)
+  .sort((left, right) => compareDemoSlugs(left.data.routeSlug, right.data.routeSlug));
 const slugOf = (entry: (typeof entries)[number]) => entry.data.routeSlug;
 const categories = ["all", "rendering", "engine", "gpu", "machine-learning"];
+const completedCount = entries.filter((entry) => entry.data.maturity === "completed").length;
+const inProgressCount = entries.length - completedCount;
+const maturitySummary = isEn
+  ? `${completedCount} completed / ${inProgressCount} in progress. Every Demo names its backend, requirements, evidence source, and current implementation limit.`
+  : `${completedCount} 项已完成 / ${inProgressCount} 项进行中。每项 Demo 都明确后端、要求、证据来源与当前实现边界。`;
 
 function presentationData(entry: (typeof entries)[number]): DemoPresentationData {
   return entry.data as typeof entry.data & DemoPresentationData;
@@ -68,16 +79,14 @@ function fallbackText(data: DemoPresentationData): string {
   locale={locale}
   title={isEn ? "Demos" : "演示"}
   description={isEn
-    ? "Seven completed graphics studies with explicit evidence and fallback paths."
-    : "七个已完成的图形技术研究，明确展示证据、回退和指标来源。"}
+    ? "Eight published rendering-system studies with explicit maturity, evidence, and fallback paths."
+    : "八个已发布的渲染系统研究，明确展示成熟度、证据、回退和指标来源。"}
   handle={profile.displayName}
 >
   <PageHero
     eyebrow="DEMOS / RUNTIME"
     title={isEn ? "Evidence you can inspect." : "可以检查的技术证据。"}
-    description={isEn
-      ? "Every Demo is marked completed, names its backend and requirements, and separates runtime evidence from offline metrics."
-      : "每个 Demo 都标记为已完成，明确后端与要求，并将运行时证据和离线指标分开。"}
+    description={maturitySummary}
   />
   <section class="section">
     <div class="section-inner">
@@ -137,6 +146,22 @@ function fallbackText(data: DemoPresentationData): string {
                     <>
                       <dt style="color:var(--dim);">FALLBACK</dt>
                       <dd style="margin:2px 0 0; color:var(--muted);">{fallbackText(data)}</dd>
+                    </>
+                  </div>
+                  <div>
+                    <>
+                      <dt style="color:var(--dim);">MODES</dt>
+                      <dd style="margin:2px 0 0; color:var(--muted);">
+                        {data.modes?.join(" / ") || "single"}
+                      </dd>
+                    </>
+                  </div>
+                  <div>
+                    <>
+                      <dt style="color:var(--dim);">ASSETS</dt>
+                      <dd style="margin:2px 0 0; color:var(--muted);">
+                        {data.assetIds?.join(" / ") || "procedural"}
+                      </dd>
                     </>
                   </div>
                   <div style="grid-column:1 / -1;">

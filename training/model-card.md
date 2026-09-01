@@ -124,3 +124,21 @@ Raw datasets and checkpoints remain ignored. The published artifacts reproduce
 and audit the browser's single held-out pair and its byte-level contracts; they
 do **not** independently recompute the complete 16-scene offline validation or
 PyTorch/ONNX parity without the retained private dataset and checkpoint record.
+
+## Guided candidate status
+
+The site also contains a **Guided candidate** contract with 9-channel input:
+Noisy RGB, Albedo RGB, and remapped World Normal XYZ. It is deliberately not a
+second trained model. The public candidate output is a hash-bound static
+edge-aware filter generated from the public noisy image and procedural guide
+fields. It has no checkpoint, no ONNX graph, no parity record, and no
+validation L1 or PSNR claim.
+
+Production verification must reject this candidate. It may be replaced only
+after a reviewed 9-channel checkpoint uses the same 64/16 split, documents
+PyTorch/ONNX parity, and improves both validation L1 and PSNR against the
+reviewed RGB baseline on that same split.
+
+The first fixed-budget 9-channel attempt was evaluated and denied promotion;
+see training/guided-candidate-evaluation.md. The candidate remains a static
+contract artifact rather than a trained public model.

@@ -5,6 +5,7 @@ import {
   createParticleSeed,
   normalizedAttractorDelta,
 } from "../src/demos/gpu-particles";
+import { OneAttemptDeviceRecoveryGate } from "../src/demos/core/runtime";
 
 describe("GPU particle seed contract", () => {
   it("keeps the fixed public particle count presets", () => {
@@ -27,5 +28,18 @@ describe("GPU particle seed contract", () => {
   it("keeps attractor directions finite at the singularity", () => {
     expect(normalizedAttractorDelta(0, 0)).toEqual([0, 0]);
     expect(normalizedAttractorDelta(3, 4)).toEqual([0.6, 0.8]);
+  });
+
+  it("allows one guarded WebGPU rebuild before the caller must fall back", () => {
+    const gate = new OneAttemptDeviceRecoveryGate();
+    expect(gate.state).toBe("ready");
+    expect(gate.takeAttempt()).toBe(true);
+    expect(gate.state).toBe("recovering");
+    expect(gate.takeAttempt()).toBe(false);
+    gate.finishAttempt();
+    expect(gate.state).toBe("exhausted");
+    expect(gate.takeAttempt()).toBe(false);
+    gate.reset();
+    expect(gate.state).toBe("ready");
   });
 });

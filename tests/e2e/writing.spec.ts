@@ -6,7 +6,7 @@ test("Writing is grouped into six graphics tracks and one adjacent systems track
   await page.goto("writing/");
   await expect(page.locator(".writing-module-nav li")).toHaveCount(7);
   await expect(page.locator(".writing-module")).toHaveCount(7);
-  await expect(page.locator(".article-card")).toHaveCount(10);
+  await expect(page.locator(".article-card")).toHaveCount(12);
 
   const moduleHrefs = await page
     .locator(".writing-module-nav a")
@@ -29,7 +29,7 @@ test("English Writing cards identify Chinese full text without implying a transl
   await expect(page.locator(".writing-language-note")).toContainText(
     "ENGLISH ABSTRACT / CHINESE FULL TEXT",
   );
-  await expect(page.locator(".article-card")).toHaveCount(10);
+  await expect(page.locator(".article-card")).toHaveCount(12);
   await expect(page.locator(".article-card .card-link").first()).toHaveAttribute(
     "aria-label",
     /^READ CHINESE:/,
@@ -68,7 +68,7 @@ test("module landing pages keep bilingual alternates and responsive layout", asy
   for (const route of ["writing/modules/rendering/", "en/writing/modules/rendering/"]) {
     const response = await page.goto(route);
     expect(response?.status()).toBe(200);
-    await expect(page.locator(".writing-module-landing-content .article-card")).toHaveCount(2);
+    await expect(page.locator(".writing-module-landing-content .article-card")).toHaveCount(3);
     await expect(page.locator('link[rel="alternate"][hreflang]')).toHaveCount(2);
   }
 

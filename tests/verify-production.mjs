@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
-import { resolveSiteFeatures } from "../src/data/site-stage.mjs";
+import { resolveSiteFeatures, resolveSourceRef } from "../src/data/site-stage.mjs";
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const sourceExtensions = new Set([
@@ -85,7 +85,17 @@ function sha256(file) {
   return createHash("sha256").update(readFileSync(file)).digest("hex");
 }
 
+import { validateNeuralModelV2Artifacts } from "./neural-model-gate.mjs";
+
 function validateReviewedModelArtifacts(root, violations) {
+  const neuralManifestPath = path.join(root, "public", "models", "neural-denoiser.manifest.json");
+  if (
+    existsSync(neuralManifestPath) &&
+    /[\x22]version[\x22]\s*:\s*2/.test(readFileSync(neuralManifestPath, "utf8"))
+  ) {
+    validateNeuralModelV2Artifacts(root, violations, true);
+    return;
+  }
   const modelRoot = path.join(root, "public", "models");
   const model = path.join(modelRoot, "neural-denoiser.onnx");
   const manifestPath = path.join(modelRoot, "neural-denoiser.manifest.json");
@@ -265,6 +275,302 @@ export function scanReleaseFiles(root = projectRoot) {
   );
 }
 
+export function validateRenderingReleaseReadiness(root = projectRoot) {
+  const violations = [];
+  const manifestPath = path.join(root, "public", "assets", "rendering", "manifest.json");
+  const sourceLockPath = path.join(root, "public", "assets", "rendering", "sources.lock.json");
+  const runtimePath = path.join(root, "src", "demos", "research-courtyard", "scene.ts");
+  const assetRoot = path.join(root, "public", "assets", "rendering");
+  const digestPattern = /^[a-f0-9]{64}$/;
+
+  if (!existsSync(manifestPath) || !existsSync(sourceLockPath)) {
+    return [
+      {
+        code: "rendering-assets-not-reviewed",
+        file: "public/assets/rendering",
+        line: 0,
+        value: "release requires the rendering asset manifest and reviewed source lock",
+      },
+    ];
+  }
+
+  let manifest;
+  let sourceLock;
+  try {
+    manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
+    sourceLock = JSON.parse(readFileSync(sourceLockPath, "utf8"));
+  } catch {
+    return [
+      {
+        code: "rendering-assets-not-reviewed",
+        file: "public/assets/rendering",
+        line: 0,
+        value: "rendering asset manifests must be valid JSON",
+      },
+    ];
+  }
+
+  const courtyard = manifest.assets?.find((asset) => asset.id === "research-courtyard");
+  const courtyardFile =
+    typeof courtyard?.path === "string" ? path.join(root, courtyard.path) : undefined;
+  let courtyardPack;
+  if (courtyardFile && existsSync(courtyardFile)) {
+    try {
+      courtyardPack = JSON.parse(readFileSync(courtyardFile, "utf8"));
+    } catch {
+      courtyardPack = undefined;
+    }
+  }
+
+  if (
+    manifest.status !== "reviewed" ||
+    String(manifest.generatedBy ?? "").includes("placeholder") ||
+    String(courtyard?.role ?? "").includes("placeholder") ||
+    courtyardPack?.placeholder !== false
+  )
+    violations.push({
+      code: "rendering-assets-not-reviewed",
+      file: "public/assets/rendering/manifest.json",
+      line: 0,
+      value: "Research Courtyard still uses the procedural placeholder pack",
+    });
+
+  const incompleteFiles = (sourceLock.sources ?? []).flatMap((source) =>
+    (source.files ?? []).filter(
+      (file) =>
+        !/^https:\/\/dl\.polyhaven\.org\/file\//.test(file.directUrl ?? "") ||
+        !digestPattern.test(file.sha256 ?? "") ||
+        file.status !== "reviewed",
+    ),
+  );
+  const missingSourceMetadata = (sourceLock.sources ?? []).some(
+    (source) =>
+      !Array.isArray(source.authors) ||
+      source.authors.length === 0 ||
+      source.license !== "CC0" ||
+      !Array.isArray(source.files) ||
+      source.files.length === 0,
+  );
+  if (
+    sourceLock.version !== 2 ||
+    sourceLock.policy?.downloaded !== true ||
+    sourceLock.policy?.stage !== "integrated" ||
+    missingSourceMetadata ||
+    incompleteFiles.length > 0
+  )
+    violations.push({
+      code: "rendering-source-lock-not-reviewed",
+      file: "public/assets/rendering/sources.lock.json",
+      line: 0,
+      value: `${incompleteFiles.length} selected source files still lack reviewed SHA-256 state`,
+    });
+
+  const renderingFiles = walk(assetRoot, new Set([".ktx2", ".webp"]));
+  const hasKtx2 = renderingFiles.some((file) => path.extname(file).toLowerCase() === ".ktx2");
+  const hasWebp = renderingFiles.some((file) => path.extname(file).toLowerCase() === ".webp");
+  if (!hasKtx2 || !hasWebp)
+    violations.push({
+      code: "rendering-texture-fallback-pair",
+      file: "public/assets/rendering",
+      line: 0,
+      value: "release requires committed KTX2 textures and WebP fallbacks",
+    });
+
+  if (
+    !existsSync(runtimePath) ||
+    /buildProceduralResearchCourtyard|source:\s*["']procedural["']/.test(
+      readFileSync(runtimePath, "utf8"),
+    )
+  )
+    violations.push({
+      code: "rendering-courtyard-runtime-placeholder",
+      file: "src/demos/research-courtyard/scene.ts",
+      line: 0,
+      value: "release runtime must consume the reviewed packed scene rather than procedural boxes",
+    });
+
+  return violations;
+}
+
+export function validateRenderingAcceptanceEvidence(root = projectRoot) {
+  const relative = "public/evidence/rendering-v2-acceptance.json";
+  const file = path.join(root, relative);
+  if (!existsSync(file))
+    return [
+      {
+        code: "high-end-rendering-evidence-missing",
+        file: relative,
+        line: 0,
+        value: "release requires a reviewed RTX 4070-class WebGPU acceptance manifest",
+      },
+    ];
+
+  let manifest;
+  try {
+    manifest = JSON.parse(readFileSync(file, "utf8"));
+  } catch {
+    return [
+      {
+        code: "high-end-rendering-evidence-invalid",
+        file: relative,
+        line: 0,
+        value: "acceptance manifest must be valid JSON",
+      },
+    ];
+  }
+
+  if (manifest.status !== "reviewed")
+    return [
+      {
+        code: "high-end-rendering-evidence-pending",
+        file: relative,
+        line: 0,
+        value: "real Windows 11 / RTX 4070-class Chromium WebGPU review is still pending",
+      },
+    ];
+
+  const violations = [];
+  const target = manifest.target;
+  if (
+    manifest.version !== 1 ||
+    target?.os !== "Windows 11" ||
+    target?.adapterClass !== "NVIDIA RTX 4070 class" ||
+    target?.browser !== "Chromium Stable" ||
+    target?.viewportWidth !== 1920 ||
+    target?.viewportHeight !== 1080 ||
+    target?.dpr !== 1
+  )
+    violations.push({
+      code: "high-end-rendering-target",
+      file: relative,
+      line: 0,
+      value: "acceptance target drifted from the fixed Windows 11 / RTX 4070-class contract",
+    });
+
+  const run = manifest.reviewedRun;
+  const capturePath =
+    typeof run?.evidencePath === "string" ? path.join(root, run.evidencePath) : undefined;
+  if (
+    run?.os !== "Windows 11" ||
+    !/RTX\s*4070/i.test(run?.adapter ?? "") ||
+    run?.browser !== "Chromium Stable" ||
+    typeof run?.browserVersion !== "string" ||
+    run.browserVersion.length === 0 ||
+    run?.viewportWidth !== 1920 ||
+    run?.viewportHeight !== 1080 ||
+    run?.dpr !== 1 ||
+    typeof run?.reviewer !== "string" ||
+    run.reviewer.length === 0 ||
+    !/^\d{4}-\d{2}-\d{2}T/.test(run?.reviewedAt ?? "") ||
+    !capturePath ||
+    !existsSync(capturePath) ||
+    !/^[a-f0-9]{64}$/.test(run?.evidenceSha256 ?? "") ||
+    (capturePath && existsSync(capturePath) && sha256(capturePath) !== run.evidenceSha256)
+  )
+    violations.push({
+      code: "high-end-rendering-run",
+      file: relative,
+      line: 0,
+      value: "reviewed run identity, capture, or SHA-256 is incomplete",
+    });
+
+  const requiredSlugs = [
+    "material-lighting",
+    "clustered-lighting",
+    "shadow-aa",
+    "render-graph",
+    "frame-inspector",
+    "gpu-particles",
+    "path-tracer",
+    "neural-denoising",
+  ];
+  const entries = new Map((manifest.demos ?? []).map((entry) => [entry.slug, entry]));
+  if (
+    entries.size !== requiredSlugs.length ||
+    requiredSlugs.some((slug) => !entries.has(slug)) ||
+    [...entries.values()].some((entry) => entry.status !== "passed")
+  )
+    violations.push({
+      code: "high-end-rendering-demo-inventory",
+      file: relative,
+      line: 0,
+      value: "all eight Demo reviews must be present and passed",
+    });
+
+  const checks = [
+    ["material-lighting", "fpsP50", (value) => value >= 60],
+    ["material-lighting", "frameTimeP95Ms", (value) => value <= 22],
+    ["clustered-lighting", "fpsP50", (value) => value >= 60],
+    ["clustered-lighting", "frameTimeP95Ms", (value) => value <= 22],
+    ["clustered-lighting", "cluster512Overflow", (value) => value === 0],
+    ["shadow-aa", "fpsP50", (value) => value >= 60],
+    ["shadow-aa", "frameTimeP95Ms", (value) => value <= 22],
+    ["frame-inspector", "fpsP50", (value) => value >= 60],
+    ["frame-inspector", "frameTimeP95Ms", (value) => value <= 22],
+    ["gpu-particles", "instances100kFpsP50", (value) => value >= 60],
+    ["gpu-particles", "particles250kFpsP50", (value) => value >= 60],
+    ["path-tracer", "progressiveUpdatesPerSecond", (value) => value >= 30],
+    ["neural-denoising", "webgpuP50Ms", (value) => value <= 20],
+    ["neural-denoising", "webgpuP95Ms", (value) => value <= 30],
+    ["neural-denoising", "wasmP50Ms", (value) => value <= 250],
+  ];
+  const numericFailure = checks.some(([slug, key, predicate]) => {
+    const value = entries.get(slug)?.metrics?.[key];
+    return typeof value !== "number" || !predicate(value);
+  });
+  if (
+    numericFailure ||
+    entries.get("render-graph")?.metrics?.functionalReview !== true ||
+    entries.get("frame-inspector")?.metrics?.attachmentReadback !== true
+  )
+    violations.push({
+      code: "high-end-rendering-thresholds",
+      file: relative,
+      line: 0,
+      value: "one or more required high-end functional/performance thresholds are missing",
+    });
+
+  return violations;
+}
+
+export function validateDemoReleaseMaturity(root = projectRoot) {
+  const demoRoot = path.join(root, "src", "content", "demos");
+  if (!existsSync(demoRoot)) return [];
+  const entries = walk(demoRoot, new Set([".md", ".mdx"])).flatMap((file) => {
+    const source = readFileSync(file, "utf8");
+    const frontmatter = source.match(/^---\s*\r?\n([\s\S]*?)\r?\n---/)?.[1] ?? "";
+    const field = (name) => frontmatter.match(new RegExp(`^${name}:\\s*(.+)$`, "m"))?.[1]?.trim();
+    if (field("draft") === "true") return [];
+    return [
+      {
+        file: path.relative(root, file).replaceAll(path.sep, "/"),
+        slug: field("routeSlug"),
+        locale: field("locale"),
+        status: field("status"),
+        maturity: field("maturity"),
+      },
+    ];
+  });
+  const slugs = new Set(entries.map((entry) => entry.slug));
+  const incomplete = entries.filter(
+    (entry) => entry.status !== "completed" || entry.maturity !== "completed",
+  );
+  if (entries.length === 16 && slugs.size === 8 && incomplete.length === 0) return [];
+  return [
+    {
+      code: "demos-not-completed",
+      file: "src/content/demos",
+      line: 0,
+      value:
+        incomplete.length > 0
+          ? `Release requires completed bilingual Demo entries; incomplete: ${[
+              ...new Set(incomplete.map((entry) => entry.slug)),
+            ].join(", ")}`
+          : `expected 16 bilingual entries for 8 Demos, found ${entries.length}/${slugs.size}`,
+    },
+  ];
+}
+
 export function validateReleaseArtifacts(root = projectRoot) {
   const violations = [];
   const expectedBase = "https://yzscodehub.github.io/graphics-portfolio/";
@@ -276,7 +582,11 @@ export function validateReleaseArtifacts(root = projectRoot) {
   const mediaManifest = path.join(root, "public", "media", "assets-manifest.json");
   const ogManifest = path.join(root, "public", "og", "manifest.json");
   const manifestOgPaths = new Set();
+  const expectedSourceRef = resolveSourceRef(process.env.SOURCE_REF, "release");
   validateReviewedModelArtifacts(root, violations);
+  violations.push(...validateRenderingReleaseReadiness(root));
+  violations.push(...validateRenderingAcceptanceEvidence(root));
+  violations.push(...validateDemoReleaseMaturity(root));
 
   if (!existsSync(outputRoot)) {
     violations.push({
@@ -353,7 +663,7 @@ export function validateReleaseArtifacts(root = projectRoot) {
         value: "EvidenceManifest must record capture/generation environments",
       });
     for (const [role, expected] of Object.entries({
-      "demo-poster": 7,
+      "demo-poster": 8,
       "project-cover": 4,
       "project-architecture": 4,
       "demo-runtime-capture": 4,
@@ -433,12 +743,12 @@ export function validateReleaseArtifacts(root = projectRoot) {
         line: 0,
         value: "release OG manifest must contain generated cards",
       });
-    if ((manifest.cards ?? []).length !== 22)
+    if ((manifest.cards ?? []).length !== 25)
       violations.push({
         code: "og-inventory",
         file: "public/og/manifest.json",
         line: 0,
-        value: `expected 22 cards, found ${(manifest.cards ?? []).length}`,
+        value: `expected 25 cards, found ${(manifest.cards ?? []).length}`,
       });
     for (const card of manifest.cards ?? []) {
       if (typeof card.path === "string") manifestOgPaths.add(card.path);
@@ -512,6 +822,16 @@ export function validateReleaseArtifacts(root = projectRoot) {
     const source = readFileSync(html, "utf8");
     const relative = path.relative(root, html).replaceAll(path.sep, "/");
     const isNotFound = relative === "dist/404.html";
+    for (const sourceLink of source.matchAll(/<a\b[^>]*data-demo-source-link[^>]*>/gi)) {
+      const href = sourceLink[0].match(/href=["']([^"']+)["']/i)?.[1] ?? "";
+      if (!href.includes(`/blob/${expectedSourceRef}/src/demos/`))
+        violations.push({
+          code: "demo-source-ref",
+          file: relative,
+          line: 0,
+          value: `Demo source links must use release ref ${expectedSourceRef}`,
+        });
+    }
     if (/media\/placeholders\//i.test(source))
       violations.push({
         code: "placeholder-media",

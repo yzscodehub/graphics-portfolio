@@ -5,13 +5,21 @@ import {
   makeButton,
   resizeCanvas,
 } from "./core/canvas";
+import { OneAttemptDeviceRecoveryGate } from "./core/runtime";
 import type { DemoContext, DemoController } from "./core/types";
-import { WebGpuPathTracer } from "./path-tracer/renderer";
+import {
+  estimatedMonteCarloError,
+  WebGpuPathTracer,
+  type PathTracerEvidence,
+} from "./path-tracer/renderer";
+
+import { makeLowFrequencyConvergenceEvidence } from "./path-tracer/convergence";
 
 interface PathRenderer {
   resize(width: number, height: number): void;
   setBounces(bounces: number): void;
   setUserPaused(paused: boolean): void;
+  setEvidenceSink?(sink: (evidence: PathTracerEvidence) => void): void;
   reset(): void;
   pause(): void;
   resume(): void;
@@ -73,6 +81,9 @@ export function createDemo(): DemoController {
   let width = 1;
   let height = 1;
   let generation = 0;
+  let evidenceSink: ((evidence: PathTracerEvidence) => void) | undefined;
+  const convergence = makeLowFrequencyConvergenceEvidence();
+  const deviceRecovery = new OneAttemptDeviceRecoveryGate();
 
   const useFallback = (reason: string, expectedGeneration: number) => {
     if (generation !== expectedGeneration) return;
@@ -80,26 +91,60 @@ export function createDemo(): DemoController {
     const fallback = new CanvasPathFallback(context, bounces);
     fallback.resize(width, height);
     fallback.setUserPaused(userPaused);
+    if (evidenceSink) fallback.setEvidenceSink?.(evidenceSink);
     active = fallback;
     if (running) fallback.resume();
     context.setRuntimeState?.("fallback");
     context.setStatus(`${reason} Showing labeled CPU path-like fallback.`, "warning");
   };
 
-  const setup = async () => {
+  // recoverDevice closes over setup before initialization; callbacks run after setup is assigned.
+  // eslint-disable-next-line prefer-const
+  let setup: () => Promise<boolean>;
+
+  const recoverDevice = async (message: string, lostGeneration: number) => {
+    const action = deviceRecovery.claim(lostGeneration, generation);
+    if (action === "ignore") return;
+    if (action === "fallback") {
+      useFallback(
+        message + " A second device loss occurred; using Canvas fallback.",
+        lostGeneration,
+      );
+      return;
+    }
+
+    context.setStatus(
+      message + " Attempting one guarded WebGPU rebuild; accumulation history resets to 0 SPP.",
+      "warning",
+    );
+    const recovered = await setup();
+    deviceRecovery.complete(lostGeneration);
+    if (recovered && active)
+      context.setStatus(
+        "WebGPU device recovery succeeded. Accumulation history reset to 0 SPP.",
+        "success",
+      );
+  };
+
+  setup = async () => {
     const currentGeneration = ++generation;
     active?.dispose();
     active = undefined;
     try {
-      const renderer = await WebGpuPathTracer.create(context, bounces, width, height, (message) =>
-        useFallback(message, currentGeneration),
+      const renderer = await WebGpuPathTracer.create(
+        context,
+        bounces,
+        width,
+        height,
+        (message) => void recoverDevice(message, currentGeneration),
       );
       if (generation !== currentGeneration) {
         renderer.dispose();
-        return;
+        return false;
       }
       renderer.resize(width, height);
       renderer.setUserPaused(userPaused);
+      if (evidenceSink) renderer.setEvidenceSink(evidenceSink);
       active = renderer;
       if (running) renderer.resume();
       context.setRuntimeState?.("running");
@@ -109,14 +154,16 @@ export function createDemo(): DemoController {
       );
       context.setMetrics({
         backend: renderer.backendLabel,
-        status: "0 SPP · reviewed linear accumulation",
+        status: "0 SPP | reviewed linear accumulation",
         metricSource: "animation-frame",
       });
+      return true;
     } catch (error) {
       useFallback(
         error instanceof Error ? error.message : "WebGPU path tracer could not initialize.",
         currentGeneration,
       );
+      return false;
     }
   };
 
@@ -162,7 +209,28 @@ export function createDemo(): DemoController {
         },
         { signal: context.signal },
       );
-      context.controls.append(...bounceButtons, pauseButton, resetButton);
+      const evidence = document.createElement("output");
+      evidence.className = "demo-inline-evidence";
+      evidence.setAttribute("aria-live", "off");
+      evidenceSink = (sample) => {
+        const curve = convergence.points
+          .map((point) => point.spp + ":" + point.mse.toExponential(2))
+          .join(" ");
+        evidence.textContent =
+          "SPP " +
+          sample.samples +
+          " | BVH " +
+          sample.bvhNodes +
+          " NODES / " +
+          sample.triangles +
+          " TRIANGLES | OVERFLOW " +
+          sample.bvhOverflowCount +
+          " | LF-MSE[1..64] " +
+          curve +
+          " | REF " +
+          convergence.referenceSamples;
+      };
+      context.controls.append(...bounceButtons, pauseButton, resetButton, evidence);
       await setup();
     },
     resize(nextWidth, nextHeight) {
@@ -180,6 +248,7 @@ export function createDemo(): DemoController {
     },
     dispose() {
       generation += 1;
+      deviceRecovery.invalidate();
       active?.dispose();
       active = undefined;
     },
@@ -196,6 +265,7 @@ class CanvasPathFallback implements PathRenderer {
   private raf = 0;
   private samples = 0;
   private readonly report: ReturnType<typeof createMetricReporter>;
+  private evidenceSink: ((evidence: PathTracerEvidence) => void) | undefined;
 
   constructor(
     private readonly shell: DemoContext,
@@ -229,8 +299,14 @@ class CanvasPathFallback implements PathRenderer {
     this.schedule();
   }
 
+  setEvidenceSink(sink: (evidence: PathTracerEvidence) => void): void {
+    this.evidenceSink = sink;
+    this.reportEvidence();
+  }
+
   reset(): void {
     this.samples = 0;
+    this.reportEvidence();
   }
 
   pause(): void {
@@ -299,8 +375,19 @@ class CanvasPathFallback implements PathRenderer {
       samples: this.samples,
       metricSource: "animation-frame",
     });
+    this.reportEvidence();
     this.schedule();
   };
+
+  private reportEvidence(): void {
+    this.evidenceSink?.({
+      samples: this.samples,
+      triangles: 0,
+      bvhNodes: 0,
+      bvhOverflowCount: 0,
+      estimatedMonteCarloError: estimatedMonteCarloError(this.samples),
+    });
+  }
 
   private schedule(): void {
     if (!this.running || this.userPaused || this.raf) return;

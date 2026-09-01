@@ -7,8 +7,8 @@ summary: Run an explicitly requested ONNX model against a hashed held-out pair, 
 category: machine-learning
 renderer: ONNX Runtime WebGPU/WASM + deterministic Canvas probe
 backend: onnx-web
-status: completed
-maturity: completed
+status: in-progress
+maturity: in-progress
 evidence: measured
 backends:
   - id: onnx-web
@@ -43,6 +43,7 @@ controls:
   - REFERENCE
   - ERROR
   - RUN REVIEWED MODEL
+  - SHOW GUIDED CANDIDATE
 metrics:
   - label: Validation L1 reduction
     value: 38.9%
@@ -63,17 +64,33 @@ metrics:
 metricSource:
   kind: offline-validation
   description: Confirmed L1/PSNR values come from the independent held-out pair and offline validation record; P50/P95 are measured only after an explicit browser run and vary by device/backend.
+currentLimit: Guided remains an unreviewed static candidate with no ONNX quality claim; only the reviewed RGB model is completed.
 fallbackImage: /media/demos/neural-denoising-poster.svg
 relatedProjects:
   - neural-graphics-lab
 relatedArticles:
   - path-tracing-to-neural-denoising
+assetIds:
+  - neural-heldout-v2
+modes:
+  - rgb
+  - guided
+sourceUrl: https://github.com/yzscodehub/graphics-portfolio/blob/main/src/demos/neural-denoising.ts
 draft: false
 ---
 
 ## What runs
 
 The page initially renders a deterministic procedural probe. It does not silently download model data. Clicking `RUN REVIEWED MODEL` fetches the versioned held-out manifest and paired float assets, validates their byte lengths and SHA-256 hashes, then selects ONNX Runtime WebGPU when available or single-thread WASM otherwise.
+
+## Model status
+
+The RGB model is reviewed and is the completed part of this Demo. Its
+published L1 and PSNR values belong only to that reviewed RGB model.
+
+Guided is a hash-bound static candidate, not a reviewed ONNX model. It has no
+published quality improvement claim and remains blocked from Release until a
+same-split reviewed model improves both L1 and PSNR.
 
 ## Evidence and metrics
 

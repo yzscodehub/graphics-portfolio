@@ -3,6 +3,7 @@
 *.pdf binary
 *.onnx binary
 *.f32 binary
+*.f16 binary
 *.png binary
 *.jpg binary
 *.webp binary

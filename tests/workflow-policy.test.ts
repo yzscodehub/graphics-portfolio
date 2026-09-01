@@ -1,10 +1,17 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
+const ci = readFileSync(".github/workflows/ci.yml", "utf8");
 const preview = readFileSync(".github/workflows/preview-pages.yml", "utf8");
 const release = readFileSync(".github/workflows/release-pages.yml", "utf8");
 
 describe("Pages deployment policy", () => {
+  it("verifies the build identity manifest before every browser suite", () => {
+    for (const workflow of [ci, preview, release]) {
+      expect(workflow).toContain("pnpm run build:manifest:verify");
+    }
+  });
+
   it("serializes Preview and Release through one Pages concurrency group", () => {
     expect(preview).toMatch(/concurrency:\s*\n\s+group: pages\s*\n/);
     expect(release).toMatch(/concurrency:\s*\n\s+group: pages\s*\n/);

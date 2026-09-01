@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "node": "24",
+  "pnpm": "11",
+  "sharp": "0.35.4",
+  "gltfTransformCli": "4.4.2",
+  "gltfpack": "1.1",
+  "ktxSoftware": "4.4.2",
+  "notes": "External conversion tools are recorded but intentionally not installed by the website package. They are needed only by an explicit local external-asset rebuild."
+}

@@ -20,6 +20,52 @@ interface CleanupEntry {
   cleanup: Cleanup;
 }
 
+export type DeviceRecoveryState = "ready" | "recovering" | "exhausted";
+export type DeviceRecoveryAction = "recover" | "fallback" | "ignore";
+
+/** One renderer lifecycle receives one generation-guarded rebuild attempt. */
+export class OneAttemptDeviceRecoveryGate {
+  private current: DeviceRecoveryState = "ready";
+  private recoveringGeneration: number | undefined;
+
+  get state(): DeviceRecoveryState {
+    return this.current;
+  }
+
+  reset(): void {
+    this.current = "ready";
+    this.recoveringGeneration = undefined;
+  }
+
+  takeAttempt(): boolean {
+    if (this.current !== "ready") return false;
+    this.current = "recovering";
+    return true;
+  }
+
+  finishAttempt(): void {
+    if (this.current === "recovering") this.current = "exhausted";
+    this.recoveringGeneration = undefined;
+  }
+
+  claim(lostGeneration: number, currentGeneration: number): DeviceRecoveryAction {
+    if (lostGeneration !== currentGeneration || this.current === "recovering") return "ignore";
+    if (this.current === "exhausted") return "fallback";
+    this.current = "recovering";
+    this.recoveringGeneration = lostGeneration;
+    return "recover";
+  }
+
+  complete(lostGeneration: number): void {
+    if (this.recoveringGeneration === lostGeneration) this.finishAttempt();
+  }
+
+  invalidate(): void {
+    if (this.current === "recovering") this.current = "exhausted";
+    this.recoveringGeneration = undefined;
+  }
+}
+
 export class ResourceScope implements DemoResourceScope {
   private readonly abortController = new AbortController();
   private readonly entries: CleanupEntry[] = [];

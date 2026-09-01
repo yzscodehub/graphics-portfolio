@@ -8,11 +8,19 @@ import {
   type Ray,
 } from "../src/demos/path-tracer/bvh";
 import { resolveDielectricInterface, runningMean } from "../src/demos/path-tracer";
+import { estimatedMonteCarloError } from "../src/demos/path-tracer/renderer";
 import { createCornellScene, encodeMaterials } from "../src/demos/path-tracer/scene";
 
 describe("path tracer CPU reference", () => {
   const scene = createCornellScene();
   const bvh = buildMedianBvh(scene.triangles);
+
+  it("reports the expected Monte Carlo convergence envelope", () => {
+    expect(estimatedMonteCarloError(0)).toBe(1);
+    expect(estimatedMonteCarloError(1)).toBe(1);
+    expect(estimatedMonteCarloError(16)).toBe(0.25);
+    expect(() => estimatedMonteCarloError(-1)).toThrow(/non-negative/);
+  });
 
   it("builds a flat median BVH and GPU-aligned buffers", () => {
     expect(bvh.nodes.length).toBeGreaterThan(1);

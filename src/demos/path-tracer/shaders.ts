@@ -30,6 +30,7 @@ struct Hit {
 @group(0) @binding(3) var<storage, read> nodes: array<BvhNode>;
 @group(0) @binding(4) var<storage, read> materials: array<Material>;
 @group(0) @binding(5) var<uniform> params: Params;
+@group(0) @binding(6) var<storage, read_write> traversalStats: array<atomic<u32>, 1>;
 
 fn hash(value: vec3f) -> f32 {
   return fract(sin(dot(value, vec3f(12.9898, 78.233, 37.719))) * 43758.5453);
@@ -89,10 +90,12 @@ fn trace(origin: vec3f, direction: vec3f, maximumDistance: f32) -> Hit {
           closest = Hit(distance, i32(triangleIndex), geometricNormal);
         }
       }
-    } else if (stackSize < 62) {
+    } else if (stackSize <= 62) {
       stack[stackSize] = i32(node.meta.y);
       stack[stackSize + 1] = i32(node.meta.x);
       stackSize = stackSize + 2;
+    } else {
+      atomicAdd(&traversalStats[0], 1u);
     }
   }
   return closest;
