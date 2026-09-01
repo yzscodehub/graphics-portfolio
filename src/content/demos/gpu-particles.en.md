@@ -7,8 +7,8 @@ summary: Compare a ping-pong particle simulation with GPU-driven instance visibi
 category: gpu
 renderer: Raw WebGPU + WGSL / Canvas 2D fallback
 backend: raw-webgpu
-status: completed
-maturity: completed
+status: in-progress
+maturity: in-progress
 evidence: measured
 backends:
   - id: raw-webgpu
@@ -31,7 +31,7 @@ requirements:
     capability: webgpu
 fallback:
   kind: canvas-2d
-  description: A reduced Canvas 2D lifecycle preview preserves the controls and labels itself when WebGPU is unavailable.
+  description: A labeled Canvas path reruns deterministic CPU frustum/LOD culling and shows a sampled visibility heatmap when WebGPU is unavailable.
   image: /media/demos/gpu-particles-poster.svg
 controls:
   - MODE SIMULATION
@@ -39,6 +39,9 @@ controls:
   - 25K particles
   - 100K particles
   - 250K particles
+  - 10K / 50K / 100K instances
+  - CPU BASELINE / RAW WEBGPU
+  - CAMERA SWEEP
   - Attractor range
   - Pointer attractor
   - Pause / Resume
@@ -56,23 +59,23 @@ relatedArticles:
   - webgpu-particles-path-tracing
   - gpu-driven-visibility-indirect
 assetIds:
-  - research-courtyard
+  - visibility-instance-field
 modes:
   - simulation
   - visibility
-referenceScene: research-courtyard
+referenceScene: visibility-instance-field
 sourceUrl: https://github.com/yzscodehub/graphics-portfolio/blob/main/src/demos/gpu-particles.ts
 draft: false
 ---
 
 ## What runs
 
-The WebGPU path keeps two particle buffers and alternates their read/write roles each frame. A Compute Pass updates position, velocity, age, lifetime, and seed; expired or escaped particles are respawned deterministically. A Render Pass consumes the written buffer and draws points whose color and alpha reflect remaining lifetime.
+Simulation keeps two particle buffers and alternates their read/write roles each frame. Visibility uses a separate deterministic instance field: Compute frustum culling selects an LOD, atomically compacts it into one of three fixed segments, writes three 32-byte indexed-indirect commands, and issues three `drawIndexedIndirect` calls against distinct index ranges. `firstInstance` remains zero for every command.
 
 ## Interaction and measurement
 
-The count buttons rebuild the resource set for 25K, 100K, or 250K particles. Pointer movement controls the attractor, the range controls its strength, and Pause/Reset act on both the native and Canvas implementations. If the adapter exposes `timestamp-query`, the Demo resolves separate Compute and Render intervals and reports them with a `gpu-timestamp-query` source; otherwise it explicitly reports timing as unavailable.
+Simulation count buttons rebuild 25K, 100K, or 250K particles. Visibility selects 10K, 50K, or 100K instances and exposes CPU Baseline, Raw WebGPU, Camera Sweep, Pause, and Reset. The CPU baseline reruns the same frustum/LOD reference every frame and reports CPU culling time. The GPU path performs low-frequency readback of all three commands plus tested, visible, and LOD counters. If the adapter exposes `timestamp-query`, Compute and Render intervals are reported separately; otherwise timing is explicitly unavailable.
 
 ## Fallback boundary
 
-The Canvas fallback implements the same lifecycle and attractor concepts at a reduced scale. It is useful for inspection, but its animation-frame cadence must not be compared directly with native GPU timestamps.
+The Canvas fallback reruns the same deterministic visibility reference but only draws a sampled heatmap. On the first `device.lost`, the controller disposes the old renderer and attempts one generation-guarded rebuild with the current mode, count, and camera-sweep state; a failed rebuild or second loss falls back to Canvas. Its CPU/animation-frame cadence must not be compared directly with native GPU timestamps. This Demo remains in progress until real-WebGPU three-command readback and performance acceptance are captured on the declared hardware.

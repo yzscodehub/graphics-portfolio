@@ -25,8 +25,8 @@
       "role": "demo-poster",
       "owner": "yzscodehub",
       "license": "self-authored",
-      "bytes": 2011,
-      "sha256": "b046c6c7dc611be98d3c77138116462b5b68ede07c0ee67332ffb190435bb2a0",
+      "bytes": 2023,
+      "sha256": "4328e1b39b496e95748ae12348d004718b565f0d21309c289dacc34fb09d0b5e",
       "width": 1600,
       "height": 900,
       "environment": "deterministic-local-generator"

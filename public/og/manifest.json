@@ -48,11 +48,11 @@
     },
     {
       "path": "/og/demos/material-lighting.png",
-      "title": "Material & Lighting",
+      "title": "Material & Color Pipeline",
       "width": 1200,
       "height": 630,
-      "bytes": 55175,
-      "sha256": "2259c10b91baae493e7aa1f52d85523409d3d16f619a189b9dd91928813a34c4"
+      "bytes": 55488,
+      "sha256": "e10cd6e98bfd606257e381e894e3de1d0aa83395db99e66ecc78de7bf5415d34"
     },
     {
       "path": "/og/demos/clustered-lighting.png",

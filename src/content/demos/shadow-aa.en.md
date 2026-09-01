@@ -7,8 +7,8 @@ summary: Compare shared raw-WebGPU shadow, G-Buffer, depth, velocity, temporal h
 category: rendering
 renderer: Raw WebGPU reference frame / Canvas 2D fallback
 backend: raw-webgpu
-status: completed
-maturity: completed
+status: in-progress
+maturity: in-progress
 evidence: verified
 backends:
   - id: raw-webgpu
@@ -46,7 +46,7 @@ metrics: []
 metricSource:
   kind: runtime
   description: The live renderer reports backend and selected mode; no fixed cross-device GPU performance number is published.
-currentLimit: The Canvas reject view is illustrative rather than a captured GPU attachment, and this study does not include a shadow atlas or production scene streaming.
+currentLimit: The live path currently uses the self-authored analytical Reference Frame rather than the packed Research Courtyard; the Canvas reject view is illustrative rather than a captured GPU attachment.
 fallbackImage: /media/demos/shadow-aa-poster.svg
 relatedProjects:
   - real-time-rendering-lab
@@ -54,11 +54,11 @@ relatedArticles:
   - shadow-temporal-aa
   - frame-inspector-observability
 assetIds:
-  - research-courtyard
+  - reference-frame-procedural
 modes:
   - shadow
   - temporal
-referenceScene: research-courtyard
+referenceScene: reference-frame-procedural
 sourceUrl: https://github.com/yzscodehub/graphics-portfolio/blob/main/src/demos/shadow-aa.ts
 draft: false
 ---
@@ -74,3 +74,4 @@ TAA uses UV velocity projected from current/previous world points, Halton jitter
 ## Fallback boundary
 
 When WebGPU cannot initialize or the device is lost, the page switches to a clearly labeled Canvas comparison. Its reject view is an illustration, not a captured GPU reject attachment; the fallback preserves mode vocabulary and reset behavior but is not a substitute for the raw G-Buffer implementation.
+On the first device loss, the controller first attempts one generation-guarded Reference Frame rebuild; initialization failure or a second loss enters the Canvas comparison.

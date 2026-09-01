@@ -35,6 +35,8 @@ updatedAt: 2026-08-31
 draft: false
 ---
 
+> 当前站点实现边界：Visibility 使用 32-byte `position/radius/color` 实例记录和确定性视锥；CPU Baseline 在每帧重新执行同一裁剪与距离阈值 LOD 切分，不上传通用 Transform Buffer。GPU 路径把 LOD0/1/2 分别压缩到三个 segment，写入三条 32-byte aligned indexed indirect command（各自具有不同 `firstIndex/indexCount`，`firstInstance = 0`），并执行三次 `drawIndexedIndirect`。低频 readback 同时校验 Tested、Visible、三档 LOD Count 和全部 command。本文中关于 64-byte packed scene、屏幕误差 LOD、Hi-Z 或通用资产管线的段落属于后续设计目标，不应被当作当前 Demo 已实现能力。
+
 GPU-driven rendering 的重点不是“把更多代码放进 Compute Shader”，而是改变提交边界：CPU 不再逐对象决定是否绘制和调用多少次 Draw，而是上传稳定的场景描述，由 GPU 生成当帧可见实例列表、LOD 选择和 Indirect Command。只有当这条数据路径可以被读回、对照和测量时，它才是系统能力，而不是一个数量更大的粒子效果。
 
 站内 Demo 保留 Particles 作为 `Simulation` 模式，因为 Ping-Pong Storage Buffer 能清楚展示 Compute 写、Vertex 读和资源生命周期；新增的 `Visibility` 模式则使用 Research Courtyard 的实例资源，证明 Culling 与 Indirect Draw。两个模式共享 Runtime、Timestamp、Pause/Resume 和 Device Lost 契约，但不混用指标。

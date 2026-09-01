@@ -21,7 +21,7 @@ const projects = [
 ];
 
 const demos = [
-  ["material-lighting", "Material & Lighting", "WEBGPU / TSL / PBR / IBL"],
+  ["material-lighting", "Material & Color Pipeline", "WEBGPU / TSL / PBR / IBL"],
   ["clustered-lighting", "Clustered / Deferred Lighting", "GBUFFER / CLUSTER LIGHT LIST"],
   ["render-graph", "Render Graph Explorer", "CULL / LIFETIME / ALIAS"],
   ["gpu-particles", "GPU-Driven Visibility & Compute", "SIMULATION / LOD / INDIRECT"],

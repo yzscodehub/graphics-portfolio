@@ -7,8 +7,8 @@ summary: Compare Naive Forward, Deferred, and Clustered Lighting in one Research
 category: rendering
 renderer: Raw WebGPU / Canvas 2D fallback
 backend: raw-webgpu
-status: completed
-maturity: completed
+status: in-progress
+maturity: in-progress
 evidence: measured
 backends:
   - id: raw-webgpu
@@ -51,7 +51,7 @@ metrics:
 metricSource:
   kind: runtime
   description: GPU geometry, Compute assignment, and lighting time are reported only when timestamp-query is available. A low-frequency 64-light CPU reference readback checks GPU list membership and overflow separately.
-currentLimit: Cluster lists are CPU-built and uploaded, the courtyard is procedural, and Frame Inspector does not share this renderer's heatmap or GPU resources.
+currentLimit: Naive, Deferred, and Clustered now use separate pass DAGs, but this proxy courtyard has not completed real-WebGPU hardware validation; the packed scene is not yet connected, and Frame Inspector does not share this renderer's heatmap or GPU resources.
 fallbackImage: /media/demos/clustered-lighting-poster.svg
 relatedProjects:
   - real-time-rendering-lab
@@ -59,7 +59,7 @@ relatedArticles:
   - clustered-deferred-lighting
   - frame-inspector-observability
 assetIds:
-  - research-courtyard
+  - clustered-courtyard-proxy
 modes:
   - naive
   - deferred
@@ -80,3 +80,5 @@ Alongside Final, the page exposes a G-Buffer visualization, Depth Slice, and a l
 ## Current boundary
 
 This study does not implement Hi-Z, meshlets, transparent clustered-forward shading, a shadow atlas, or a general glTF editor. The current runtime uses a self-authored procedural Research Courtyard; the separately audited asset manifest reserves a later packed-scene path. Cluster Heatmap belongs only to this standalone renderer. Frame Inspector currently uses an independent Reference Frame and does not claim to display this heatmap or share its GPU resources.
+
+The first current-generation device loss rebuilds the selected mode, light count, and view once. A failed rebuild or second loss enters the labeled Canvas diagnostic fallback.

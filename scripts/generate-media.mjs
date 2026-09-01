@@ -114,7 +114,7 @@ const demoBodies = {
 };
 
 const demos = [
-  ["material-lighting", "Material & Lighting", "WEBGPU / TSL / PBR / IBL"],
+  ["material-lighting", "Material & Color Pipeline", "WEBGPU / TSL / PBR / IBL"],
   [
     "clustered-lighting",
     "Clustered / Deferred Lighting",

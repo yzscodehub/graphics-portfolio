@@ -3,9 +3,9 @@ routeSlug: neural-graphics-lab
 translationKey: neural-graphics-lab
 locale: zh-CN
 title: Neural Graphics Lab
-summary: 一个范围明确的完成版降噪流程，包含哈希校验留出资源、ONNX WebGPU/WASM 推理和确定性回退。
+summary: 一个进行中的 RGB/Guided 降噪对比，包含哈希留出资源、已审核 RGB 推理与 fail-closed Guided 质量门禁。
 year: 2026
-status: completed
+status: in-progress
 role: 独立图形与机器学习工程实践
 platforms:
   - Python

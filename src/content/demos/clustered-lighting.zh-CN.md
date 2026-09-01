@@ -7,8 +7,8 @@ summary: 在共享 Research Courtyard 中比较 Naive Forward、Deferred 与 Clu
 category: rendering
 renderer: Raw WebGPU / Canvas 2D 回退
 backend: raw-webgpu
-status: completed
-maturity: completed
+status: in-progress
+maturity: in-progress
 evidence: measured
 backends:
   - id: raw-webgpu
@@ -51,7 +51,7 @@ metrics:
 metricSource:
   kind: runtime
   description: timestamp-query 可用时分别报告 GPU geometry、Compute assignment 和 lighting 时间。低频 64-light CPU reference readback 单独核对 GPU list membership 与 overflow。
-currentLimit: Cluster List 当前由 CPU 构建并上传，Courtyard 仍为程序化场景，Frame Inspector 不共享此 Renderer 的 Heatmap 或 GPU 资源。
+currentLimit: Naive、Deferred 与 Clustered 现使用不同 pass DAG，但这个 proxy courtyard 尚未完成真实 WebGPU 硬件验收；packed scene 尚未接入，Frame Inspector 不共享此 Renderer 的 Heatmap 或 GPU 资源。
 fallbackImage: /media/demos/clustered-lighting-poster.svg
 relatedProjects:
   - real-time-rendering-lab
@@ -59,7 +59,7 @@ relatedArticles:
   - clustered-deferred-lighting
   - frame-inspector-observability
 assetIds:
-  - research-courtyard
+  - clustered-courtyard-proxy
 modes:
   - naive
   - deferred
@@ -80,3 +80,5 @@ Final 之外，页面允许查看 G-Buffer visualization、Depth Slice 和 Light
 ## 当前边界
 
 本 Demo 不实现 Hi-Z、Meshlet、透明物体的 Clustered Forward、阴影图集或通用 glTF 编辑器。当前运行时使用自制的程序化 Research Courtyard；独立审计的 asset manifest 只为后续 packed-scene 路径预留接口。Cluster Heatmap 只属于这个独立 renderer。Frame Inspector 当前使用独立的 Reference Frame，不声称显示此 Heatmap，也不声称共享 GPU 资源。
+
+当前 Generation 首次发生 Device Loss 时，会按选定模式、光源数量和 View 尝试重建一次；重建失败或第二次 Loss 才进入明确标注的 Canvas 诊断回退。

@@ -7,8 +7,8 @@ summary: 使用共享的原生 WebGPU 参考帧比较阴影、G-Buffer、深度�
 category: rendering
 renderer: Raw WebGPU 参考帧 / Canvas 2D 回退
 backend: raw-webgpu
-status: completed
-maturity: completed
+status: in-progress
+maturity: in-progress
 evidence: verified
 backends:
   - id: raw-webgpu
@@ -46,7 +46,7 @@ metrics: []
 metricSource:
   kind: runtime
   description: 实时渲染器报告后端和选择的模式，不发布跨设备固定 GPU 性能数字。
-currentLimit: Canvas Reject View 只是示意图而不是捕获到的 GPU Attachment；本轮也不包含阴影图集或生产场景流送。
+currentLimit: 实时路径当前使用自制解析 Reference Frame，而不是 Packed Research Courtyard；Canvas Reject View 只是示意图，并非捕获到的 GPU Attachment。
 fallbackImage: /media/demos/shadow-aa-poster.svg
 relatedProjects:
   - real-time-rendering-lab
@@ -54,11 +54,11 @@ relatedArticles:
   - shadow-temporal-aa
   - frame-inspector-observability
 assetIds:
-  - research-courtyard
+  - reference-frame-procedural
 modes:
   - shadow
   - temporal
-referenceScene: research-courtyard
+referenceScene: reference-frame-procedural
 sourceUrl: https://github.com/yzscodehub/graphics-portfolio/blob/main/src/demos/shadow-aa.ts
 draft: false
 ---
@@ -74,3 +74,4 @@ TAA 使用当前/上一帧世界点投影得到的 UV Velocity、Halton 抖动�
 ## 回退边界
 
 WebGPU 无法初始化或设备丢失时，页面切换到明确标注的 Canvas 对比。Canvas 的 reject view 只是 illustration，不是捕获到的 GPU reject attachment；回退保留模式名称和重置行为，但不替代原生 G-Buffer 实现。
+首次 Device Loss 会先尝试一次受 Generation Guard 保护的 Reference Frame 重建；初始化失败或第二次 Loss 才进入 Canvas 对比。

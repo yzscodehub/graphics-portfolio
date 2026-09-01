@@ -7,8 +7,8 @@ summary: 检查共享原生 WebGPU 参考帧中的十个真实 attachment，包�
 category: engine
 renderer: Raw WebGPU attachments / Canvas 2D 图集回退
 backend: raw-webgpu
-status: completed
-maturity: completed
+status: in-progress
+maturity: in-progress
 evidence: verified
 backends:
   - id: raw-webgpu
@@ -50,7 +50,7 @@ metrics: []
 metricSource:
   kind: runtime
   description: 检查器报告当前后端、attachment 格式、取值范围、最后写入者和历史状态。Pixel Probe 与 Histogram 64 对真实 GPU attachment 执行低频 readback；不发布固定性能数字。
-currentLimit: Final 与 Canvas View 不支持 Readback，Cluster Heatmap 属于另一套 GPU Device；此检查器也不是完整的 RenderDoc 替代品。
+currentLimit: 这些 Attachment 当前来自解析 Reference Frame，而不是 Packed Research Courtyard；Final/Canvas 不支持 Readback，此检查器也不是完整的 RenderDoc 替代品。
 fallbackImage: /media/demos/frame-inspector-poster.svg
 relatedProjects:
   - engine-systems-explorer
@@ -62,11 +62,11 @@ relatedArticles:
   - rhi-abstraction-boundaries
   - clustered-deferred-lighting
 assetIds:
-  - research-courtyard
+  - reference-frame-procedural
 modes:
   - attachments
   - probe
-referenceScene: research-courtyard
+referenceScene: reference-frame-procedural
 sourceUrl: https://github.com/yzscodehub/graphics-portfolio/blob/main/src/demos/frame-inspector.ts
 draft: false
 ---
@@ -80,6 +80,7 @@ draft: false
 ## 冻结与选择
 
 选择 attachment 只改变显示视图。Freeze 会停止渲染循环并保留当前纹理供检查；Resume 允许共享帧继续推进。页面因不可见而暂停后恢复时会重置时域历史，避免跨时间断点复用。设备丢失时，页面回退到带有相同 attachment 词汇的确定性 sibling Canvas 图集。
+首次 Device Loss 会尝试一次受 Generation Guard 保护的 Reference Frame 重建，并重新开始 Attachment History；重建失败或第二次 Loss 才回退到确定性 sibling Canvas 图集。
 
 Pixel Probe 通过显式 GPU copy/readback 读取点击位置的非 Final attachment。Histogram 64 对完整 attachment 做低频 copy，并对采样值分桶：HDR Lighting 与 TAA History 使用对数亮度，Velocity 使用缩放后的幅值。Final 与 Canvas fallback 不提供这两个操作，因为它们不暴露相同的源 attachment。
 

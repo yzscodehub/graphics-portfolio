@@ -7,8 +7,8 @@ summary: Inspect ten real raw-WebGPU attachments, including a Reference Frame-lo
 category: engine
 renderer: Raw WebGPU attachments / Canvas 2D atlas fallback
 backend: raw-webgpu
-status: completed
-maturity: completed
+status: in-progress
+maturity: in-progress
 evidence: verified
 backends:
   - id: raw-webgpu
@@ -50,7 +50,7 @@ metrics: []
 metricSource:
   kind: runtime
   description: The inspector reports active backend, attachment format, range, last writer, and history state. Pixel Probe and Histogram 64 use low-frequency readback of real GPU attachments; no fixed performance number is published.
-currentLimit: Final and Canvas views cannot be read back, Cluster Heatmap belongs to a separate GPU device, and this inspector is not a complete RenderDoc replacement.
+currentLimit: The attachments currently come from the analytical Reference Frame rather than the packed Research Courtyard; Final/Canvas views cannot be read back and this is not a complete RenderDoc replacement.
 fallbackImage: /media/demos/frame-inspector-poster.svg
 relatedProjects:
   - engine-systems-explorer
@@ -62,11 +62,11 @@ relatedArticles:
   - rhi-abstraction-boundaries
   - clustered-deferred-lighting
 assetIds:
-  - research-courtyard
+  - reference-frame-procedural
 modes:
   - attachments
   - probe
-referenceScene: research-courtyard
+referenceScene: reference-frame-procedural
 sourceUrl: https://github.com/yzscodehub/graphics-portfolio/blob/main/src/demos/frame-inspector.ts
 draft: false
 ---
@@ -80,6 +80,7 @@ Cluster Light Count is an `r8unorm` texture written by a Reference Frame pass af
 ## Freeze and selection
 
 Selecting an attachment changes only the display view. Freeze stops the render loop and keeps the current textures for inspection; Resume allows the shared frame to advance again. A visibility pause resets temporal history on resume so it is not reused across a time discontinuity. Device loss falls back to a deterministic sibling Canvas atlas with the same attachment vocabulary.
+The first device loss attempts one generation-guarded Reference Frame rebuild and restarts attachment history. A failed rebuild or second loss falls back to the deterministic sibling Canvas atlas.
 
 Pixel Probe reads the selected non-Final attachment at the clicked location through an explicit GPU copy/readback. Histogram 64 makes a low-frequency whole-attachment copy and bins sampled values; HDR Lighting and TAA History use log-luminance bins, while Velocity uses scaled magnitude. Neither operation is available for Final or Canvas fallback, because those paths do not expose the same source attachment.
 

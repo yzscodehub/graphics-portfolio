@@ -48,7 +48,7 @@ Direct lighting + prefiltered environment lighting
   ↓ linear HDR
 Exposure → Tone Mapping → display encoding
   ↓
-Final / Normal / Roughness / Metalness / Direct / Indirect
+Final / Normal / Roughness / Metalness / Direct Isolation / IBL Isolation
 ```
 
 ## 先固定校准场景
@@ -83,13 +83,13 @@ Roughness 改变的是微表面法线分布。较小值让能量集中在更窄�
 
 这条路径应当能被单独关闭：
 
-| 调试视图 | 保留内容                     | 主要用途                           |
-| -------- | ---------------------------- | ---------------------------------- |
-| Direct   | 主光、填充光、边缘光         | 检查光源方向、衰减与局部高光       |
-| Indirect | PMREM 环境贡献               | 检查 IBL、Roughness mip 与金属反射 |
-| Final    | Direct + Indirect + 显示变换 | 检查最终合成                       |
+| 调试视图         | 保留内容                     | 主要用途                           |
+| ---------------- | ---------------------------- | ---------------------------------- |
+| Direct Isolation | 主光、填充光、边缘光         | 检查光源方向、衰减与局部高光       |
+| IBL Isolation    | PMREM 环境贡献               | 检查 IBL、Roughness mip 与金属反射 |
+| Final            | Direct + Indirect + 显示变换 | 检查最终合成                       |
 
-Direct 和 Indirect 都不是“更漂亮的滤镜”。它们是同一个材质方程的两组输入。若 Indirect 视图全黑，应先确认环境纹理和 `scene.environment`；若它过亮，则检查曝光和环境强度，不要在 Base Color 上抵消错误。
+Direct Isolation 和 IBL Isolation 都不是“更漂亮的滤镜”，也不是捕获到的 Attachment。它们通过关闭 PMREM 环境或显式灯光，对同一个材质方程的两组输入做受控隔离。若 IBL 视图全黑，应先确认环境纹理和 `scene.environment`；若它过亮，则检查曝光和环境强度，不要在 Base Color 上抵消错误。
 
 ## 颜色链路必须保持线性边界
 
@@ -105,7 +105,7 @@ Demo 提供 ACES、AgX 和 Linear 三种输出模式。Linear 不是推荐的最
 
 ## 调试视图如何缩短定位路径
 
-最终颜色只能告诉我们“结果不对”，无法说明哪一层出错。Material Demo 内的 Normal、Roughness 和 Metalness 模式会替换球体材质，Direct/Indirect 模式则分别关闭环境或显式灯光；它们是受控的重新渲染视图，不是从 G-Buffer 读取的附件。
+最终颜色只能告诉我们“结果不对”，无法说明哪一层出错。Material Demo 内的 Normal、Roughness 和 Metalness 模式会替换球体材质，Direct/IBL Isolation 则分别关闭环境或显式灯光；它们是受控的重新渲染视图，不是从 G-Buffer 读取的附件。
 
 独立的 Frame Inspector 使用另一套程序化 Reference Scene，展示 Albedo + Metalness、Normal + Roughness、HDR Lighting、Depth 与 Final 的真实附件契约。它适合说明“生产者、格式和范围应如何被检查”，但不能用来证明 Material Demo 当前球体的参数已经写入那些附件。两套场景必须分别记录，不能把 Inspector 截图当作 Material Renderer 的帧捕获。
 
@@ -143,7 +143,7 @@ Demo 提供 ACES、AgX 和 Linear 三种输出模式。Linear 不是推荐的最
 
 ## 当前边界
 
-本实验没有覆盖纹理化材质、各向异性、Clearcoat 分层、透射、HDR 显示输出或生产级资产导入。程序化 PMREM 也不是对所有 HDR 环境的代表。它的价值是建立一条小而完整的校准链路，为更复杂的渲染功能提供可重复基线。
+本实验提供 Dielectric、Metal、Rough 与 Clearcoat 四个精确参数预设，但没有覆盖纹理化 Clearcoat、各向异性、透射、HDR 显示输出或生产级资产导入。程序化 PMREM 也不是对所有 HDR 环境的代表。它的价值是建立一条小而完整的校准链路，为更复杂的渲染功能提供可重复基线。
 
 ## 参考资料
 

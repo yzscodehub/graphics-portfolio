@@ -3,9 +3,9 @@ routeSlug: neural-graphics-lab
 translationKey: neural-graphics-lab
 locale: en
 title: Neural Graphics Lab
-summary: A completed, narrowly scoped denoising workflow with hashed held-out assets, ONNX WebGPU/WASM inference, and deterministic fallback.
+summary: An in-progress RGB/Guided denoising comparison with hashed held-out assets, reviewed RGB inference, and a fail-closed Guided quality gate.
 year: 2026
-status: completed
+status: in-progress
 role: Independent graphics and machine-learning engineering
 platforms:
   - Python
