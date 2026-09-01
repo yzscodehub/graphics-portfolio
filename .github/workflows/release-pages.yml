@@ -70,6 +70,9 @@ jobs:
       - name: Create guarded release build
         run: pnpm run build:release
 
+      - name: Verify build identity manifest
+        run: pnpm run build:manifest:verify
+
       - name: Install Chromium
         run: pnpm exec playwright install --with-deps chromium
 
