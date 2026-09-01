@@ -210,7 +210,7 @@ export function validateRenderingAssets(root = projectRoot) {
       manifestRelativePath,
       "budget and assets are required",
     );
-  if (sourceLock.version !== 1 || sourceLock.policy?.license !== "CC0")
+  if (sourceLock.version !== 2 || sourceLock.policy?.license !== "CC0")
     add(
       violations,
       "rendering-source-policy",
@@ -230,21 +230,17 @@ export function validateRenderingAssets(root = projectRoot) {
 
   const defaults = sourceLock.defaults;
   if (
-    !Array.isArray(defaults?.authors) ||
-    defaults.authors.length === 0 ||
-    defaults.license !== "CC0" ||
-    !String(defaults.sourceUrl ?? "").startsWith("https://polyhaven.com/a/")
+    defaults?.license !== "CC0" ||
+    !String(defaults.sourceUrl ?? "").startsWith("https://polyhaven.com/a/") ||
+    !String(sourceLock.policy?.rawCache ?? "").startsWith(".cache/")
   )
     add(violations, "rendering-source-defaults", sourceLockRelativePath, "invalid source defaults");
-  if (
-    manifest.status === "preview-placeholder" &&
-    (defaults.sourceSha256 !== null || defaults.status !== "planned-not-downloaded")
-  )
+  if (manifest.status === "preview-placeholder" && defaults.status !== "metadata-locked")
     add(
       violations,
       "rendering-source-defaults",
       sourceLockRelativePath,
-      "preview source defaults must remain planned and unhashed",
+      "preview source defaults must remain metadata-locked",
     );
 
   const sourceIds = sourceLock.sources?.map((source) => source.id) ?? [];
@@ -285,15 +281,89 @@ export function validateRenderingAssets(root = projectRoot) {
         sourceLockRelativePath,
         `${source.id ?? "source"}: explicit authors are required`,
       );
+    if (!Array.isArray(source.files) || source.files.length === 0)
+      add(
+        violations,
+        "rendering-source-review",
+        sourceLockRelativePath,
+        `${source.id ?? "source"}: selected files are required`,
+      );
     if (
-      sourceLock.policy?.downloaded === true &&
-      (!/^https:\/\//.test(source.downloadUrl ?? "") || !shaPattern.test(source.sourceSha256 ?? ""))
+      source.license !== "CC0" ||
+      !String(source.sourceUrl || "").startsWith("https://polyhaven.com/a/") ||
+      !String(source.api?.infoUrl || "").startsWith("https://api.polyhaven.com/info/") ||
+      !String(source.api?.filesUrl || "").startsWith("https://api.polyhaven.com/files/") ||
+      !/^[a-f0-9]{40}$/i.test(source.api?.filesHash || "") ||
+      !Number.isFinite(Date.parse(source.api?.queriedAt || ""))
     )
       add(
         violations,
         "rendering-source-review",
         sourceLockRelativePath,
-        `${source.id ?? "source"}: reviewed download URL and SHA-256 are required`,
+        `${source.id ?? "source"}: official API provenance is required`,
+      );
+    const relativePaths = new Set();
+    const cachePaths = new Set();
+    for (const file of source.files || []) {
+      const validDescriptor =
+        typeof file.role === "string" &&
+        typeof file.relativePath === "string" &&
+        !file.relativePath.startsWith("/") &&
+        !file.relativePath.split("/").includes("..") &&
+        /^https:\/\/dl\.polyhaven\.org\/file\//.test(file.directUrl || "") &&
+        Number.isSafeInteger(file.bytes) &&
+        file.bytes > 0 &&
+        /^[a-f0-9]{32}$/i.test(file.md5 || "") &&
+        String(file.cachePath || "").startsWith(`${sourceLock.policy.rawCache}/${source.id}/`);
+      if (relativePaths.has(file.relativePath) || cachePaths.has(file.cachePath))
+        add(
+          violations,
+          "rendering-source-file",
+          sourceLockRelativePath,
+          `${source.id || "source"}: duplicate selected file path`,
+        );
+      relativePaths.add(file.relativePath);
+      cachePaths.add(file.cachePath);
+      if (!validDescriptor)
+        add(
+          violations,
+          "rendering-source-file",
+          sourceLockRelativePath,
+          `${source.id || "source"}: invalid selected file descriptor`,
+        );
+      const reviewed = sourceLock.policy?.downloaded === true;
+      if (
+        (reviewed && (!shaPattern.test(file.sha256 || "") || file.status !== "reviewed")) ||
+        (!reviewed && (file.sha256 !== null || file.status !== "metadata-locked"))
+      )
+        add(
+          violations,
+          "rendering-source-file-review",
+          sourceLockRelativePath,
+          `${source.id || "source"}/${file.relativePath || "unknown"}: reviewed SHA-256 state mismatch`,
+        );
+    }
+    const roles = new Set((source.files || []).map((file) => file.role));
+    if (
+      (source.kind === "mesh" &&
+        (source.selection?.format !== "gltf" ||
+          source.selection?.resolution !== "1k" ||
+          !roles.has("gltf") ||
+          !roles.has("gltf-include"))) ||
+      (source.kind === "texture" &&
+        (source.selection?.format !== "jpg" ||
+          source.selection?.resolution !== "1k" ||
+          !["base-color", "normal", "roughness"].every((role) => roles.has(role)))) ||
+      (source.kind === "hdri" &&
+        (source.selection?.format !== "hdr" ||
+          source.selection?.resolution !== "1k" ||
+          !roles.has("hdr")))
+    )
+      add(
+        violations,
+        "rendering-source-selection",
+        sourceLockRelativePath,
+        `${source.id || "source"}: fixed 1K selection contract mismatch`,
       );
   }
 

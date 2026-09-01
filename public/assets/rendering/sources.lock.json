@@ -1,94 +1,747 @@
 {
-  "version": 1,
+  "version": 2,
   "policy": {
     "license": "CC0",
     "downloaded": false,
-    "sourceHashPolicy": "An external source needs a reviewed SHA-256 before it can be fetched into the ignored local cache or replace a placeholder.",
+    "rawCache": ".cache/rendering-sources",
+    "sourceHashPolicy": "Each selected file needs its own reviewed SHA-256 before cache download or conversion.",
     "disallowedExtensions": [".zip", ".blend", ".exr", ".psd", ".tif", ".tiff"]
   },
   "defaults": {
-    "authors": ["Poly Haven"],
     "license": "CC0",
-    "sourceUrl": "https://polyhaven.com/a/",
-    "sourceSha256": null,
-    "status": "planned-not-downloaded"
+    "status": "metadata-locked",
+    "sourceUrl": "https://polyhaven.com/a/"
   },
   "sources": [
     {
       "id": "concrete-road-barrier",
       "kind": "mesh",
       "page": "concrete_road_barrier",
+      "sourceUrl": "https://polyhaven.com/a/concrete_road_barrier",
+      "license": "CC0",
       "authors": ["Amal Kumar"],
+      "api": {
+        "infoUrl": "https://api.polyhaven.com/info/concrete_road_barrier",
+        "filesUrl": "https://api.polyhaven.com/files/concrete_road_barrier",
+        "filesHash": "bc3dfafc1abfc83dfa19710745d6f0beba9d2368",
+        "queriedAt": "2026-09-01T05:22:04.837Z"
+      },
+      "selection": {
+        "format": "gltf",
+        "resolution": "1k",
+        "include": true
+      },
+      "files": [
+        {
+          "role": "gltf",
+          "relativePath": "concrete_road_barrier_1k.gltf",
+          "directUrl": "https://dl.polyhaven.org/file/ph-assets/Models/gltf/1k/concrete_road_barrier/concrete_road_barrier_1k.gltf",
+          "bytes": 2868,
+          "md5": "6d6feaf068f434e8dc163a1a9d983f4a",
+          "sha256": null,
+          "status": "metadata-locked",
+          "cachePath": ".cache/rendering-sources/concrete-road-barrier/concrete_road_barrier_1k.gltf"
+        },
+        {
+          "role": "gltf-include",
+          "relativePath": "textures/concrete_road_barrier_nor_gl_1k.jpg",
+          "directUrl": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/concrete_road_barrier/concrete_road_barrier_nor_gl_1k.jpg",
+          "bytes": 961760,
+          "md5": "5cc77a0a52de7f3e6c7405b5bfedfc6f",
+          "sha256": null,
+          "status": "metadata-locked",
+          "cachePath": ".cache/rendering-sources/concrete-road-barrier/textures/concrete_road_barrier_nor_gl_1k.jpg"
+        },
+        {
+          "role": "gltf-include",
+          "relativePath": "textures/concrete_road_barrier_arm_1k.jpg",
+          "directUrl": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/concrete_road_barrier/concrete_road_barrier_arm_1k.jpg",
+          "bytes": 619502,
+          "md5": "a289412cc7fe2c265f0975b31d8edda1",
+          "sha256": null,
+          "status": "metadata-locked",
+          "cachePath": ".cache/rendering-sources/concrete-road-barrier/textures/concrete_road_barrier_arm_1k.jpg"
+        },
+        {
+          "role": "gltf-include",
+          "relativePath": "textures/concrete_road_barrier_diff_1k.jpg",
+          "directUrl": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/concrete_road_barrier/concrete_road_barrier_diff_1k.jpg",
+          "bytes": 792641,
+          "md5": "0fc11541996e1ddbdb1875dff35bc1c9",
+          "sha256": null,
+          "status": "metadata-locked",
+          "cachePath": ".cache/rendering-sources/concrete-road-barrier/textures/concrete_road_barrier_diff_1k.jpg"
+        },
+        {
+          "role": "gltf-include",
+          "relativePath": "concrete_road_barrier.bin",
+          "directUrl": "https://dl.polyhaven.org/file/ph-assets/Models/gltf/8k/concrete_road_barrier/concrete_road_barrier.bin",
+          "bytes": 1374016,
+          "md5": "f256cb4d2bd9e5623b062502605dfcf2",
+          "sha256": null,
+          "status": "metadata-locked",
+          "cachePath": ".cache/rendering-sources/concrete-road-barrier/concrete_road_barrier.bin"
+        }
+      ],
       "usedBy": ["clustered-lighting", "shadow-aa", "frame-inspector"]
     },
     {
       "id": "fire-hydrant",
       "kind": "mesh",
       "page": "fire_hydrant",
+      "sourceUrl": "https://polyhaven.com/a/fire_hydrant",
+      "license": "CC0",
       "authors": ["Gonçalo Felício"],
+      "api": {
+        "infoUrl": "https://api.polyhaven.com/info/fire_hydrant",
+        "filesUrl": "https://api.polyhaven.com/files/fire_hydrant",
+        "filesHash": "392eed954362d55b55022af83c0b7150bf977853",
+        "queriedAt": "2026-09-01T05:22:08.188Z"
+      },
+      "selection": {
+        "format": "gltf",
+        "resolution": "1k",
+        "include": true
+      },
+      "files": [
+        {
+          "role": "gltf",
+          "relativePath": "fire_hydrant_1k.gltf",
+          "directUrl": "https://dl.polyhaven.org/file/ph-assets/Models/gltf/1k/fire_hydrant/fire_hydrant_1k.gltf",
+          "bytes": 20926,
+          "md5": "85c3205fe0cdb2b23390ee1205d035c3",
+          "sha256": null,
+          "status": "metadata-locked",
+          "cachePath": ".cache/rendering-sources/fire-hydrant/fire_hydrant_1k.gltf"
+        },
+        {
+          "role": "gltf-include",
+          "relativePath": "fire_hydrant.bin",
+          "directUrl": "https://dl.polyhaven.org/file/ph-assets/Models/gltf/8k/fire_hydrant/fire_hydrant.bin",
+          "bytes": 1928772,
+          "md5": "636cd237cd1c9a793e3fc3edbf7f6a15",
+          "sha256": null,
+          "status": "metadata-locked",
+          "cachePath": ".cache/rendering-sources/fire-hydrant/fire_hydrant.bin"
+        },
+        {
+          "role": "gltf-include",
+          "relativePath": "textures/fire_hydrant_nor_gl_1k.jpg",
+          "directUrl": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/fire_hydrant/fire_hydrant_nor_gl_1k.jpg",
+          "bytes": 490552,
+          "md5": "62f1bb906fddb58f26bf8b2513b972bc",
+          "sha256": null,
+          "status": "metadata-locked",
+          "cachePath": ".cache/rendering-sources/fire-hydrant/textures/fire_hydrant_nor_gl_1k.jpg"
+        },
+        {
+          "role": "gltf-include",
+          "relativePath": "textures/fire_hydrant_aged_diff_1k.jpg",
+          "directUrl": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/fire_hydrant/fire_hydrant_aged_diff_1k.jpg",
+          "bytes": 629331,
+          "md5": "7a01bfe1ec2235c3ae280544b258d16c",
+          "sha256": null,
+          "status": "metadata-locked",
+          "cachePath": ".cache/rendering-sources/fire-hydrant/textures/fire_hydrant_aged_diff_1k.jpg"
+        },
+        {
+          "role": "gltf-include",
+          "relativePath": "textures/fire_hydrant_aged_arm_1k.jpg",
+          "directUrl": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/fire_hydrant/fire_hydrant_aged_arm_1k.jpg",
+          "bytes": 665642,
+          "md5": "4d593fa44c621a98079ed7c6261af8be",
+          "sha256": null,
+          "status": "metadata-locked",
+          "cachePath": ".cache/rendering-sources/fire-hydrant/textures/fire_hydrant_aged_arm_1k.jpg"
+        },
+        {
+          "role": "gltf-include",
+          "relativePath": "textures/fire_hydrant_aged_nor_gl_1k.jpg",
+          "directUrl": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/fire_hydrant/fire_hydrant_aged_nor_gl_1k.jpg",
+          "bytes": 543768,
+          "md5": "59aa175275e7e15709c586e144b4474c",
+          "sha256": null,
+          "status": "metadata-locked",
+          "cachePath": ".cache/rendering-sources/fire-hydrant/textures/fire_hydrant_aged_nor_gl_1k.jpg"
+        },
+        {
+          "role": "gltf-include",
+          "relativePath": "textures/fire_hydrant_diff_1k.jpg",
+          "directUrl": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/fire_hydrant/fire_hydrant_diff_1k.jpg",
+          "bytes": 570746,
+          "md5": "ecd42c8726c77692c8ff2d5a236896b2",
+          "sha256": null,
+          "status": "metadata-locked",
+          "cachePath": ".cache/rendering-sources/fire-hydrant/textures/fire_hydrant_diff_1k.jpg"
+        },
+        {
+          "role": "gltf-include",
+          "relativePath": "textures/fire_hydrant_arm_1k.jpg",
+          "directUrl": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/fire_hydrant/fire_hydrant_arm_1k.jpg",
+          "bytes": 671743,
+          "md5": "22a64a6b558956476a5e1140a510704f",
+          "sha256": null,
+          "status": "metadata-locked",
+          "cachePath": ".cache/rendering-sources/fire-hydrant/textures/fire_hydrant_arm_1k.jpg"
+        }
+      ],
       "usedBy": ["clustered-lighting", "gpu-particles"]
     },
     {
       "id": "plastic-crate-02",
       "kind": "mesh",
       "page": "plastic_crate_02",
+      "sourceUrl": "https://polyhaven.com/a/plastic_crate_02",
+      "license": "CC0",
       "authors": ["Fabi_G"],
+      "api": {
+        "infoUrl": "https://api.polyhaven.com/info/plastic_crate_02",
+        "filesUrl": "https://api.polyhaven.com/files/plastic_crate_02",
+        "filesHash": "499ee17caf1790ee16f2e9e7e2a54cefcca3e73c",
+        "queriedAt": "2026-09-01T05:22:04.861Z"
+      },
+      "selection": {
+        "format": "gltf",
+        "resolution": "1k",
+        "include": true
+      },
+      "files": [
+        {
+          "role": "gltf",
+          "relativePath": "plastic_crate_02_1k.gltf",
+          "directUrl": "https://dl.polyhaven.org/file/ph-assets/Models/gltf/1k/plastic_crate_02/plastic_crate_02_1k.gltf",
+          "bytes": 2947,
+          "md5": "ab133a1d655e004fa2f22f039e24efbe",
+          "sha256": null,
+          "status": "metadata-locked",
+          "cachePath": ".cache/rendering-sources/plastic-crate-02/plastic_crate_02_1k.gltf"
+        },
+        {
+          "role": "gltf-include",
+          "relativePath": "textures/plastic_crate_02_nor_gl_1k.jpg",
+          "directUrl": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/plastic_crate_02/plastic_crate_02_nor_gl_1k.jpg",
+          "bytes": 558561,
+          "md5": "3fd1bb590ead064e6b7cf6eb3cd46fa6",
+          "sha256": null,
+          "status": "metadata-locked",
+          "cachePath": ".cache/rendering-sources/plastic-crate-02/textures/plastic_crate_02_nor_gl_1k.jpg"
+        },
+        {
+          "role": "gltf-include",
+          "relativePath": "textures/plastic_crate_02_diff_1k.jpg",
+          "directUrl": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/plastic_crate_02/plastic_crate_02_diff_1k.jpg",
+          "bytes": 492862,
+          "md5": "55ddafcf50ffebdb2806e6b863e9b254",
+          "sha256": null,
+          "status": "metadata-locked",
+          "cachePath": ".cache/rendering-sources/plastic-crate-02/textures/plastic_crate_02_diff_1k.jpg"
+        },
+        {
+          "role": "gltf-include",
+          "relativePath": "textures/plastic_crate_02_arm_1k.jpg",
+          "directUrl": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/plastic_crate_02/plastic_crate_02_arm_1k.jpg",
+          "bytes": 597561,
+          "md5": "032b8738359d2423f7bf8dd0aa6f3e5b",
+          "sha256": null,
+          "status": "metadata-locked",
+          "cachePath": ".cache/rendering-sources/plastic-crate-02/textures/plastic_crate_02_arm_1k.jpg"
+        },
+        {
+          "role": "gltf-include",
+          "relativePath": "plastic_crate_02.bin",
+          "directUrl": "https://dl.polyhaven.org/file/ph-assets/Models/gltf/4k/plastic_crate_02/plastic_crate_02.bin",
+          "bytes": 186848,
+          "md5": "a91c131589eae7242c162782cff0290a",
+          "sha256": null,
+          "status": "metadata-locked",
+          "cachePath": ".cache/rendering-sources/plastic-crate-02/plastic_crate_02.bin"
+        }
+      ],
       "usedBy": ["clustered-lighting", "gpu-particles"]
     },
     {
       "id": "street-lamp-02",
       "kind": "mesh",
       "page": "street_lamp_02",
+      "sourceUrl": "https://polyhaven.com/a/street_lamp_02",
+      "license": "CC0",
       "authors": ["Josh Dean"],
+      "api": {
+        "infoUrl": "https://api.polyhaven.com/info/street_lamp_02",
+        "filesUrl": "https://api.polyhaven.com/files/street_lamp_02",
+        "filesHash": "2128f871d76c756f6779cac3286443d21eb9b40f",
+        "queriedAt": "2026-09-01T05:22:04.652Z"
+      },
+      "selection": {
+        "format": "gltf",
+        "resolution": "1k",
+        "include": true
+      },
+      "files": [
+        {
+          "role": "gltf",
+          "relativePath": "street_lamp_02_1k.gltf",
+          "directUrl": "https://dl.polyhaven.org/file/ph-assets/Models/gltf/1k/street_lamp_02/street_lamp_02_1k.gltf",
+          "bytes": 6429,
+          "md5": "94023fbd7e6392d9276d91ca36c00144",
+          "sha256": null,
+          "status": "metadata-locked",
+          "cachePath": ".cache/rendering-sources/street-lamp-02/street_lamp_02_1k.gltf"
+        },
+        {
+          "role": "gltf-include",
+          "relativePath": "textures/street_lamp_02_diff_1k.jpg",
+          "directUrl": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/street_lamp_02/street_lamp_02_diff_1k.jpg",
+          "bytes": 303714,
+          "md5": "381097a4c700b86b1c8f7e0d115b1a0a",
+          "sha256": null,
+          "status": "metadata-locked",
+          "cachePath": ".cache/rendering-sources/street-lamp-02/textures/street_lamp_02_diff_1k.jpg"
+        },
+        {
+          "role": "gltf-include",
+          "relativePath": "textures/street_lamp_02_arm_1k.jpg",
+          "directUrl": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/street_lamp_02/street_lamp_02_arm_1k.jpg",
+          "bytes": 657710,
+          "md5": "d4d49b0153762ebe5ccde8e87af87dd5",
+          "sha256": null,
+          "status": "metadata-locked",
+          "cachePath": ".cache/rendering-sources/street-lamp-02/textures/street_lamp_02_arm_1k.jpg"
+        },
+        {
+          "role": "gltf-include",
+          "relativePath": "street_lamp_02.bin",
+          "directUrl": "https://dl.polyhaven.org/file/ph-assets/Models/gltf/8k/street_lamp_02/street_lamp_02.bin",
+          "bytes": 530092,
+          "md5": "5c89269a65d65cdb33d018012f003ef7",
+          "sha256": null,
+          "status": "metadata-locked",
+          "cachePath": ".cache/rendering-sources/street-lamp-02/street_lamp_02.bin"
+        },
+        {
+          "role": "gltf-include",
+          "relativePath": "textures/street_lamp_02_nor_gl_1k.jpg",
+          "directUrl": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/street_lamp_02/street_lamp_02_nor_gl_1k.jpg",
+          "bytes": 372301,
+          "md5": "39389c9a5c2c467ea559ac3ad3a03218",
+          "sha256": null,
+          "status": "metadata-locked",
+          "cachePath": ".cache/rendering-sources/street-lamp-02/textures/street_lamp_02_nor_gl_1k.jpg"
+        }
+      ],
       "usedBy": ["clustered-lighting", "shadow-aa", "frame-inspector"]
     },
     {
       "id": "modular-chainlink-fence",
       "kind": "mesh",
       "page": "modular_chainlink_fence",
-      "authors": ["Amal Kumar", "James Ray Cock"],
+      "sourceUrl": "https://polyhaven.com/a/modular_chainlink_fence",
+      "license": "CC0",
+      "authors": ["James Ray Cock", "Amal Kumar"],
+      "api": {
+        "infoUrl": "https://api.polyhaven.com/info/modular_chainlink_fence",
+        "filesUrl": "https://api.polyhaven.com/files/modular_chainlink_fence",
+        "filesHash": "a876696fcfd57a434e5d1dd68baa03e15475b97e",
+        "queriedAt": "2026-09-01T05:22:04.633Z"
+      },
+      "selection": {
+        "format": "gltf",
+        "resolution": "1k",
+        "include": true
+      },
+      "files": [
+        {
+          "role": "gltf",
+          "relativePath": "modular_chainlink_fence_1k.gltf",
+          "directUrl": "https://dl.polyhaven.org/file/ph-assets/Models/gltf/1k/modular_chainlink_fence/modular_chainlink_fence_1k.gltf",
+          "bytes": 41838,
+          "md5": "8c8f0c91cf48ba68fb32178bcbd6351a",
+          "sha256": null,
+          "status": "metadata-locked",
+          "cachePath": ".cache/rendering-sources/modular-chainlink-fence/modular_chainlink_fence_1k.gltf"
+        },
+        {
+          "role": "gltf-include",
+          "relativePath": "modular_chainlink_fence.bin",
+          "directUrl": "https://dl.polyhaven.org/file/ph-assets/Models/gltf/8k/modular_chainlink_fence/modular_chainlink_fence.bin",
+          "bytes": 3168016,
+          "md5": "953d32ee509142cf2ceb1e6b278b2430",
+          "sha256": null,
+          "status": "metadata-locked",
+          "cachePath": ".cache/rendering-sources/modular-chainlink-fence/modular_chainlink_fence.bin"
+        },
+        {
+          "role": "gltf-include",
+          "relativePath": "textures/modular_chainlink_fence_posts_nor_gl_1k.jpg",
+          "directUrl": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/modular_chainlink_fence/modular_chainlink_fence_posts_nor_gl_1k.jpg",
+          "bytes": 505743,
+          "md5": "e6b2e0015cef4bb58487f889efae88bf",
+          "sha256": null,
+          "status": "metadata-locked",
+          "cachePath": ".cache/rendering-sources/modular-chainlink-fence/textures/modular_chainlink_fence_posts_nor_gl_1k.jpg"
+        },
+        {
+          "role": "gltf-include",
+          "relativePath": "textures/modular_chainlink_fence_wire_arm_1k.jpg",
+          "directUrl": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/modular_chainlink_fence/modular_chainlink_fence_wire_arm_1k.jpg",
+          "bytes": 694743,
+          "md5": "0a53847d3ba9891c9a90c637151684e4",
+          "sha256": null,
+          "status": "metadata-locked",
+          "cachePath": ".cache/rendering-sources/modular-chainlink-fence/textures/modular_chainlink_fence_wire_arm_1k.jpg"
+        },
+        {
+          "role": "gltf-include",
+          "relativePath": "textures/modular_chainlink_fence_wire_nor_gl_1k.jpg",
+          "directUrl": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/modular_chainlink_fence/modular_chainlink_fence_wire_nor_gl_1k.jpg",
+          "bytes": 664165,
+          "md5": "bd794c542c0843354e0838ff4e05788b",
+          "sha256": null,
+          "status": "metadata-locked",
+          "cachePath": ".cache/rendering-sources/modular-chainlink-fence/textures/modular_chainlink_fence_wire_nor_gl_1k.jpg"
+        },
+        {
+          "role": "gltf-include",
+          "relativePath": "textures/modular_chainlink_fence_wire_diff_1k.jpg",
+          "directUrl": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/modular_chainlink_fence/modular_chainlink_fence_wire_diff_1k.jpg",
+          "bytes": 670536,
+          "md5": "fa424a20c04764d770826c865635b84c",
+          "sha256": null,
+          "status": "metadata-locked",
+          "cachePath": ".cache/rendering-sources/modular-chainlink-fence/textures/modular_chainlink_fence_wire_diff_1k.jpg"
+        },
+        {
+          "role": "gltf-include",
+          "relativePath": "textures/modular_chainlink_fence_posts_arm_1k.jpg",
+          "directUrl": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/modular_chainlink_fence/modular_chainlink_fence_posts_arm_1k.jpg",
+          "bytes": 839858,
+          "md5": "839c6fce0c0583e8205b8f9281e853f8",
+          "sha256": null,
+          "status": "metadata-locked",
+          "cachePath": ".cache/rendering-sources/modular-chainlink-fence/textures/modular_chainlink_fence_posts_arm_1k.jpg"
+        },
+        {
+          "role": "gltf-include",
+          "relativePath": "textures/modular_chainlink_fence_posts_diff_1k.jpg",
+          "directUrl": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/modular_chainlink_fence/modular_chainlink_fence_posts_diff_1k.jpg",
+          "bytes": 707116,
+          "md5": "f36646ffbf9f952747c3d4535b30c24a",
+          "sha256": null,
+          "status": "metadata-locked",
+          "cachePath": ".cache/rendering-sources/modular-chainlink-fence/textures/modular_chainlink_fence_posts_diff_1k.jpg"
+        }
+      ],
       "usedBy": ["clustered-lighting", "shadow-aa", "frame-inspector"]
     },
     {
       "id": "concrete-cat-statue",
       "kind": "mesh",
       "page": "concrete_cat_statue",
-      "authors": ["Riley Queen", "Rico Cilliers"],
+      "sourceUrl": "https://polyhaven.com/a/concrete_cat_statue",
+      "license": "CC0",
+      "authors": ["Rico Cilliers", "Riley Queen"],
+      "api": {
+        "infoUrl": "https://api.polyhaven.com/info/concrete_cat_statue",
+        "filesUrl": "https://api.polyhaven.com/files/concrete_cat_statue",
+        "filesHash": "5f3785e43dd475d06772cd5c57d202e22f978c22",
+        "queriedAt": "2026-09-01T05:22:06.111Z"
+      },
+      "selection": {
+        "format": "gltf",
+        "resolution": "1k",
+        "include": true
+      },
+      "files": [
+        {
+          "role": "gltf",
+          "relativePath": "concrete_cat_statue_1k.gltf",
+          "directUrl": "https://dl.polyhaven.org/file/ph-assets/Models/gltf/1k/concrete_cat_statue/concrete_cat_statue_1k.gltf",
+          "bytes": 2853,
+          "md5": "18b2270606be6fdca04c2f876274e673",
+          "sha256": null,
+          "status": "metadata-locked",
+          "cachePath": ".cache/rendering-sources/concrete-cat-statue/concrete_cat_statue_1k.gltf"
+        },
+        {
+          "role": "gltf-include",
+          "relativePath": "concrete_cat_statue.bin",
+          "directUrl": "https://dl.polyhaven.org/file/ph-assets/Models/gltf/8k/concrete_cat_statue/concrete_cat_statue.bin",
+          "bytes": 291316,
+          "md5": "100da2074e7461c81898146f0da2a821",
+          "sha256": null,
+          "status": "metadata-locked",
+          "cachePath": ".cache/rendering-sources/concrete-cat-statue/concrete_cat_statue.bin"
+        },
+        {
+          "role": "gltf-include",
+          "relativePath": "textures/concrete_cat_statue_arm_1k.jpg",
+          "directUrl": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/concrete_cat_statue/concrete_cat_statue_arm_1k.jpg",
+          "bytes": 796684,
+          "md5": "94cc77ffa6977477ab1873277efe92cb",
+          "sha256": null,
+          "status": "metadata-locked",
+          "cachePath": ".cache/rendering-sources/concrete-cat-statue/textures/concrete_cat_statue_arm_1k.jpg"
+        },
+        {
+          "role": "gltf-include",
+          "relativePath": "textures/concrete_cat_statue_nor_gl_1k.jpg",
+          "directUrl": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/concrete_cat_statue/concrete_cat_statue_nor_gl_1k.jpg",
+          "bytes": 1121259,
+          "md5": "7f87b8c08f651b7d90e9b9273420c811",
+          "sha256": null,
+          "status": "metadata-locked",
+          "cachePath": ".cache/rendering-sources/concrete-cat-statue/textures/concrete_cat_statue_nor_gl_1k.jpg"
+        },
+        {
+          "role": "gltf-include",
+          "relativePath": "textures/concrete_cat_statue_diff_1k.jpg",
+          "directUrl": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/concrete_cat_statue/concrete_cat_statue_diff_1k.jpg",
+          "bytes": 886225,
+          "md5": "dbff9567dc512d338c2857fb03709d01",
+          "sha256": null,
+          "status": "metadata-locked",
+          "cachePath": ".cache/rendering-sources/concrete-cat-statue/textures/concrete_cat_statue_diff_1k.jpg"
+        }
+      ],
       "usedBy": ["clustered-lighting", "frame-inspector"]
     },
     {
       "id": "concrete-floor-worn-001",
       "kind": "texture",
       "page": "concrete_floor_worn_001",
+      "sourceUrl": "https://polyhaven.com/a/concrete_floor_worn_001",
+      "license": "CC0",
       "authors": ["Dimitrios Savva", "Rico Cilliers"],
+      "api": {
+        "infoUrl": "https://api.polyhaven.com/info/concrete_floor_worn_001",
+        "filesUrl": "https://api.polyhaven.com/files/concrete_floor_worn_001",
+        "filesHash": "e3d93fd423c3db5bbc000a930cc8b9d770187ce4",
+        "queriedAt": "2026-09-01T05:22:04.675Z"
+      },
+      "selection": {
+        "format": "jpg",
+        "resolution": "1k",
+        "maps": ["Diffuse", "nor_gl|nor_dx", "Rough"]
+      },
+      "files": [
+        {
+          "role": "base-color",
+          "relativePath": "concrete_floor_worn_001_diff_1k.jpg",
+          "directUrl": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/concrete_floor_worn_001/concrete_floor_worn_001_diff_1k.jpg",
+          "bytes": 118806,
+          "md5": "e35597cca586150b1ab2aa9a331a39c5",
+          "sha256": null,
+          "status": "metadata-locked",
+          "cachePath": ".cache/rendering-sources/concrete-floor-worn-001/concrete_floor_worn_001_diff_1k.jpg"
+        },
+        {
+          "role": "normal",
+          "relativePath": "concrete_floor_worn_001_nor_gl_1k.jpg",
+          "directUrl": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/concrete_floor_worn_001/concrete_floor_worn_001_nor_gl_1k.jpg",
+          "bytes": 110906,
+          "md5": "9de6626758f8793b71182b892c110827",
+          "sha256": null,
+          "status": "metadata-locked",
+          "cachePath": ".cache/rendering-sources/concrete-floor-worn-001/concrete_floor_worn_001_nor_gl_1k.jpg"
+        },
+        {
+          "role": "roughness",
+          "relativePath": "concrete_floor_worn_001_rough_1k.jpg",
+          "directUrl": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/concrete_floor_worn_001/concrete_floor_worn_001_rough_1k.jpg",
+          "bytes": 181942,
+          "md5": "b158eae73029ac6a849481274a0e1b35",
+          "sha256": null,
+          "status": "metadata-locked",
+          "cachePath": ".cache/rendering-sources/concrete-floor-worn-001/concrete_floor_worn_001_rough_1k.jpg"
+        }
+      ],
       "usedBy": ["clustered-lighting", "shadow-aa", "frame-inspector"]
     },
     {
       "id": "concrete-wall-007",
       "kind": "texture",
       "page": "concrete_wall_007",
-      "authors": ["Charlotte Baglioni", "Dario Barresi", "Rico Cilliers"],
+      "sourceUrl": "https://polyhaven.com/a/concrete_wall_007",
+      "license": "CC0",
+      "authors": ["Dario Barresi", "Rico Cilliers", "Charlotte Baglioni"],
+      "api": {
+        "infoUrl": "https://api.polyhaven.com/info/concrete_wall_007",
+        "filesUrl": "https://api.polyhaven.com/files/concrete_wall_007",
+        "filesHash": "c5e1c8435799f08d174a94c5e73d43e955572a10",
+        "queriedAt": "2026-09-01T05:22:07.534Z"
+      },
+      "selection": {
+        "format": "jpg",
+        "resolution": "1k",
+        "maps": ["Diffuse", "nor_gl|nor_dx", "Rough"]
+      },
+      "files": [
+        {
+          "role": "base-color",
+          "relativePath": "concrete_wall_007_diff_1k.jpg",
+          "directUrl": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/concrete_wall_007/concrete_wall_007_diff_1k.jpg",
+          "bytes": 654485,
+          "md5": "f8a951200ebe1a42ba57ef331d94f8e2",
+          "sha256": null,
+          "status": "metadata-locked",
+          "cachePath": ".cache/rendering-sources/concrete-wall-007/concrete_wall_007_diff_1k.jpg"
+        },
+        {
+          "role": "normal",
+          "relativePath": "concrete_wall_007_nor_gl_1k.jpg",
+          "directUrl": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/concrete_wall_007/concrete_wall_007_nor_gl_1k.jpg",
+          "bytes": 602349,
+          "md5": "7d62088fb4f40833226cdb2a09476a58",
+          "sha256": null,
+          "status": "metadata-locked",
+          "cachePath": ".cache/rendering-sources/concrete-wall-007/concrete_wall_007_nor_gl_1k.jpg"
+        },
+        {
+          "role": "roughness",
+          "relativePath": "concrete_wall_007_rough_1k.jpg",
+          "directUrl": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/concrete_wall_007/concrete_wall_007_rough_1k.jpg",
+          "bytes": 563812,
+          "md5": "57fc45c0410543a5117bbfab360e040a",
+          "sha256": null,
+          "status": "metadata-locked",
+          "cachePath": ".cache/rendering-sources/concrete-wall-007/concrete_wall_007_rough_1k.jpg"
+        }
+      ],
       "usedBy": ["clustered-lighting", "shadow-aa", "frame-inspector"]
     },
     {
       "id": "rusty-metal",
       "kind": "texture",
       "page": "rusty_metal",
+      "sourceUrl": "https://polyhaven.com/a/rusty_metal",
+      "license": "CC0",
       "authors": ["Rob Tuytel"],
+      "api": {
+        "infoUrl": "https://api.polyhaven.com/info/rusty_metal",
+        "filesUrl": "https://api.polyhaven.com/files/rusty_metal",
+        "filesHash": "ab21e23da2cbaaad84636c4a2fffac04dc4e72e7",
+        "queriedAt": "2026-09-01T05:22:05.446Z"
+      },
+      "selection": {
+        "format": "jpg",
+        "resolution": "1k",
+        "maps": ["Diffuse", "nor_gl|nor_dx", "Rough"]
+      },
+      "files": [
+        {
+          "role": "base-color",
+          "relativePath": "rusty_metal_diff_1k.jpg",
+          "directUrl": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/rusty_metal/rusty_metal_diff_1k.jpg",
+          "bytes": 577389,
+          "md5": "ba829f953270d3ad87d8e86d840f71d6",
+          "sha256": null,
+          "status": "metadata-locked",
+          "cachePath": ".cache/rendering-sources/rusty-metal/rusty_metal_diff_1k.jpg"
+        },
+        {
+          "role": "normal",
+          "relativePath": "rusty_metal_nor_gl_1k.jpg",
+          "directUrl": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/rusty_metal/rusty_metal_nor_gl_1k.jpg",
+          "bytes": 420984,
+          "md5": "6133cf0df6fd63d0c484ca1669f90935",
+          "sha256": null,
+          "status": "metadata-locked",
+          "cachePath": ".cache/rendering-sources/rusty-metal/rusty_metal_nor_gl_1k.jpg"
+        },
+        {
+          "role": "roughness",
+          "relativePath": "rusty_metal_rough_1k.jpg",
+          "directUrl": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/rusty_metal/rusty_metal_rough_1k.jpg",
+          "bytes": 214991,
+          "md5": "ec93adbfb6e4d8562a0272be937719dc",
+          "sha256": null,
+          "status": "metadata-locked",
+          "cachePath": ".cache/rendering-sources/rusty-metal/rusty_metal_rough_1k.jpg"
+        }
+      ],
       "usedBy": ["material-lighting", "clustered-lighting"]
     },
     {
       "id": "brick-floor-003",
       "kind": "texture",
       "page": "brick_floor_003",
-      "authors": ["Dimitrios Savva", "Rob Tuytel"],
+      "sourceUrl": "https://polyhaven.com/a/brick_floor_003",
+      "license": "CC0",
+      "authors": ["Rob Tuytel", "Dimitrios Savva"],
+      "api": {
+        "infoUrl": "https://api.polyhaven.com/info/brick_floor_003",
+        "filesUrl": "https://api.polyhaven.com/files/brick_floor_003",
+        "filesHash": "d678724ce0f1e0b7dda21265e6e2b50e135222dc",
+        "queriedAt": "2026-09-01T05:22:04.618Z"
+      },
+      "selection": {
+        "format": "jpg",
+        "resolution": "1k",
+        "maps": ["Diffuse", "nor_gl|nor_dx", "Rough"]
+      },
+      "files": [
+        {
+          "role": "base-color",
+          "relativePath": "brick_floor_003_diffuse_1k.jpg",
+          "directUrl": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/brick_floor_003/brick_floor_003_diffuse_1k.jpg",
+          "bytes": 199347,
+          "md5": "a36d1f30f49c5bee4a5d91c86b6cd755",
+          "sha256": null,
+          "status": "metadata-locked",
+          "cachePath": ".cache/rendering-sources/brick-floor-003/brick_floor_003_diffuse_1k.jpg"
+        },
+        {
+          "role": "normal",
+          "relativePath": "brick_floor_003_nor_gl_1k.jpg",
+          "directUrl": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/brick_floor_003/brick_floor_003_nor_gl_1k.jpg",
+          "bytes": 253840,
+          "md5": "eb9692c679503e7b5f7c8bb401956f41",
+          "sha256": null,
+          "status": "metadata-locked",
+          "cachePath": ".cache/rendering-sources/brick-floor-003/brick_floor_003_nor_gl_1k.jpg"
+        },
+        {
+          "role": "roughness",
+          "relativePath": "brick_floor_003_rough_1k.jpg",
+          "directUrl": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/brick_floor_003/brick_floor_003_rough_1k.jpg",
+          "bytes": 159389,
+          "md5": "7a039754df03d8ae2e8797fe7824cc92",
+          "sha256": null,
+          "status": "metadata-locked",
+          "cachePath": ".cache/rendering-sources/brick-floor-003/brick_floor_003_rough_1k.jpg"
+        }
+      ],
       "usedBy": ["clustered-lighting", "shadow-aa", "frame-inspector"]
     },
     {
       "id": "courtyard-hdri-1k",
       "kind": "hdri",
       "page": "courtyard",
+      "sourceUrl": "https://polyhaven.com/a/courtyard",
+      "license": "CC0",
       "authors": ["Greg Zaal"],
+      "api": {
+        "infoUrl": "https://api.polyhaven.com/info/courtyard",
+        "filesUrl": "https://api.polyhaven.com/files/courtyard",
+        "filesHash": "a75467fd21d677525347a93b91ccc15d75867b08",
+        "queriedAt": "2026-09-01T05:22:06.882Z"
+      },
+      "selection": {
+        "format": "hdr",
+        "resolution": "1k"
+      },
+      "files": [
+        {
+          "role": "hdr",
+          "relativePath": "courtyard_1k.hdr",
+          "directUrl": "https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/1k/courtyard_1k.hdr",
+          "bytes": 1716791,
+          "md5": "c9f92690f97deab491c5f97dd652cee2",
+          "sha256": null,
+          "status": "metadata-locked",
+          "cachePath": ".cache/rendering-sources/courtyard-hdri-1k/courtyard_1k.hdr"
+        }
+      ],
       "usedBy": ["material-lighting", "clustered-lighting"]
     }
   ]

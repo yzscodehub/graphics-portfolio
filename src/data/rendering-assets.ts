@@ -43,21 +43,44 @@ export interface RenderingSourceRecord {
   id: string;
   kind: Extract<RenderingAssetKind, "mesh" | "texture" | "hdri">;
   page: string;
-  authors?: string[];
-  downloadUrl?: string;
-  sourceSha256?: string;
+  sourceUrl: string;
+  license: "CC0";
+  authors: string[];
+  api: {
+    infoUrl: string;
+    filesUrl: string;
+    filesHash: string | null;
+    queriedAt: string;
+  };
+  selection: Record<string, unknown>;
+  files: RenderingSourceFileRecord[];
   usedBy: string[];
 }
 
+export interface RenderingSourceFileRecord {
+  role: string;
+  relativePath: string;
+  directUrl: string;
+  bytes: number;
+  md5: string;
+  sha256: string | null;
+  status: "metadata-locked" | "reviewed";
+  cachePath: string;
+}
+
 export interface RenderingSourceLock {
-  version: 1;
-  policy: { license: "CC0"; downloaded: boolean; sourceHashPolicy: string };
+  version: 2;
+  policy: {
+    license: "CC0";
+    downloaded: boolean;
+    rawCache: string;
+    sourceHashPolicy: string;
+    disallowedExtensions: string[];
+  };
   defaults: {
-    authors: string[];
     license: "CC0";
     sourceUrl: string;
-    sourceSha256: string | null;
-    status: "planned-not-downloaded" | "reviewed";
+    status: "metadata-locked";
   };
   sources: RenderingSourceRecord[];
 }
@@ -88,11 +111,13 @@ export const renderingSourceLock = readManifest<RenderingSourceLock>(
 export const renderingAssets = renderingAssetManifest.assets;
 export const plannedRenderingSources = renderingSourceLock.sources.map((source) => ({
   ...source,
-  authors: source.authors ?? renderingSourceLock.defaults.authors,
-  license: renderingSourceLock.defaults.license,
-  sourceUrl: `${renderingSourceLock.defaults.sourceUrl}${source.page}`,
-  sourceSha256: source.sourceSha256 ?? renderingSourceLock.defaults.sourceSha256,
-  status: source.sourceSha256 ? "reviewed" : renderingSourceLock.defaults.status,
+  status: source.files.every(
+    (file) => file.status === "reviewed" && typeof file.sha256 === "string",
+  )
+    ? ("reviewed" as const)
+    : renderingSourceLock.defaults.status,
+  sourceFileCount: source.files.length,
+  sourceBytes: source.files.reduce((total, file) => total + file.bytes, 0),
 }));
 
 export function formatAssetBytes(bytes: number): string {

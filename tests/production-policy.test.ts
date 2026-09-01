@@ -85,14 +85,20 @@ describe("production privacy policy", () => {
       writeFileSync(
         path.join(renderingRoot, "sources.lock.json"),
         JSON.stringify({
-          version: 1,
+          version: 2,
           policy: { downloaded: true },
           sources: [
             {
               id: "fixture-courtyard",
               authors: ["Fixture Author"],
-              downloadUrl: "https://example.com/courtyard.glb",
-              sourceSha256: "a".repeat(64),
+              license: "CC0",
+              files: [
+                {
+                  directUrl: "https://dl.polyhaven.org/file/fixture/courtyard.glb",
+                  sha256: "a".repeat(64),
+                  status: "reviewed",
+                },
+              ],
             },
           ],
         }),

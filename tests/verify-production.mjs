@@ -335,19 +335,33 @@ export function validateRenderingReleaseReadiness(root = projectRoot) {
       value: "Research Courtyard still uses the procedural placeholder pack",
     });
 
-  const incompleteSources = (sourceLock.sources ?? []).filter(
+  const incompleteFiles = (sourceLock.sources ?? []).flatMap((source) =>
+    (source.files ?? []).filter(
+      (file) =>
+        !/^https:\/\/dl\.polyhaven\.org\/file\//.test(file.directUrl ?? "") ||
+        !digestPattern.test(file.sha256 ?? "") ||
+        file.status !== "reviewed",
+    ),
+  );
+  const missingSourceMetadata = (sourceLock.sources ?? []).some(
     (source) =>
       !Array.isArray(source.authors) ||
       source.authors.length === 0 ||
-      !/^https:\/\//.test(source.downloadUrl ?? "") ||
-      !digestPattern.test(source.sourceSha256 ?? ""),
+      source.license !== "CC0" ||
+      !Array.isArray(source.files) ||
+      source.files.length === 0,
   );
-  if (sourceLock.policy?.downloaded !== true || incompleteSources.length > 0)
+  if (
+    sourceLock.version !== 2 ||
+    sourceLock.policy?.downloaded !== true ||
+    missingSourceMetadata ||
+    incompleteFiles.length > 0
+  )
     violations.push({
       code: "rendering-source-lock-not-reviewed",
       file: "public/assets/rendering/sources.lock.json",
       line: 0,
-      value: `${incompleteSources.length || sourceLock.sources?.length || 0} sources still lack reviewed download URLs or SHA-256 digests`,
+      value: `${incompleteFiles.length} selected source files still lack reviewed SHA-256 state`,
     });
 
   const renderingFiles = walk(assetRoot, new Set([".ktx2", ".webp"]));

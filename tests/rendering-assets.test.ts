@@ -19,6 +19,10 @@ import {
 } from "../scripts/assets/manifest.mjs";
 import { findFetchBlockers } from "../scripts/assets/fetch-sources.mjs";
 import {
+  findReviewedRebuildBlockers,
+  reviewedToolchain,
+} from "../scripts/assets/rebuild-reviewed-assets.mjs";
+import {
   renderClusteredCourtyardProxyContract,
   renderCalibrationRigContract,
   renderCornellSceneContract,
@@ -129,8 +133,9 @@ describe("rendering asset pipeline", () => {
 
   it("records the six meshes, four materials, and HDRI as CC0 planned sources without claiming they ship", () => {
     const sourceLock = loadRenderingSourceLock(projectRoot) as RenderingSourceLock;
+    expect(sourceLock.version).toBe(2);
     expect(sourceLock.policy.downloaded).toBe(false);
-    expect(sourceLock.defaults).toMatchObject({ license: "CC0", sourceSha256: null });
+    expect(sourceLock.defaults).toMatchObject({ license: "CC0", status: "metadata-locked" });
     expect(sourceLock.sources).toHaveLength(11);
     expect(sourceLock.sources.filter((source) => source.kind === "mesh")).toHaveLength(6);
     expect(sourceLock.sources.filter((source) => source.kind === "texture")).toHaveLength(4);
@@ -140,15 +145,42 @@ describe("rendering asset pipeline", () => {
         source.sourceUrl.startsWith("https://polyhaven.com/a/"),
       ),
     ).toBe(true);
-    expect(
-      plannedRenderingSources.every((source) => source.status === "planned-not-downloaded"),
-    ).toBe(true);
+    expect(plannedRenderingSources.every((source) => source.status === "metadata-locked")).toBe(
+      true,
+    );
     expect(
       plannedRenderingSources.every(
         (source) => Array.isArray(source.authors) && source.authors.length > 0,
       ),
     ).toBe(true);
-    expect(findFetchBlockers(sourceLock)).toHaveLength(11);
+    const selectedFileCount = sourceLock.sources.reduce(
+      (total, source) => total + source.files.length,
+      0,
+    );
+    expect(selectedFileCount).toBeGreaterThan(11);
+    expect(
+      sourceLock.sources.every((source) =>
+        source.files.every(
+          (file) =>
+            file.directUrl.startsWith("https://dl.polyhaven.org/file/") &&
+            file.sha256 === null &&
+            file.status === "metadata-locked" &&
+            file.cachePath.startsWith(`.cache/rendering-sources/${source.id}/`),
+        ),
+      ),
+    ).toBe(true);
+    expect(findFetchBlockers(sourceLock)).toHaveLength(selectedFileCount);
+    const expectedVersions = new Map(reviewedToolchain.map((tool) => [tool.command, tool.version]));
+    expect(
+      findReviewedRebuildBlockers(sourceLock, (command) => expectedVersions.get(command) ?? ""),
+    ).toHaveLength(selectedFileCount + 1);
+    expect(findReviewedRebuildBlockers(sourceLock, () => "")).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining("gltf-transform@4.4.2"),
+        expect.stringContaining("gltfpack@1.1"),
+        expect.stringContaining("toktx@4.4.2"),
+      ]),
+    );
   });
 
   it("accepts a fully reviewed source state without weakening Preview fail-closed checks", () => {
@@ -193,10 +225,13 @@ describe("rendering asset pipeline", () => {
       );
 
       sourceLock.policy.downloaded = true;
-      sourceLock.sources = sourceLock.sources.map((source, index) => ({
+      sourceLock.sources = sourceLock.sources.map((source, sourceIndex) => ({
         ...source,
-        downloadUrl: `https://example.com/source-${index}.zip`,
-        sourceSha256: String(index).padStart(64, "a").slice(-64),
+        files: source.files.map((file, fileIndex) => ({
+          ...file,
+          sha256: (sourceIndex * 100 + fileIndex).toString(16).padStart(64, "a").slice(-64),
+          status: "reviewed" as const,
+        })),
       }));
       writeFileSync(sourceLockPath, `${JSON.stringify(sourceLock, null, 2)}\n`);
 

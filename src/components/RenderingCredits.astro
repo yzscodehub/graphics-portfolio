@@ -157,6 +157,20 @@ const sourceKind = {
                 <dd>{source.authors.join(", ")}</dd>
               </>
             </div>
+            <div>
+              <>
+                <dt>{isEn ? "Selected files" : "锁定文件"}</dt>
+                <dd>
+                  {source.sourceFileCount} / {formatAssetBytes(source.sourceBytes)}
+                </dd>
+              </>
+            </div>
+            <div>
+              <>
+                <dt>{isEn ? "Source state" : "来源状态"}</dt>
+                <dd>{source.status}</dd>
+              </>
+            </div>
           </dl>
           <a href={source.sourceUrl} target="_blank" rel="noreferrer">
             {isEn ? "View source" : "查看来源"}
