@@ -1,9 +1,28 @@
 import { describe, expect, it } from "vitest";
 import { measureCapabilities } from "../src/demos/core/capabilities";
-import { DemoRuntime, ResourceScope, type DemoRuntimeContext } from "../src/demos/core/runtime";
+import {
+  DemoRuntime,
+  OneAttemptDeviceRecoveryGate,
+  ResourceScope,
+  type DemoRuntimeContext,
+} from "../src/demos/core/runtime";
 import type { DemoController } from "../src/demos/core/types";
 
 describe("Demo runtime", () => {
+  it("shares one generation-guarded device recovery budget across Demo controllers", () => {
+    const gate = new OneAttemptDeviceRecoveryGate();
+    expect(gate.claim(2, 1)).toBe("ignore");
+    expect(gate.claim(1, 1)).toBe("recover");
+    expect(gate.claim(1, 1)).toBe("ignore");
+    gate.complete(1);
+    expect(gate.state).toBe("exhausted");
+    expect(gate.claim(2, 2)).toBe("fallback");
+    gate.reset();
+    expect(gate.takeAttempt()).toBe(true);
+    gate.finishAttempt();
+    expect(gate.state).toBe("exhausted");
+  });
+
   it("cleans event listeners, animation frames, GPU resources, and ONNX sessions in reverse order", async () => {
     const events: string[] = [];
     const cancelled: number[] = [];

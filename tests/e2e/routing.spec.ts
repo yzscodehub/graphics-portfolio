@@ -3,6 +3,8 @@ import path from "node:path";
 import { expect, test, type Page } from "@playwright/test";
 
 const isPreview = process.env.SITE_STAGE !== "release";
+const expectedSourceRef =
+  process.env.SOURCE_REF ?? (isPreview ? "feature/rendering-demo-v2" : "main");
 const routes = [
   ["", "zh"],
   ["work/", "zh"],
@@ -182,11 +184,15 @@ test("Demo evidence separates the reference target, implementation limit, and fa
   await expect(
     evidence.locator("dt", { hasText: "CURRENT LIMIT" }).locator("..").locator("dd"),
   ).toContainText("GPU");
+  await expect(evidence.locator("[data-demo-source-link]")).toHaveAttribute(
+    "href",
+    `https://github.com/yzscodehub/graphics-portfolio/blob/${expectedSourceRef}/src/demos/material-lighting.ts`,
+  );
 
   await page.goto("demos/clustered-lighting/");
   await expect(
     page.locator(".demo-evidence-panel dt", { hasText: "ASSETS" }).locator("..").locator("dd"),
-  ).toContainText("PREVIEW PLACEHOLDER");
+  ).toContainText("clustered-courtyard-proxy");
 });
 
 test("the legacy gpu-particles URL exposes the upgraded GPU-driven study", async ({ page }) => {

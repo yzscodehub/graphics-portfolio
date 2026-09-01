@@ -4,6 +4,27 @@ export const CLUSTER_VIEWS = ["final", "gbuffer", "depth-slice", "cluster-heatma
 export type ClusterView = (typeof CLUSTER_VIEWS)[number];
 export const CLUSTER_LIGHT_COUNTS = [64, 256, 512] as const;
 
+export type ClusteredPass =
+  "forward-final" | "cluster-assign" | "gbuffer" | "deferred-fullscreen" | "clustered-fullscreen";
+
+/**
+ * The public mode is an execution contract, not just a shader uniform.
+ */
+export function clusteredPipelinePlan(
+  mode: LightingMode,
+  view: ClusterView,
+): readonly ClusteredPass[] {
+  if (view === "cluster-heatmap") {
+    return ["cluster-assign", "gbuffer", "clustered-fullscreen"];
+  }
+  if (mode === "naive" && view === "final") return ["forward-final"];
+  if (mode === "deferred") return ["gbuffer", "deferred-fullscreen"];
+  if (mode === "clustered") return ["cluster-assign", "gbuffer", "clustered-fullscreen"];
+  // Naive diagnostic views need an inspection prepass; Naive Final stays
+  // direct forward and never samples a GBuffer.
+  return ["gbuffer", "deferred-fullscreen"];
+}
+
 export interface ClusterGrid {
   x: number;
   y: number;

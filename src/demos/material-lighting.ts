@@ -6,6 +6,7 @@ import {
   makeButton,
   makeRange,
 } from "./core/canvas";
+import { OneAttemptDeviceRecoveryGate } from "./core/runtime";
 import type { DemoContext, DemoController } from "./core/types";
 import { CanvasFallbackSurface } from "./reference-frame/fallback-surface";
 import type { BufferGeometry, Material, Object3D } from "three";
@@ -13,6 +14,58 @@ import type { BufferGeometry, Material, Object3D } from "three";
 type DebugView = "final" | "normal" | "roughness" | "metalness" | "direct" | "indirect";
 type ToneMappingMode = "aces" | "agx" | "linear";
 type Vec3 = [number, number, number];
+export type MaterialPresetId = "dielectric" | "metal" | "rough" | "clearcoat";
+
+export interface MaterialPreset {
+  baseColor: string;
+  metalness: number;
+  roughness: number;
+  clearcoat: number;
+  clearcoatRoughness: number;
+}
+
+export interface CalibrationRigContract {
+  format: "graphics-portfolio-scene-contract";
+  version: 1;
+  assetId: "calibration-rig";
+  geometry: string[];
+  materials: string[];
+  debugAttachments: string[];
+  externalAssets: false;
+}
+
+export const MATERIAL_PRESETS: Readonly<Record<MaterialPresetId, MaterialPreset>> = {
+  dielectric: {
+    baseColor: "#d8e1df",
+    metalness: 0,
+    roughness: 0.22,
+    clearcoat: 0.1,
+    clearcoatRoughness: 0.18,
+  },
+  metal: {
+    baseColor: "#b98248",
+    metalness: 1,
+    roughness: 0.2,
+    clearcoat: 0,
+    clearcoatRoughness: 0.2,
+  },
+  rough: {
+    baseColor: "#707a72",
+    metalness: 0.05,
+    roughness: 0.82,
+    clearcoat: 0,
+    clearcoatRoughness: 0.7,
+  },
+  clearcoat: {
+    baseColor: "#2bd8b7",
+    metalness: 0.25,
+    roughness: 0.28,
+    clearcoat: 1,
+    clearcoatRoughness: 0.08,
+  },
+};
+
+const INITIAL_MATERIAL_PRESET: MaterialPresetId = "clearcoat";
 
 const DEBUG_VIEWS: DebugView[] = [
   "final",
@@ -29,6 +82,46 @@ const TONE_MAPPING_LABELS: Record<ToneMappingMode, string> = {
   linear: "LINEAR",
 };
 
+const DEBUG_VIEW_LABELS: Record<DebugView, string> = {
+  final: "FINAL",
+  normal: "NORMAL",
+  roughness: "ROUGHNESS",
+  metalness: "METALNESS",
+  direct: "DIRECT ISOLATION",
+  indirect: "IBL ISOLATION",
+};
+
+export function materialPreset(id: MaterialPresetId): MaterialPreset {
+  return { ...MATERIAL_PRESETS[id] };
+}
+
+export function isCalibrationRigContract(value: unknown): value is CalibrationRigContract {
+  if (value === null || typeof value !== "object") return false;
+  const candidate = value as Partial<CalibrationRigContract>;
+  return (
+    candidate.format === "graphics-portfolio-scene-contract" &&
+    candidate.version === 1 &&
+    candidate.assetId === "calibration-rig" &&
+    candidate.externalAssets === false &&
+    Array.isArray(candidate.geometry) &&
+    candidate.geometry.length >= 6 &&
+    Array.isArray(candidate.materials) &&
+    Array.isArray(candidate.debugAttachments)
+  );
+}
+
+async function loadCalibrationRigContract(signal: AbortSignal): Promise<CalibrationRigContract> {
+  const base = (import.meta.env.BASE_URL || "/").replace(/\/$/, "");
+  const response = await fetch(`${base}/assets/rendering/contracts/calibration-rig.contract.json`, {
+    signal,
+  });
+  if (!response.ok) throw new Error(`Calibration Rig contract HTTP ${response.status}`);
+  const contract: unknown = await response.json();
+  if (!isCalibrationRigContract(contract))
+    throw new Error("Calibration Rig contract failed runtime validation.");
+  return contract;
+}
+
 /**
  * r185's multi-backend renderer initializes WebGPU first and falls back to WebGL2 internally.
  * The same TSL node-material graph stays active on both paths.
@@ -37,16 +130,19 @@ export function createDemo(): DemoController {
   let active: DemoController | undefined;
   let context: DemoContext | undefined;
   let generation = 0;
-  let recovering = false;
+  let fallbackTransition = false;
+  let rebuilding = false;
+  const deviceRecovery = new OneAttemptDeviceRecoveryGate();
+  let rigContract: CalibrationRigContract | undefined;
 
   const useCanvasFallback = async (reason: string, expectedGeneration: number) => {
-    if (!context || recovering || expectedGeneration !== generation) return false;
-    recovering = true;
+    if (!context || fallbackTransition || expectedGeneration !== generation) return false;
+    fallbackTransition = true;
     const previous = active;
     active = undefined;
     try {
       await previous?.dispose();
-      const fallback = createCanvasFallback();
+      const fallback = createCanvasFallback(rigContract);
       await fallback.init(context);
       if (expectedGeneration !== generation) {
         await fallback.dispose();
@@ -63,32 +159,57 @@ export function createDemo(): DemoController {
       );
       return false;
     } finally {
-      recovering = false;
+      fallbackTransition = false;
+    }
+  };
+
+  const setupThree = async (recoveryReason?: string): Promise<boolean> => {
+    if (!context || rebuilding) return false;
+    rebuilding = true;
+    const currentGeneration = ++generation;
+    const previous = active;
+    active = undefined;
+    await previous?.dispose();
+    let renderer: DemoController | undefined;
+    try {
+      rigContract ??= await loadCalibrationRigContract(context.signal);
+      renderer = createThreeMaterialDemo((reason) => {
+        if (generation !== currentGeneration) return;
+        if (deviceRecovery.takeAttempt()) {
+          context?.setStatus(`${reason} Reinitializing the Three.js renderer once…`, "warning");
+          void setupThree(reason).finally(() => deviceRecovery.finishAttempt());
+          return;
+        }
+        const fallbackGeneration = ++generation;
+        void useCanvasFallback(reason, fallbackGeneration);
+      }, rigContract);
+      await renderer.init(context);
+      if (currentGeneration !== generation) {
+        await renderer.dispose();
+        return false;
+      }
+      active = renderer;
+      context.setRuntimeState?.("running");
+      if (recoveryReason)
+        context.setStatus(
+          "Three.js renderer reinitialized after device/context loss; scene state restarted.",
+          "success",
+        );
+      return true;
+    } catch (error) {
+      await renderer?.dispose();
+      const reason = error instanceof Error ? error.message : "Three.js renderer is unavailable.";
+      if (!(await useCanvasFallback(reason, currentGeneration))) throw error;
+      return false;
+    } finally {
+      rebuilding = false;
     }
   };
 
   return {
     async init(next) {
       context = next;
-      const currentGeneration = ++generation;
-      const renderer = createThreeMaterialDemo((reason) => {
-        if (generation !== currentGeneration) return;
-        const fallbackGeneration = ++generation;
-        void useCanvasFallback(reason, fallbackGeneration);
-      });
-      try {
-        await renderer.init(next);
-        if (currentGeneration !== generation) {
-          await renderer.dispose();
-          return;
-        }
-        active = renderer;
-        next.setRuntimeState?.("running");
-      } catch (error) {
-        await renderer.dispose();
-        const reason = error instanceof Error ? error.message : "Three.js renderer is unavailable.";
-        if (!(await useCanvasFallback(reason, currentGeneration))) throw error;
-      }
+      await setupThree();
     },
     resize(width, height) {
       try {
@@ -109,12 +230,17 @@ export function createDemo(): DemoController {
     },
     dispose() {
       generation += 1;
-      return active?.dispose();
+      const previous = active;
+      active = undefined;
+      return previous?.dispose();
     },
   };
 }
 
-function createThreeMaterialDemo(onDeviceLost: (message: string) => void): DemoController {
+function createThreeMaterialDemo(
+  onDeviceLost: (message: string) => void,
+  rigContract: CalibrationRigContract,
+): DemoController {
   let context: DemoContext;
   let three: typeof import("three/webgpu");
   let tsl: typeof import("three/tsl");
@@ -132,6 +258,7 @@ function createThreeMaterialDemo(onDeviceLost: (message: string) => void): DemoC
       }
     | undefined;
   let sphere: import("three/webgpu").Mesh | undefined;
+  let calibrationMeshes: import("three/webgpu").Mesh[] = [];
   let material: import("three/webgpu").MeshPhysicalNodeMaterial | undefined;
   let normalMaterial: import("three/webgpu").MeshBasicNodeMaterial | undefined;
   let roughnessMaterial: import("three/webgpu").MeshBasicNodeMaterial | undefined;
@@ -143,9 +270,12 @@ function createThreeMaterialDemo(onDeviceLost: (message: string) => void): DemoC
   let running = false;
   let width = 1;
   let height = 1;
-  let baseColor = "#2bd8b7";
-  let roughness = 0.34;
-  let metalness = 0.72;
+  let activePreset: MaterialPresetId | "custom" = INITIAL_MATERIAL_PRESET;
+  let baseColor = MATERIAL_PRESETS[INITIAL_MATERIAL_PRESET].baseColor;
+  let roughness = MATERIAL_PRESETS[INITIAL_MATERIAL_PRESET].roughness;
+  let metalness = MATERIAL_PRESETS[INITIAL_MATERIAL_PRESET].metalness;
+  let clearcoat = MATERIAL_PRESETS[INITIAL_MATERIAL_PRESET].clearcoat;
+  let clearcoatRoughness = MATERIAL_PRESETS[INITIAL_MATERIAL_PRESET].clearcoatRoughness;
   let exposure = 1.1;
   let toneMapping: ToneMappingMode = "aces";
   let debug: DebugView = "final";
@@ -163,7 +293,10 @@ function createThreeMaterialDemo(onDeviceLost: (message: string) => void): DemoC
   };
 
   const updateMetrics = () => {
-    report?.({ backend: backendLabel(), status: `PBR / ${debug.toUpperCase()}` });
+    report?.({
+      backend: backendLabel(),
+      status: `PBR / ${activePreset.toUpperCase()} / ${DEBUG_VIEW_LABELS[debug]}`,
+    });
   };
 
   const applyToneMapping = () => {
@@ -188,7 +321,7 @@ function createThreeMaterialDemo(onDeviceLost: (message: string) => void): DemoC
     )
       return;
 
-    sphere.material =
+    const activeMaterial =
       debug === "normal"
         ? normalMaterial
         : debug === "roughness"
@@ -196,6 +329,9 @@ function createThreeMaterialDemo(onDeviceLost: (message: string) => void): DemoC
           : debug === "metalness"
             ? metalnessMaterial
             : material;
+    calibrationMeshes.forEach((mesh) => {
+      mesh.material = activeMaterial;
+    });
     scene.environment = debug === "direct" ? null : environmentTexture;
     directLights.forEach((light) => {
       light.visible = debug !== "indirect";
@@ -222,9 +358,25 @@ function createThreeMaterialDemo(onDeviceLost: (message: string) => void): DemoC
   const configureControls = () => {
     if (!material || !renderer) return;
     clearElement(context.controls);
+    const presetControl = document.createElement("div");
+    presetControl.className = "demo-range";
+    presetControl.setAttribute("aria-label", "Material Preset");
+    const presetLabel = document.createElement("span");
+    presetLabel.textContent = "Material Preset";
+    const presetIds = Object.keys(MATERIAL_PRESETS) as MaterialPresetId[];
+    const presetButtons = presetIds.map((id) => makeButton(id.toUpperCase(), id === activePreset));
+    presetControl.append(presetLabel, ...presetButtons);
     const baseColorControl = makeColorControl("Base Color", baseColor);
     const metalnessControl = makeRange("Metalness", metalness, 0, 1, 0.01);
     const roughnessControl = makeRange("Roughness", roughness, 0.05, 0.95, 0.01);
+    const clearcoatControl = makeRange("Clearcoat", clearcoat, 0, 1, 0.01);
+    const clearcoatRoughnessControl = makeRange(
+      "Clearcoat Roughness",
+      clearcoatRoughness,
+      0.02,
+      0.9,
+      0.01,
+    );
     const exposureControl = makeRange("Exposure", exposure, 0.5, 1.8, 0.05);
     const toneMappingControl = document.createElement("div");
     toneMappingControl.className = "demo-range";
@@ -235,21 +387,70 @@ function createThreeMaterialDemo(onDeviceLost: (message: string) => void): DemoC
       makeButton(TONE_MAPPING_LABELS[mode], mode === toneMapping),
     );
     toneMappingControl.append(toneMappingLabel, ...toneButtons);
-    const viewButtons = DEBUG_VIEWS.map((view) => makeButton(view.toUpperCase(), view === debug));
+    const viewButtons = DEBUG_VIEWS.map((view) =>
+      makeButton(DEBUG_VIEW_LABELS[view], view === debug),
+    );
     context.controls.append(
+      presetControl,
       baseColorControl.wrapper,
       metalnessControl.parentElement!,
       roughnessControl.parentElement!,
+      clearcoatControl.parentElement!,
+      clearcoatRoughnessControl.parentElement!,
       exposureControl.parentElement!,
       toneMappingControl,
       ...viewButtons,
+    );
+
+    const markCustom = () => {
+      activePreset = "custom";
+      presetButtons.forEach((entry) => entry.setAttribute("aria-pressed", "false"));
+      updateMetrics();
+    };
+    const syncMaterial = () => {
+      material!.color.set(baseColor);
+      material!.metalness = metalness;
+      material!.roughness = roughness;
+      material!.clearcoat = clearcoat;
+      material!.clearcoatRoughness = clearcoatRoughness;
+      if (metalnessNode) metalnessNode.value = metalness;
+      if (roughnessNode) roughnessNode.value = roughness;
+    };
+    const applyPreset = (id: MaterialPresetId) => {
+      const preset = materialPreset(id);
+      activePreset = id;
+      baseColor = preset.baseColor;
+      metalness = preset.metalness;
+      roughness = preset.roughness;
+      clearcoat = preset.clearcoat;
+      clearcoatRoughness = preset.clearcoatRoughness;
+      baseColorControl.input.value = baseColor;
+      metalnessControl.value = String(metalness);
+      roughnessControl.value = String(roughness);
+      clearcoatControl.value = String(clearcoat);
+      clearcoatRoughnessControl.value = String(clearcoatRoughness);
+      presetButtons.forEach((entry, index) =>
+        entry.setAttribute("aria-pressed", String(presetIds[index] === id)),
+      );
+      syncMaterial();
+      applyDebugView();
+      context.setStatus(
+        `${id.toUpperCase()} preset applied: M ${metalness.toFixed(2)} / R ${roughness.toFixed(2)} / C ${clearcoat.toFixed(2)}.`,
+        "success",
+      );
+    };
+    presetButtons.forEach((button, index) =>
+      button.addEventListener("click", () => applyPreset(presetIds[index]!), {
+        signal: context.signal,
+      }),
     );
 
     baseColorControl.input.addEventListener(
       "input",
       () => {
         baseColor = baseColorControl.input.value;
-        material?.color.set(baseColor);
+        syncMaterial();
+        markCustom();
       },
       { signal: context.signal },
     );
@@ -257,8 +458,8 @@ function createThreeMaterialDemo(onDeviceLost: (message: string) => void): DemoC
       "input",
       () => {
         metalness = Number(metalnessControl.value);
-        if (material) material.metalness = metalness;
-        if (metalnessNode) metalnessNode.value = metalness;
+        syncMaterial();
+        markCustom();
       },
       { signal: context.signal },
     );
@@ -266,8 +467,26 @@ function createThreeMaterialDemo(onDeviceLost: (message: string) => void): DemoC
       "input",
       () => {
         roughness = Number(roughnessControl.value);
-        if (material) material.roughness = roughness;
-        if (roughnessNode) roughnessNode.value = roughness;
+        syncMaterial();
+        markCustom();
+      },
+      { signal: context.signal },
+    );
+    clearcoatControl.addEventListener(
+      "input",
+      () => {
+        clearcoat = Number(clearcoatControl.value);
+        syncMaterial();
+        markCustom();
+      },
+      { signal: context.signal },
+    );
+    clearcoatRoughnessControl.addEventListener(
+      "input",
+      () => {
+        clearcoatRoughness = Number(clearcoatRoughnessControl.value);
+        syncMaterial();
+        markCustom();
       },
       { signal: context.signal },
     );
@@ -303,10 +522,10 @@ function createThreeMaterialDemo(onDeviceLost: (message: string) => void): DemoC
           applyDebugView();
           context.setStatus(
             debug === "direct"
-              ? "Direct lighting: PMREM environment contribution is disabled."
+              ? "Direct isolation: PMREM environment contribution is disabled."
               : debug === "indirect"
-                ? "Indirect lighting: direct lights are disabled; PMREM remains active."
-                : `TSL debug view: ${debug.toUpperCase()}.`,
+                ? "IBL isolation: direct lights are disabled; PMREM remains active."
+                : `TSL debug view: ${DEBUG_VIEW_LABELS[debug]}.`,
             "success",
           );
         },
@@ -319,9 +538,10 @@ function createThreeMaterialDemo(onDeviceLost: (message: string) => void): DemoC
     async init(next) {
       context = next;
       [three, tsl] = await Promise.all([import("three/webgpu"), import("three/tsl")]);
-      const [{ OrbitControls }, { RoomEnvironment }] = await Promise.all([
+      const [{ OrbitControls }, { RoomEnvironment }, { RoundedBoxGeometry }] = await Promise.all([
         import("three/addons/controls/OrbitControls.js"),
         import("three/addons/environments/RoomEnvironment.js"),
+        import("three/addons/geometries/RoundedBoxGeometry.js"),
       ]);
 
       renderer = new three.WebGPURenderer({
@@ -354,7 +574,7 @@ function createThreeMaterialDemo(onDeviceLost: (message: string) => void): DemoC
 
       scene = new three.Scene();
       camera = new three.PerspectiveCamera(38, 1, 0.1, 100);
-      camera.position.set(3.1, 1.7, 4.3);
+      camera.position.set(4.7, 2.5, 6.4);
       controls = new OrbitControls(camera, context.canvas);
       controls.enableDamping = true;
       controls.minDistance = 2.9;
@@ -372,8 +592,8 @@ function createThreeMaterialDemo(onDeviceLost: (message: string) => void): DemoC
         color: baseColor,
         metalness,
         roughness,
-        clearcoat: 0.16,
-        clearcoatRoughness: 0.18,
+        clearcoat,
+        clearcoatRoughness,
       });
       normalMaterial = new three.MeshBasicNodeMaterial();
       normalMaterial.colorNode = tsl.normalView.normalize().mul(0.5).add(0.5);
@@ -391,6 +611,48 @@ function createThreeMaterialDemo(onDeviceLost: (message: string) => void): DemoC
       );
       sphere = new three.Mesh(geometry, material);
       scene.add(sphere);
+      calibrationMeshes = [sphere];
+
+      const addRigMesh = (
+        id: string,
+        geometry: BufferGeometry,
+        position: [number, number, number],
+        rotation: [number, number, number] = [0, 0, 0],
+      ) => {
+        if (!rigContract.geometry.includes(id)) {
+          geometry.dispose();
+          return;
+        }
+        const mesh = new three.Mesh(geometry, material);
+        mesh.position.set(...position);
+        mesh.rotation.set(...rotation);
+        calibrationMeshes.push(mesh);
+        scene!.add(mesh);
+      };
+      addRigMesh(
+        "beveled-cube",
+        new RoundedBoxGeometry(1.05, 1.05, 1.05, 5, 0.12),
+        [-2.05, -0.56, -0.2],
+        [0.12, 0.42, 0],
+      );
+      addRigMesh(
+        "metal-ring",
+        new three.TorusGeometry(0.55, 0.16, 24, 64),
+        [2.05, -0.48, -0.05],
+        [1.16, 0.16, 0.24],
+      );
+      addRigMesh(
+        "thin-sheet",
+        new three.PlaneGeometry(1.2, 1.2, 8, 8),
+        [-2.0, 0.9, -0.55],
+        [0.06, 0.58, 0],
+      );
+      addRigMesh(
+        "normal-groove",
+        new three.TorusKnotGeometry(0.42, 0.085, 96, 12, 2, 3),
+        [2.0, 0.88, -0.55],
+        [0.2, 0.4, 0],
+      );
 
       const floorMaterial = new three.MeshStandardNodeMaterial({
         color: 0x132321,
@@ -417,7 +679,7 @@ function createThreeMaterialDemo(onDeviceLost: (message: string) => void): DemoC
       configureControls();
       applyDebugView();
       context.setStatus(
-        `${backendLabel()} with TSL node materials and a procedural PMREM room; no HDRI texture was loaded.`,
+        `${backendLabel()} loaded the audited ${rigContract.assetId} contract (${calibrationMeshes.length + 1} rendered elements including the roughness plane) with a procedural PMREM room.`,
         "success",
       );
       updateMetrics();
@@ -473,7 +735,7 @@ function createThreeMaterialDemo(onDeviceLost: (message: string) => void): DemoC
   };
 }
 
-function createCanvasFallback(): DemoController {
+function createCanvasFallback(rigContract?: CalibrationRigContract): DemoController {
   let context: DemoContext;
   let surface: CanvasFallbackSurface | undefined;
   let ctx: CanvasRenderingContext2D;
@@ -481,9 +743,12 @@ function createCanvasFallback(): DemoController {
   let height = 1;
   let raf = 0;
   let running = false;
-  let baseColor = "#2bd8b7";
-  let roughness = 0.34;
-  let metalness = 0.72;
+  let activePreset: MaterialPresetId | "custom" = INITIAL_MATERIAL_PRESET;
+  let baseColor = MATERIAL_PRESETS[INITIAL_MATERIAL_PRESET].baseColor;
+  let roughness = MATERIAL_PRESETS[INITIAL_MATERIAL_PRESET].roughness;
+  let metalness = MATERIAL_PRESETS[INITIAL_MATERIAL_PRESET].metalness;
+  let clearcoat = MATERIAL_PRESETS[INITIAL_MATERIAL_PRESET].clearcoat;
+  let clearcoatRoughness = MATERIAL_PRESETS[INITIAL_MATERIAL_PRESET].clearcoatRoughness;
   let exposure = 1.1;
   let toneMapping: ToneMappingMode = "aces";
   let debug: DebugView = "final";
@@ -515,13 +780,23 @@ function createCanvasFallback(): DemoController {
         const ndotl = Math.max(0, dot(normal, light));
         const half = normalize([light[0] + view[0], light[1] + view[1], light[2] + view[2]]);
         const specular = Math.pow(Math.max(0, dot(normal, half)), 5 + (1 - roughness) * 120);
+        const clearcoatSpecular =
+          Math.pow(Math.max(0, dot(normal, half)), 8 + (1 - clearcoatRoughness) * 180) *
+          clearcoat *
+          0.38;
         const indirect = 0.16 + 0.24 * Math.max(0, normal[1]);
-        const direct = ndotl * 1.2 + specular;
+        const direct = ndotl * 1.2 + specular + clearcoatSpecular;
         const index = (y * size + x) * 4;
         const shaded = [
-          color[0] * (indirect + ndotl * 1.2) * (1 - metalness * 0.45) + specular,
-          color[1] * (indirect + ndotl * 1.2) * (1 - metalness * 0.45) + specular,
-          color[2] * (indirect + ndotl * 1.2) * (1 - metalness * 0.45) + specular,
+          color[0] * (indirect + ndotl * 1.2) * (1 - metalness * 0.45) +
+            specular +
+            clearcoatSpecular,
+          color[1] * (indirect + ndotl * 1.2) * (1 - metalness * 0.45) +
+            specular +
+            clearcoatSpecular,
+          color[2] * (indirect + ndotl * 1.2) * (1 - metalness * 0.45) +
+            specular +
+            clearcoatSpecular,
         ] as Vec3;
         const debugColor: Vec3 =
           debug === "normal"
@@ -552,11 +827,14 @@ function createCanvasFallback(): DemoController {
     ctx.fillStyle = "#e8e6dc";
     ctx.font = "12px ui-monospace, monospace";
     ctx.fillText(
-      `CANVAS PBR APPROXIMATION / ${debug.toUpperCase()} / ${toneMapping.toUpperCase()}`,
+      `CANVAS PBR / ${activePreset.toUpperCase()} / ${DEBUG_VIEW_LABELS[debug]} / ${toneMapping.toUpperCase()}`,
       16,
       24,
     );
-    report({ backend: "Canvas fallback", status: `PBR approximation / ${debug.toUpperCase()}` });
+    report({
+      backend: "Canvas fallback",
+      status: `PBR approximation / ${rigContract?.geometry.length ?? 0} contract elements / ${activePreset.toUpperCase()} / ${DEBUG_VIEW_LABELS[debug]}`,
+    });
     raf = requestAnimationFrame(render);
   };
 
@@ -567,9 +845,27 @@ function createCanvasFallback(): DemoController {
       ctx = surface.resize(width, height);
       report = createMetricReporter(context);
       clearElement(context.controls);
+      const presetControl = document.createElement("div");
+      presetControl.className = "demo-range";
+      presetControl.setAttribute("aria-label", "Material Preset");
+      const presetLabel = document.createElement("span");
+      presetLabel.textContent = "Material Preset";
+      const presetIds = Object.keys(MATERIAL_PRESETS) as MaterialPresetId[];
+      const presetButtons = presetIds.map((id) =>
+        makeButton(id.toUpperCase(), id === activePreset),
+      );
+      presetControl.append(presetLabel, ...presetButtons);
       const baseColorControl = makeColorControl("Base Color", baseColor);
       const metalnessControl = makeRange("Metalness", metalness, 0, 1, 0.01);
       const roughnessControl = makeRange("Roughness", roughness, 0.05, 0.95, 0.01);
+      const clearcoatControl = makeRange("Clearcoat", clearcoat, 0, 1, 0.01);
+      const clearcoatRoughnessControl = makeRange(
+        "Clearcoat Roughness",
+        clearcoatRoughness,
+        0.02,
+        0.9,
+        0.01,
+      );
       const exposureControl = makeRange("Exposure", exposure, 0.5, 1.8, 0.05);
       const toneMappingControl = document.createElement("div");
       toneMappingControl.className = "demo-range";
@@ -580,19 +876,55 @@ function createCanvasFallback(): DemoController {
         makeButton(TONE_MAPPING_LABELS[mode], mode === toneMapping),
       );
       toneMappingControl.append(toneMappingLabel, ...toneButtons);
-      const viewButtons = DEBUG_VIEWS.map((view) => makeButton(view.toUpperCase(), view === debug));
+      const viewButtons = DEBUG_VIEWS.map((view) =>
+        makeButton(DEBUG_VIEW_LABELS[view], view === debug),
+      );
       context.controls.append(
+        presetControl,
         baseColorControl.wrapper,
         metalnessControl.parentElement!,
         roughnessControl.parentElement!,
+        clearcoatControl.parentElement!,
+        clearcoatRoughnessControl.parentElement!,
         exposureControl.parentElement!,
         toneMappingControl,
         ...viewButtons,
+      );
+      const markCustom = () => {
+        activePreset = "custom";
+        presetButtons.forEach((entry) => entry.setAttribute("aria-pressed", "false"));
+      };
+      const applyPreset = (id: MaterialPresetId) => {
+        const preset = materialPreset(id);
+        activePreset = id;
+        baseColor = preset.baseColor;
+        metalness = preset.metalness;
+        roughness = preset.roughness;
+        clearcoat = preset.clearcoat;
+        clearcoatRoughness = preset.clearcoatRoughness;
+        baseColorControl.input.value = baseColor;
+        metalnessControl.value = String(metalness);
+        roughnessControl.value = String(roughness);
+        clearcoatControl.value = String(clearcoat);
+        clearcoatRoughnessControl.value = String(clearcoatRoughness);
+        presetButtons.forEach((entry, index) =>
+          entry.setAttribute("aria-pressed", String(presetIds[index] === id)),
+        );
+        context.setStatus(
+          `Canvas ${id.toUpperCase()} preset approximation; not a Three.js buffer capture.`,
+          "warning",
+        );
+      };
+      presetButtons.forEach((button, index) =>
+        button.addEventListener("click", () => applyPreset(presetIds[index]!), {
+          signal: context.signal,
+        }),
       );
       baseColorControl.input.addEventListener(
         "input",
         () => {
           baseColor = baseColorControl.input.value;
+          markCustom();
         },
         { signal: context.signal },
       );
@@ -600,6 +932,7 @@ function createCanvasFallback(): DemoController {
         "input",
         () => {
           metalness = Number(metalnessControl.value);
+          markCustom();
         },
         { signal: context.signal },
       );
@@ -607,6 +940,23 @@ function createCanvasFallback(): DemoController {
         "input",
         () => {
           roughness = Number(roughnessControl.value);
+          markCustom();
+        },
+        { signal: context.signal },
+      );
+      clearcoatControl.addEventListener(
+        "input",
+        () => {
+          clearcoat = Number(clearcoatControl.value);
+          markCustom();
+        },
+        { signal: context.signal },
+      );
+      clearcoatRoughnessControl.addEventListener(
+        "input",
+        () => {
+          clearcoatRoughness = Number(clearcoatRoughnessControl.value);
+          markCustom();
         },
         { signal: context.signal },
       );
@@ -638,7 +988,7 @@ function createCanvasFallback(): DemoController {
               entry.setAttribute("aria-pressed", String(entry === button)),
             );
             context.setStatus(
-              `Canvas approximation debug view: ${debug.toUpperCase()}; not a Three.js buffer capture.`,
+              `Canvas approximation view: ${DEBUG_VIEW_LABELS[debug]}; not a Three.js buffer capture.`,
               "warning",
             );
           },

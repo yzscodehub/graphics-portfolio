@@ -1,12 +1,16 @@
 import { describe, expect, it } from "vitest";
 import {
   buildVisibilityReference,
+  createLodIndirectCommands,
   createIndexedIndirectCommand,
   createVisibilityInstanceData,
   DEFAULT_VISIBILITY_FRUSTUM,
+  frustumForCamera,
   INDEXED_INDIRECT_STRIDE_BYTES,
   isInstanceVisible,
   lodForInstance,
+  packLodIndirectCommands,
+  validateVisibilityCommandReadback,
   VisibilityResourceScope,
   type VisibilityInstance,
 } from "../src/demos/gpu-visibility";
@@ -38,16 +42,45 @@ describe("GPU-driven visibility CPU reference", () => {
     const reference = buildVisibilityReference(items);
     expect(Array.from(reference.visibleIndices)).toEqual([7, 19, 24]);
     expect(reference.lodCounts.reduce((sum, count) => sum + count, 0)).toBe(3);
-    expect(reference.indirect[1]).toBe(3);
+    expect(Array.from(reference.lodIndices[0])).toEqual([7, 19]);
+    expect(Array.from(reference.lodIndices[1])).toEqual([]);
+    expect(Array.from(reference.lodIndices[2])).toEqual([24]);
+    expect(reference.indirectCommands.map((command) => command[1])).toEqual([2, 0, 1]);
     expect(lodForInstance(items[0])).toBe(0);
     expect(lodForInstance(items[2])).toBe(2);
   });
 
-  it("writes a 32-byte indexed indirect command with firstInstance zero", () => {
+  it("writes three 32-byte LOD indirect commands with distinct index ranges and firstInstance zero", () => {
     const command = createIndexedIndirectCommand(6, 42);
     expect(command.byteLength).toBe(INDEXED_INDIRECT_STRIDE_BYTES);
     expect(Array.from(command.slice(0, 5))).toEqual([6, 42, 0, 0, 0]);
     expect(Array.from(command.slice(5))).toEqual([0, 0, 0]);
+    const commands = createLodIndirectCommands([4, 5, 6]);
+    expect(commands.map((entry) => Array.from(entry.slice(0, 5)))).toEqual([
+      [18, 4, 0, 0, 0],
+      [12, 5, 18, 0, 0],
+      [6, 6, 30, 0, 0],
+    ]);
+  });
+
+  it("validates readback for all three command slices and the LOD distribution", () => {
+    const values = new Uint32Array(3 * 8 + 5);
+    values.set(packLodIndirectCommands([3, 2, 1]));
+    values.set([32, 6, 3, 2, 1], 3 * 8);
+    expect(validateVisibilityCommandReadback(values, 32)).toMatchObject({
+      tested: 32,
+      visible: 6,
+      lodCounts: [3, 2, 1],
+      valid: true,
+    });
+    values[4] = 1;
+    expect(validateVisibilityCommandReadback(values, 32).valid).toBe(false);
+  });
+
+  it("moves the shared frustum when the observable camera state changes", () => {
+    const shifted = frustumForCamera(3);
+    expect(shifted.left).toBe(DEFAULT_VISIBILITY_FRUSTUM.left + 3);
+    expect(shifted.right).toBe(DEFAULT_VISIBILITY_FRUSTUM.right + 3);
   });
 
   it("destroys tracked GPU-like resources exactly once in reverse ownership order", () => {

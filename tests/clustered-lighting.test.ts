@@ -4,6 +4,7 @@ import {
   buildClusteredLightAssignments,
   buildDynamicLights,
   clusterBounds,
+  clusteredPipelinePlan,
   clusterCount,
   clusterIndexForSample,
   compareFixedGpuClusterReadback,
@@ -31,6 +32,22 @@ describe("clustered lighting CPU reference", () => {
     expect(depthSliceForViewDepth(DEFAULT_CLUSTER_GRID.far)).toBe(DEFAULT_CLUSTER_GRID.z - 1);
     expect(clusterIndexForSample(0.5, 0.5, 4)).toBeGreaterThanOrEqual(0);
     expect(clusterBounds(0).zMin).toBe(DEFAULT_CLUSTER_GRID.near);
+  });
+
+  it("uses distinct pass DAGs rather than one mode uniform", () => {
+    expect(clusteredPipelinePlan("naive", "final")).toEqual(["forward-final"]);
+    expect(clusteredPipelinePlan("deferred", "final")).toEqual(["gbuffer", "deferred-fullscreen"]);
+    expect(clusteredPipelinePlan("clustered", "final")).toEqual([
+      "cluster-assign",
+      "gbuffer",
+      "clustered-fullscreen",
+    ]);
+    expect(clusteredPipelinePlan("naive", "gbuffer")).toEqual(["gbuffer", "deferred-fullscreen"]);
+    expect(clusteredPipelinePlan("deferred", "cluster-heatmap")).toEqual([
+      "cluster-assign",
+      "gbuffer",
+      "clustered-fullscreen",
+    ]);
   });
 
   it("packs only intersecting lights and validates the uploaded list", () => {

@@ -1,4 +1,5 @@
 import { clearElement, createMetricReporter, drawStageBackdrop, makeButton } from "./core/canvas";
+import { OneAttemptDeviceRecoveryGate } from "./core/runtime";
 import type { DemoContext, DemoController } from "./core/types";
 import { CanvasFallbackSurface } from "./reference-frame/fallback-surface";
 import { ReferenceFrameRenderer } from "./reference-frame/renderer";
@@ -25,6 +26,7 @@ export function createDemo(): DemoController {
   let height = 1;
   let running = false;
   let generation = 0;
+  const deviceRecovery = new OneAttemptDeviceRecoveryGate();
 
   const status = () => {
     context.setStatus(
@@ -66,7 +68,7 @@ export function createDemo(): DemoController {
     }
   };
 
-  const setup = async () => {
+  const setup = async (recoveringDevice = false) => {
     const currentGeneration = ++generation;
     active?.dispose();
     active = undefined;
@@ -78,6 +80,11 @@ export function createDemo(): DemoController {
         aa,
         onDeviceLost: (message) => {
           if (generation !== currentGeneration) return;
+          if (deviceRecovery.takeAttempt()) {
+            context.setStatus(`${message} Reinitializing WebGPU once…`, "warning");
+            void setup(true).finally(() => deviceRecovery.finishAttempt());
+            return;
+          }
           const fallbackGeneration = ++generation;
           useFallback(message, fallbackGeneration);
         },
@@ -97,6 +104,11 @@ export function createDemo(): DemoController {
       context.setRuntimeState?.("running");
       context.setMetrics({ backend: renderer.backendLabel, status: `${shadow} / ${aa}` });
       status();
+      if (recoveringDevice)
+        context.setStatus(
+          `WebGPU reinitialized after device loss | ${shadow.toUpperCase()} / ${aa.toUpperCase()}`,
+          "success",
+        );
     } catch (error) {
       renderer?.dispose();
       useFallback(

@@ -1,4 +1,5 @@
 import { clearElement, drawStageBackdrop, makeButton } from "./core/canvas";
+import { OneAttemptDeviceRecoveryGate } from "./core/runtime";
 import type { DemoContext, DemoController } from "./core/types";
 import { CanvasFallbackSurface } from "./reference-frame/fallback-surface";
 import { ReferenceFrameRenderer } from "./reference-frame/renderer";
@@ -84,6 +85,7 @@ export function createDemo(): DemoController {
   let running = false;
   let width = 1;
   let height = 1;
+  const deviceRecovery = new OneAttemptDeviceRecoveryGate();
 
   const updateEvidence = () => {
     const info = active?.getAttachmentInfo(selected) ?? attachmentInfo(selected);
@@ -121,7 +123,7 @@ export function createDemo(): DemoController {
     }
   };
 
-  const setup = async () => {
+  const setup = async (recoveringDevice = false) => {
     const currentGeneration = ++generation;
     active?.dispose();
     active = undefined;
@@ -133,6 +135,11 @@ export function createDemo(): DemoController {
         aa: "taa",
         onDeviceLost: (message) => {
           if (generation !== currentGeneration) return;
+          if (deviceRecovery.takeAttempt()) {
+            context.setStatus(`${message} Reinitializing WebGPU once…`, "warning");
+            void setup(true).finally(() => deviceRecovery.finishAttempt());
+            return;
+          }
           const fallbackGeneration = ++generation;
           void useFallback(message, fallbackGeneration);
         },
@@ -155,6 +162,11 @@ export function createDemo(): DemoController {
         "success",
       );
       context.setMetrics({ backend: renderer.backendLabel, status: "LIVE ATTACHMENTS" });
+      if (recoveringDevice)
+        context.setStatus(
+          "WebGPU reinitialized after device loss; attachment history restarted.",
+          "success",
+        );
     } catch (error) {
       renderer?.dispose();
       await useFallback(

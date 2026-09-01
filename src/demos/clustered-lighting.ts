@@ -1,4 +1,5 @@
 import { clearElement, drawStageBackdrop, makeButton } from "./core/canvas";
+import { OneAttemptDeviceRecoveryGate } from "./core/runtime";
 import type { DemoContext, DemoController } from "./core/types";
 import { CanvasFallbackSurface } from "./reference-frame/fallback-surface";
 import { buildProceduralResearchCourtyard } from "./research-courtyard/scene";
@@ -41,6 +42,7 @@ export function createDemo(): DemoController {
   let height = 1;
   let running = false;
   let generation = 0;
+  const deviceRecovery = new OneAttemptDeviceRecoveryGate();
 
   const applyState = () => {
     active?.setMode(mode);
@@ -75,15 +77,22 @@ export function createDemo(): DemoController {
     }
   };
 
-  const setup = async () => {
+  const setup = async (recoveringFromDeviceLoss = false) => {
+    if (!recoveringFromDeviceLoss) deviceRecovery.reset();
     const currentGeneration = ++generation;
     active?.dispose();
     active = undefined;
     let renderer: WebGpuClusteredLightingRenderer | undefined;
     try {
       renderer = await WebGpuClusteredLightingRenderer.create(context, (message) => {
+        if (generation !== currentGeneration) return;
+        if (deviceRecovery.takeAttempt()) {
+          context.setStatus(message + " Rebuilding the current mode once.", "warning");
+          void setup(true).finally(() => deviceRecovery.finishAttempt());
+          return;
+        }
         const fallbackGeneration = ++generation;
-        useFallback(message, fallbackGeneration);
+        useFallback(message + " Rebuild already attempted.", fallbackGeneration);
       });
       if (currentGeneration !== generation) {
         renderer.dispose();

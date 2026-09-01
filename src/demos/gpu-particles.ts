@@ -6,6 +6,7 @@ import {
   makeRange,
   resizeCanvas,
 } from "./core/canvas";
+import { OneAttemptDeviceRecoveryGate } from "./core/runtime";
 import type { DemoContext, DemoController } from "./core/types";
 import {
   createVisibilityFallbackRenderer,
@@ -89,14 +90,18 @@ export function createDemo(): DemoController {
   let particleCount: number = PARTICLE_COUNTS[0];
   let visibilityCount: number = VISIBILITY_COUNTS[0];
   let visibilityExecution: VisibilityExecution = "gpu";
+  let cameraSweep = false;
   let attractor: [number, number] = [0, 0];
   let strength = 1;
   let userPaused = false;
   let running = false;
   let generation = 0;
+  const deviceRecovery = new OneAttemptDeviceRecoveryGate();
 
   const particle = (): ParticleRenderer | undefined =>
     mode === "simulation" ? (active as ParticleRenderer | undefined) : undefined;
+  const visibility = (): VisibilityRenderer | undefined =>
+    mode === "visibility" ? (active as VisibilityRenderer | undefined) : undefined;
 
   const useParticleFallback = (reason: string, expected: number) => {
     if (generation !== expected) return;
@@ -114,14 +119,32 @@ export function createDemo(): DemoController {
     if (running && !userPaused) fallback.resume();
   };
 
-  const setupSimulation = async () => {
+  const handleDeviceLost = (
+    lostMode: GpuComputeMode,
+    reason: string,
+    expectedGeneration: number,
+  ) => {
+    if (generation !== expectedGeneration) return;
+    if (!deviceRecovery.takeAttempt()) {
+      if (lostMode === "simulation") useParticleFallback(reason, ++generation);
+      else void setupVisibility(reason);
+      return;
+    }
+    deviceRecovery.finishAttempt();
+    context.setStatus(`${reason} Rebuilding this WebGPU mode once before fallback.`, "warning");
+    if (lostMode === "simulation") void setupSimulation(true);
+    else void setupVisibility(undefined, true);
+  };
+
+  const setupSimulation = async (isRecovery = false) => {
+    if (!isRecovery) deviceRecovery.reset();
     const current = ++generation;
     active?.dispose();
     active = undefined;
     let renderer: WebGpuParticleRenderer | undefined;
     try {
       renderer = await WebGpuParticleRenderer.create(context, particleCount, (reason) => {
-        if (generation === current) useParticleFallback(reason, ++generation);
+        handleDeviceLost("simulation", reason, current);
       });
       if (generation !== current) {
         renderer.dispose();
@@ -146,20 +169,22 @@ export function createDemo(): DemoController {
     }
   };
 
-  const setupVisibility = async (fallbackReason?: string) => {
+  const setupVisibility = async (fallbackReason?: string, isRecovery = false) => {
+    if (!isRecovery && !fallbackReason) deviceRecovery.reset();
     const current = ++generation;
     active?.dispose();
     active = undefined;
     const renderer = fallbackReason
       ? createVisibilityFallbackRenderer(context, visibilityCount)
       : await createVisibilityRenderer(context, visibilityCount, visibilityExecution, (reason) => {
-          if (generation === current) void setupVisibility(reason);
+          handleDeviceLost("visibility", reason, current);
         });
     if (generation !== current) {
       renderer.dispose();
       return;
     }
     renderer.resize();
+    renderer.setCameraSweep(cameraSweep);
     active = renderer;
     if (renderer.runtimeKind === "fallback") {
       context.setRuntimeState?.("fallback");
@@ -170,13 +195,13 @@ export function createDemo(): DemoController {
     } else if (renderer.runtimeKind === "cpu-baseline") {
       context.setRuntimeState?.("running");
       context.setStatus(
-        `CPU baseline: ${visibilityCount.toLocaleString()} deterministic instances; compare it with Raw WebGPU compaction.`,
+        `CPU baseline: ${visibilityCount.toLocaleString()} instances recull every frame; compare three LOD slices with Raw WebGPU compaction.`,
         "info",
       );
     } else {
       context.setRuntimeState?.("running");
       context.setStatus(
-        `Raw WebGPU: ${visibilityCount.toLocaleString()} instances; compute frustum culling, atomic compaction, LOD statistics and drawIndexedIndirect.`,
+        `Raw WebGPU: ${visibilityCount.toLocaleString()} instances; compute culling, three atomic LOD segments, three indirect commands, and low-frequency command readback.`,
         "success",
       );
     }
@@ -199,6 +224,7 @@ export function createDemo(): DemoController {
         () => {
           mode = index === 0 ? "simulation" : "visibility";
           userPaused = false;
+          cameraSweep = false;
           renderControls();
           void setup();
         },
@@ -264,7 +290,17 @@ export function createDemo(): DemoController {
           { signal: context.signal },
         ),
       );
-      context.controls.append(...counts, ...executionButtons);
+      const cameraButton = makeButton("CAMERA SWEEP", cameraSweep);
+      cameraButton.addEventListener(
+        "click",
+        () => {
+          cameraSweep = !cameraSweep;
+          cameraButton.setAttribute("aria-pressed", String(cameraSweep));
+          visibility()?.setCameraSweep(cameraSweep);
+        },
+        { signal: context.signal },
+      );
+      context.controls.append(...counts, ...executionButtons, cameraButton);
     }
 
     const pauseButton = makeButton("PAUSE", userPaused);
@@ -281,7 +317,18 @@ export function createDemo(): DemoController {
       { signal: context.signal },
     );
     const resetButton = makeButton("RESET");
-    resetButton.addEventListener("click", () => active?.reset(), { signal: context.signal });
+    resetButton.addEventListener(
+      "click",
+      () => {
+        if (mode === "visibility") {
+          cameraSweep = false;
+          visibility()?.setCameraSweep(false);
+        }
+        active?.reset();
+        if (mode === "visibility") renderControls();
+      },
+      { signal: context.signal },
+    );
     context.controls.append(pauseButton, resetButton);
   };
 

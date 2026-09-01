@@ -72,6 +72,80 @@ fn fragment(input: VertexOutput) -> GBufferOutput {
 }
 `;
 
+export const FORWARD_WGSL = /* wgsl */ `
+struct Frame {
+  resolutionTime: vec4f,
+  modeViewCounts: vec4f,
+  depthGridScene: vec4f,
+};
+struct Light { positionRadius: vec4f, colorIntensity: vec4f, };
+struct VertexOutput { @builtin(position) position: vec4f, @location(0) uv: vec2f, };
+struct Surface { albedo: vec3f, normal: vec3f, depth: f32, };
+
+@group(0) @binding(0) var<storage, read> lights: array<Light>;
+@group(0) @binding(1) var<uniform> frame: Frame;
+
+@vertex
+fn vertex(@builtin(vertex_index) index: u32) -> VertexOutput {
+  var positions = array<vec2f, 3>(vec2f(-1.0, -1.0), vec2f(3.0, -1.0), vec2f(-1.0, 3.0));
+  var output: VertexOutput;
+  output.position = vec4f(positions[index], 0.0, 1.0);
+  output.uv = positions[index] * 0.5 + vec2f(0.5);
+  return output;
+}
+
+fn courtyardSurface(uv: vec2f) -> Surface {
+  let p = uv * 2.0 - vec2f(1.0);
+  var albedo = vec3f(0.16, 0.19, 0.18);
+  var normal = normalize(vec3f(-p.x * 0.12, 0.64, 0.74));
+  var depth = 5.8 + p.y * 2.2;
+  if (fract((p.x + p.y * 0.45) * 11.0) < 0.035) { albedo = albedo * 0.52; }
+  if (abs(p.x) > 0.73 - p.y * 0.09) {
+    albedo = vec3f(0.095, 0.12, 0.115);
+    normal = normalize(vec3f(-sign(p.x), 0.08, 0.72));
+    depth = 8.8;
+  }
+  if (abs(p.x) < 0.16 && p.y > -0.12 && p.y < 0.42) {
+    albedo = vec3f(0.28, 0.08, 0.035);
+    normal = normalize(vec3f(p.x * 0.15, 0.34, 0.92));
+    depth = 3.8;
+  }
+  if (abs(abs(p.x) - 0.42) < 0.042 && p.y > -0.36 && p.y < 0.34) {
+    albedo = vec3f(0.95, 0.34, 0.045);
+    normal = normalize(vec3f(p.x * 0.75, 0.15, 0.62));
+    depth = 4.5;
+  }
+  if (abs(p.x) < 0.29 && p.y > 0.26) {
+    albedo = vec3f(0.045, 0.48, 0.39);
+    normal = vec3f(0.0, 0.0, 1.0);
+    depth = 9.9;
+  }
+  return Surface(albedo, normal, max(0.45, depth));
+}
+
+fn shade(light: Light, normal: vec3f, depth: f32, uv: vec2f) -> vec3f {
+  let position = vec3f(uv * 2.0 - vec2f(1.0), depth);
+  let delta = light.positionRadius.xyz - position;
+  let distance = length(delta);
+  let direction = delta / max(distance, 0.0001);
+  let attenuation = max(0.0, 1.0 - distance / light.positionRadius.w);
+  return light.colorIntensity.xyz * light.colorIntensity.w * attenuation * attenuation *
+    max(0.0, dot(normal, direction));
+}
+
+@fragment
+fn fragment(input: VertexOutput) -> @location(0) vec4f {
+  let surface = courtyardSurface(input.uv);
+  var lighting = vec3f(0.018, 0.025, 0.023);
+  let count = u32(frame.resolutionTime.w);
+  for (var index = 0u; index < count; index += 1u) {
+    lighting += shade(lights[index], surface.normal, surface.depth, input.uv);
+  }
+  let linear = lighting * surface.albedo;
+  return vec4f(pow(linear / (linear + vec3f(1.0)), vec3f(1.0 / 2.2)), 1.0);
+}
+`;
+
 export const CLUSTER_ASSIGN_WGSL = /* wgsl */ `
 struct Frame {
   resolutionTime: vec4f,
@@ -223,7 +297,6 @@ fn fragment(input: VertexOutput) -> @location(0) vec4f {
   let normalDepth = textureLoad(normalDepthTexture, pixel, 0);
   let normal = normalize(normalDepth.rgb);
   let depth = normalDepth.a;
-  let mode = u32(frame.modeViewCounts.x);
   let view = u32(frame.modeViewCounts.y);
   let count = u32(frame.resolutionTime.w);
   let cluster = clusterIndex(input.uv, depth);
@@ -234,16 +307,37 @@ fn fragment(input: VertexOutput) -> @location(0) vec4f {
     return vec4f(palette(heat), 1.0);
   }
   var lighting = vec3f(0.018, 0.025, 0.023);
-  if (mode < 2u) {
-    for (var index = 0u; index < count; index += 1u) {
-      lighting += shade(lights[index], normal, depth, input.uv);
-    }
-  } else {
-    let header = headers[cluster];
-    let safeCount = min(header.count, u32(frame.depthGridScene.w));
-    for (var entry = 0u; entry < safeCount; entry += 1u) {
-      lighting += shade(lights[indices[header.offset + entry]], normal, depth, input.uv);
-    }
+  for (var index = 0u; index < count; index += 1u) {
+    lighting += shade(lights[index], normal, depth, input.uv);
+  }
+  return vec4f(toneMap(lighting * albedo), 1.0);
+}
+
+@fragment
+fn clusteredFragment(input: VertexOutput) -> @location(0) vec4f {
+  let dimensions = textureDimensions(albedoTexture);
+  let maxX = i32(dimensions.x) - 1;
+  let maxY = i32(dimensions.y) - 1;
+  let x = min(maxX, i32(floor(input.uv.x * f32(dimensions.x))));
+  let y = min(maxY, i32(floor(input.uv.y * f32(dimensions.y))));
+  let pixel = vec2i(max(0, x), max(0, y));
+  let albedo = textureLoad(albedoTexture, pixel, 0).rgb;
+  let normalDepth = textureLoad(normalDepthTexture, pixel, 0);
+  let normal = normalize(normalDepth.rgb);
+  let depth = normalDepth.a;
+  let view = u32(frame.modeViewCounts.y);
+  let cluster = clusterIndex(input.uv, depth);
+  if (view == 1u) return vec4f(mix(albedo, normal * 0.5 + vec3f(0.5), 0.36), 1.0);
+  if (view == 2u) return vec4f(palette(f32(depthSlice(depth)) / max(1.0, frame.depthGridScene.z - 1.0)), 1.0);
+  if (view == 3u) {
+    let heat = f32(min(headers[cluster].count, u32(frame.depthGridScene.w))) / max(1.0, frame.depthGridScene.w);
+    return vec4f(palette(heat), 1.0);
+  }
+  var lighting = vec3f(0.018, 0.025, 0.023);
+  let header = headers[cluster];
+  let safeCount = min(header.count, u32(frame.depthGridScene.w));
+  for (var entry = 0u; entry < safeCount; entry += 1u) {
+    lighting += shade(lights[indices[header.offset + entry]], normal, depth, input.uv);
   }
   return vec4f(toneMap(lighting * albedo), 1.0);
 }

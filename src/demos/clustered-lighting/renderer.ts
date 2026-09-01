@@ -5,14 +5,16 @@ import {
   buildClusteredLightAssignments,
   buildDynamicLights,
   clusterCount,
+  clusteredPipelinePlan,
   compareFixedGpuClusterReadback,
   packDynamicLights,
   type ClusterBuildResult,
+  type ClusteredPass,
   type ClusterView,
   type LightingMode,
   verifyClusteredLightAssignments,
 } from "./core";
-import { CLUSTER_ASSIGN_WGSL, GBUFFER_WGSL, LIGHTING_WGSL } from "./shaders";
+import { CLUSTER_ASSIGN_WGSL, FORWARD_WGSL, GBUFFER_WGSL, LIGHTING_WGSL } from "./shaders";
 import { buildProceduralResearchCourtyard } from "../research-courtyard/scene";
 
 export interface ClusteredLightingRenderer {
@@ -45,8 +47,10 @@ export class WebGpuClusteredLightingRenderer implements ClusteredLightingRendere
   readonly scenePrimitiveCount = buildProceduralResearchCourtyard().boxes.length;
 
   private readonly gbufferPipeline: GPURenderPipeline;
+  private readonly forwardPipeline: GPURenderPipeline;
   private readonly assignmentPipeline: GPUComputePipeline;
-  private readonly lightingPipeline: GPURenderPipeline;
+  private readonly deferredPipeline: GPURenderPipeline;
+  private readonly clusteredPipeline: GPURenderPipeline;
   private readonly lightBuffer: GPUBuffer;
   private readonly headerBuffer: GPUBuffer;
   private readonly indexBuffer: GPUBuffer;
@@ -76,8 +80,10 @@ export class WebGpuClusteredLightingRenderer implements ClusteredLightingRendere
     private readonly canvasContext: GPUCanvasContext,
     private readonly canvasFormat: GPUTextureFormat,
     gbufferPipeline: GPURenderPipeline,
+    forwardPipeline: GPURenderPipeline,
     assignmentPipeline: GPUComputePipeline,
-    lightingPipeline: GPURenderPipeline,
+    deferredPipeline: GPURenderPipeline,
+    clusteredPipeline: GPURenderPipeline,
     lightBuffer: GPUBuffer,
     headerBuffer: GPUBuffer,
     indexBuffer: GPUBuffer,
@@ -89,8 +95,10 @@ export class WebGpuClusteredLightingRenderer implements ClusteredLightingRendere
     private readonly onDeviceLost: (message: string) => void,
   ) {
     this.gbufferPipeline = gbufferPipeline;
+    this.forwardPipeline = forwardPipeline;
     this.assignmentPipeline = assignmentPipeline;
-    this.lightingPipeline = lightingPipeline;
+    this.deferredPipeline = deferredPipeline;
+    this.clusteredPipeline = clusteredPipeline;
     this.lightBuffer = lightBuffer;
     this.headerBuffer = headerBuffer;
     this.indexBuffer = indexBuffer;
@@ -131,6 +139,10 @@ export class WebGpuClusteredLightingRenderer implements ClusteredLightingRendere
         label: "ClusteredLighting/GBufferWGSL",
         code: GBUFFER_WGSL,
       });
+      const forwardModule = device.createShaderModule({
+        label: "ClusteredLighting/ForwardWGSL",
+        code: FORWARD_WGSL,
+      });
       const lightingModule = device.createShaderModule({
         label: "ClusteredLighting/LightingWGSL",
         code: LIGHTING_WGSL,
@@ -140,6 +152,7 @@ export class WebGpuClusteredLightingRenderer implements ClusteredLightingRendere
         code: CLUSTER_ASSIGN_WGSL,
       });
       await assertShaderModule(gbufferModule, "G-buffer shader");
+      await assertShaderModule(forwardModule, "Forward shader");
       await assertShaderModule(assignmentModule, "Cluster assignment shader");
       await assertShaderModule(lightingModule, "Lighting shader");
       const assignmentPipeline = await device.createComputePipelineAsync({
@@ -158,13 +171,35 @@ export class WebGpuClusteredLightingRenderer implements ClusteredLightingRendere
         },
         primitive: { topology: "triangle-list" },
       });
-      const lightingPipeline = await device.createRenderPipelineAsync({
-        label: "ClusteredLighting/LightingPipeline",
+      const forwardPipeline = await device.createRenderPipelineAsync({
+        label: "ClusteredLighting/ForwardPipeline",
+        layout: "auto",
+        vertex: { module: forwardModule, entryPoint: "vertex" },
+        fragment: {
+          module: forwardModule,
+          entryPoint: "fragment",
+          targets: [{ format: canvasFormat }],
+        },
+        primitive: { topology: "triangle-list" },
+      });
+      const deferredPipeline = await device.createRenderPipelineAsync({
+        label: "ClusteredLighting/DeferredPipeline",
         layout: "auto",
         vertex: { module: lightingModule, entryPoint: "vertex" },
         fragment: {
           module: lightingModule,
           entryPoint: "fragment",
+          targets: [{ format: canvasFormat }],
+        },
+        primitive: { topology: "triangle-list" },
+      });
+      const clusteredPipeline = await device.createRenderPipelineAsync({
+        label: "ClusteredLighting/ClusteredPipeline",
+        layout: "auto",
+        vertex: { module: lightingModule, entryPoint: "vertex" },
+        fragment: {
+          module: lightingModule,
+          entryPoint: "clusteredFragment",
           targets: [{ format: canvasFormat }],
         },
         primitive: { topology: "triangle-list" },
@@ -232,8 +267,10 @@ export class WebGpuClusteredLightingRenderer implements ClusteredLightingRendere
         canvasContext,
         canvasFormat,
         gbufferPipeline,
+        forwardPipeline,
         assignmentPipeline,
-        lightingPipeline,
+        deferredPipeline,
+        clusteredPipeline,
         lightBuffer,
         headerBuffer,
         indexBuffer,
@@ -345,16 +382,20 @@ export class WebGpuClusteredLightingRenderer implements ClusteredLightingRendere
   private renderOnce(now: number): void {
     if (this.disposed || this.targets === undefined) return;
     const elapsed = (now - this.startedAt) / 1000;
+    const plan = clusteredPipelinePlan(this.mode, this.view);
+    const usesClusterLists = plan.includes("cluster-assign");
     const lights = buildDynamicLights(this.lightCount, elapsed);
     let cpuReference: ClusterBuildResult | undefined;
-    if (this.lightCount === 64 && this.frameIndex % 120 === 0) {
+    if (usesClusterLists && this.lightCount === 64 && this.frameIndex % 120 === 0) {
       const started = performance.now();
       cpuReference = buildClusteredLightAssignments(lights, DEFAULT_CLUSTER_GRID);
       this.lastCpuBuildMs = Math.max(0, performance.now() - started);
       this.referenceValid = verifyClusteredLightAssignments(lights, cpuReference).valid;
     }
     this.device.queue.writeBuffer(this.lightBuffer, 0, packDynamicLights(lights));
-    this.device.queue.writeBuffer(this.overflowBuffer, 0, new Uint32Array([0]));
+    if (usesClusterLists)
+      this.device.queue.writeBuffer(this.overflowBuffer, 0, new Uint32Array([0]));
+    else this.lastGpuOverflow = undefined;
     const uniforms = new Float32Array([
       this.width,
       this.height,
@@ -371,29 +412,33 @@ export class WebGpuClusteredLightingRenderer implements ClusteredLightingRendere
     ]);
     this.device.queue.writeBuffer(this.uniformBuffer, 0, uniforms);
     const encoder = this.device.createCommandEncoder({ label: "ClusteredLighting/Frame" });
-    this.encodeAssignment(encoder);
-    this.encodeGBuffer(encoder);
-    this.encodeLighting(encoder);
+    if (plan.includes("cluster-assign")) this.encodeAssignment(encoder);
+    if (plan.includes("gbuffer")) this.encodeGBuffer(encoder);
+    if (plan.includes("forward-final")) this.encodeForward(encoder);
+    if (plan.includes("deferred-fullscreen")) this.encodeDeferred(encoder);
+    if (plan.includes("clustered-fullscreen")) this.encodeClustered(encoder);
     this.queryState?.encodeResolve(encoder, this.frameIndex, (metrics) => {
-      this.reportGpuEvidence(metrics);
+      this.reportGpuEvidence(metrics, plan);
     });
-    this.assignmentReadback.encode(
-      encoder,
-      this.frameIndex,
-      cpuReference,
-      (result) => {
-        this.lastGpuOverflow = result.overflow;
-        if (result.comparison) this.referenceValid = result.comparison.valid;
-      },
-      this.headerBuffer,
-      this.indexBuffer,
-      this.overflowBuffer,
-    );
+    if (usesClusterLists) {
+      this.assignmentReadback.encode(
+        encoder,
+        this.frameIndex,
+        cpuReference,
+        (result) => {
+          this.lastGpuOverflow = result.overflow;
+          if (result.comparison) this.referenceValid = result.comparison.valid;
+        },
+        this.headerBuffer,
+        this.indexBuffer,
+        this.overflowBuffer,
+      );
+    }
     this.device.queue.submit([encoder.finish()]);
     this.queryState?.afterSubmit();
-    this.assignmentReadback.afterSubmit();
+    if (usesClusterLists) this.assignmentReadback.afterSubmit();
     this.frameIndex += 1;
-    this.reportEvidence();
+    this.reportEvidence(plan);
   }
 
   private encodeAssignment(encoder: GPUCommandEncoder): void {
@@ -403,6 +448,34 @@ export class WebGpuClusteredLightingRenderer implements ClusteredLightingRendere
     pass.setPipeline(this.assignmentPipeline);
     pass.setBindGroup(0, this.assignmentBindGroup);
     pass.dispatchWorkgroups(clusterCount(DEFAULT_CLUSTER_GRID));
+    pass.end();
+  }
+
+  private encodeForward(encoder: GPUCommandEncoder): void {
+    const pass = encoder.beginRenderPass({
+      label: "ClusteredLighting/ForwardFinalPass",
+      timestampWrites: this.queryState?.geometryTimestampWrites,
+      colorAttachments: [
+        {
+          view: this.canvasContext.getCurrentTexture().createView(),
+          clearValue: [0.01, 0.02, 0.02, 1],
+          loadOp: "clear",
+          storeOp: "store",
+        },
+      ],
+    });
+    pass.setPipeline(this.forwardPipeline);
+    pass.setBindGroup(
+      0,
+      this.device.createBindGroup({
+        layout: this.forwardPipeline.getBindGroupLayout(0),
+        entries: [
+          { binding: 0, resource: { buffer: this.lightBuffer } },
+          { binding: 1, resource: { buffer: this.uniformBuffer } },
+        ],
+      }),
+    );
+    pass.draw(3);
     pass.end();
   }
 
@@ -439,11 +512,11 @@ export class WebGpuClusteredLightingRenderer implements ClusteredLightingRendere
     pass.end();
   }
 
-  private encodeLighting(encoder: GPUCommandEncoder): void {
+  private encodeDeferred(encoder: GPUCommandEncoder): void {
     const targets = this.targets;
     if (targets === undefined) return;
     const pass = encoder.beginRenderPass({
-      label: "ClusteredLighting/LightingPass",
+      label: "ClusteredLighting/DeferredLightingPass",
       timestampWrites: this.queryState?.lightingTimestampWrites,
       colorAttachments: [
         {
@@ -454,11 +527,11 @@ export class WebGpuClusteredLightingRenderer implements ClusteredLightingRendere
         },
       ],
     });
-    pass.setPipeline(this.lightingPipeline);
+    pass.setPipeline(this.deferredPipeline);
     pass.setBindGroup(
       0,
       this.device.createBindGroup({
-        layout: this.lightingPipeline.getBindGroupLayout(0),
+        layout: this.deferredPipeline.getBindGroupLayout(0),
         entries: [
           { binding: 0, resource: targets.albedo.createView() },
           { binding: 1, resource: targets.normalDepth.createView() },
@@ -473,13 +546,47 @@ export class WebGpuClusteredLightingRenderer implements ClusteredLightingRendere
     pass.end();
   }
 
-  private reportEvidence(): void {
-    const label =
-      this.mode === "naive"
-        ? "Naive all-lights baseline / GPU assignment diagnostic"
-        : this.mode === "deferred"
-          ? "Deferred all-lights baseline / GPU assignment diagnostic"
-          : "Clustered GPU Compute optimized list";
+  private encodeClustered(encoder: GPUCommandEncoder): void {
+    const targets = this.targets;
+    if (targets === undefined) return;
+    const pass = encoder.beginRenderPass({
+      label: "ClusteredLighting/ClusteredLightingPass",
+      timestampWrites: this.queryState?.lightingTimestampWrites,
+      colorAttachments: [
+        {
+          view: this.canvasContext.getCurrentTexture().createView(),
+          clearValue: [0.01, 0.02, 0.02, 1],
+          loadOp: "clear",
+          storeOp: "store",
+        },
+      ],
+    });
+    pass.setPipeline(this.clusteredPipeline);
+    pass.setBindGroup(
+      0,
+      this.device.createBindGroup({
+        layout: this.clusteredPipeline.getBindGroupLayout(0),
+        entries: [
+          { binding: 0, resource: targets.albedo.createView() },
+          { binding: 1, resource: targets.normalDepth.createView() },
+          { binding: 2, resource: { buffer: this.lightBuffer } },
+          { binding: 3, resource: { buffer: this.headerBuffer } },
+          { binding: 4, resource: { buffer: this.indexBuffer } },
+          { binding: 5, resource: { buffer: this.uniformBuffer } },
+        ],
+      }),
+    );
+    pass.draw(3);
+    pass.end();
+  }
+
+  private reportEvidence(plan: readonly ClusteredPass[]): void {
+    const executionDag = plan.join(" -> ");
+    const label = plan.includes("forward-final")
+      ? "Naive direct Forward baseline"
+      : plan.includes("clustered-fullscreen")
+        ? "Clustered GPU Compute list diagnostic"
+        : "Deferred GBuffer + all-lights path";
     const verification = this.referenceValid ? "CPU reference valid" : "CPU/GPU reference mismatch";
     const overflow =
       this.lastGpuOverflow === undefined
@@ -496,25 +603,42 @@ export class WebGpuClusteredLightingRenderer implements ClusteredLightingRendere
         " | " +
         verification +
         " | GPU timing " +
-        (this.queryState ? "pending timestamp" : "unavailable"),
+        (this.queryState ? "pending timestamp" : "unavailable") +
+        " | DAG " +
+        executionDag,
       compileMs: this.lastCpuBuildMs > 0 ? Number(this.lastCpuBuildMs.toFixed(2)) : undefined,
       metricSource: this.lastCpuBuildMs > 0 ? "cpu-wall-clock" : "unavailable",
     });
   }
 
-  private reportGpuEvidence(metrics: TimestampMetrics): void {
+  private reportGpuEvidence(metrics: TimestampMetrics, plan: readonly ClusteredPass[]): void {
+    const isForward = plan.includes("forward-final");
+    const isClustered = plan.includes("clustered-fullscreen");
+    const frameTime = isForward
+      ? metrics.geometryMs
+      : isClustered
+        ? metrics.geometryMs + metrics.computeMs + metrics.lightingMs
+        : metrics.geometryMs + metrics.lightingMs;
+    const status = isForward
+      ? "GPU forward " + metrics.geometryMs.toFixed(2) + " ms"
+      : isClustered
+        ? "GPU compute " +
+          metrics.computeMs.toFixed(2) +
+          " ms | GBuffer " +
+          metrics.geometryMs.toFixed(2) +
+          " ms | clustered lighting " +
+          metrics.lightingMs.toFixed(2) +
+          " ms | GPU overflow " +
+          (this.lastGpuOverflow === undefined ? "pending readback" : String(this.lastGpuOverflow))
+        : "GPU GBuffer " +
+          metrics.geometryMs.toFixed(2) +
+          " ms | deferred all-lights " +
+          metrics.lightingMs.toFixed(2) +
+          " ms";
     this.shell.setMetrics({
       backend: this.backendLabel,
-      status:
-        "GPU geometry " +
-        metrics.geometryMs.toFixed(2) +
-        " ms | compute " +
-        metrics.computeMs.toFixed(2) +
-        " ms | lighting " +
-        metrics.lightingMs.toFixed(2) +
-        " ms | GPU overflow " +
-        (this.lastGpuOverflow === undefined ? "pending readback" : String(this.lastGpuOverflow)),
-      frameTimeMs: metrics.geometryMs + metrics.computeMs + metrics.lightingMs,
+      status,
+      frameTimeMs: frameTime,
       compileMs: Number(this.lastCpuBuildMs.toFixed(2)),
       metricSource: "gpu-timestamp-query",
     });

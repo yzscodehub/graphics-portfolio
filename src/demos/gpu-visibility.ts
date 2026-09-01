@@ -3,6 +3,10 @@ import type { DemoContext } from "./core/types";
 
 export const VISIBILITY_COUNTS = [10_000, 50_000, 100_000] as const;
 export const INDEXED_INDIRECT_STRIDE_BYTES = 32;
+export const LOD_INDEX_COUNTS = [18, 12, 6] as const;
+export const LOD_FIRST_INDICES = [0, 18, 30] as const;
+export const LOD_COUNT = LOD_INDEX_COUNTS.length;
+export const INDIRECT_COMMAND_WORDS = INDEXED_INDIRECT_STRIDE_BYTES / Uint32Array.BYTES_PER_ELEMENT;
 const INSTANCE_STRIDE_FLOATS = 8;
 const READBACK_INTERVAL = 30;
 
@@ -36,13 +40,23 @@ export interface VisibilityInstance {
 
 export interface VisibilityReference {
   visibleIndices: Uint32Array;
+  lodIndices: readonly [Uint32Array, Uint32Array, Uint32Array];
   lodCounts: readonly [number, number, number];
-  indirect: Uint32Array;
+  indirectCommands: readonly [Uint32Array, Uint32Array, Uint32Array];
+}
+
+export interface VisibilityCommandEvidence {
+  tested: number;
+  visible: number;
+  lodCounts: readonly [number, number, number];
+  commands: readonly [Uint32Array, Uint32Array, Uint32Array];
+  valid: boolean;
 }
 
 export interface VisibilityRenderer {
   readonly runtimeKind: VisibilityRuntimeKind;
   resize(): void;
+  setCameraSweep(active: boolean): void;
   pause(): void;
   resume(): void;
   reset(): void;
@@ -121,7 +135,8 @@ export function lodForInstance(
   frustum: VisibilityFrustum = DEFAULT_VISIBILITY_FRUSTUM,
 ): 0 | 1 | 2 {
   const [x, y, z] = item.position;
-  const distance = Math.hypot(x * 0.45, y * 0.45, z - frustum.near);
+  const cameraX = frustum.left - DEFAULT_VISIBILITY_FRUSTUM.left;
+  const distance = Math.hypot((x - cameraX) * 0.45, y * 0.45, z - frustum.near);
   return distance < 7.5 ? 0 : distance < 14 ? 1 : 2;
 }
 
@@ -129,29 +144,92 @@ export function createIndexedIndirectCommand(
   indexCount: number,
   instanceCount: number,
 ): Uint32Array {
-  const words = new Uint32Array(INDEXED_INDIRECT_STRIDE_BYTES / Uint32Array.BYTES_PER_ELEMENT);
+  const words = new Uint32Array(INDIRECT_COMMAND_WORDS);
   words[0] = Math.max(0, Math.floor(indexCount));
   words[1] = Math.max(0, Math.floor(instanceCount));
   // firstIndex, baseVertex and firstInstance stay zero; the latter is our compatibility invariant.
   return words;
 }
 
+export function createLodIndirectCommands(
+  lodCounts: readonly [number, number, number],
+): [Uint32Array, Uint32Array, Uint32Array] {
+  return LOD_INDEX_COUNTS.map((indexCount, lod) => {
+    const command = createIndexedIndirectCommand(indexCount, lodCounts[lod]);
+    command[2] = LOD_FIRST_INDICES[lod];
+    return command;
+  }) as [Uint32Array, Uint32Array, Uint32Array];
+}
+
+export function packLodIndirectCommands(lodCounts: readonly [number, number, number]): Uint32Array {
+  const packed = new Uint32Array(LOD_COUNT * INDIRECT_COMMAND_WORDS);
+  createLodIndirectCommands(lodCounts).forEach((command, lod) =>
+    packed.set(command, lod * INDIRECT_COMMAND_WORDS),
+  );
+  return packed;
+}
+
+export function frustumForCamera(cameraX = 0): VisibilityFrustum {
+  return {
+    ...DEFAULT_VISIBILITY_FRUSTUM,
+    left: DEFAULT_VISIBILITY_FRUSTUM.left + cameraX,
+    right: DEFAULT_VISIBILITY_FRUSTUM.right + cameraX,
+  };
+}
+
 export function buildVisibilityReference(
   items: readonly VisibilityInstance[],
   frustum: VisibilityFrustum = DEFAULT_VISIBILITY_FRUSTUM,
 ): VisibilityReference {
-  const visible: number[] = [];
+  const lodLists: [number[], number[], number[]] = [[], [], []];
   const lodCounts: [number, number, number] = [0, 0, 0];
   for (const item of items) {
     if (!isInstanceVisible(item, frustum)) continue;
-    visible.push(item.id);
-    lodCounts[lodForInstance(item, frustum)] += 1;
+    const lod = lodForInstance(item, frustum);
+    lodLists[lod].push(item.id);
+    lodCounts[lod] += 1;
   }
+  const lodIndices: VisibilityReference["lodIndices"] = [
+    new Uint32Array(lodLists[0]),
+    new Uint32Array(lodLists[1]),
+    new Uint32Array(lodLists[2]),
+  ];
   return {
-    visibleIndices: new Uint32Array(visible),
+    visibleIndices: new Uint32Array(lodLists.flat()),
+    lodIndices,
     lodCounts,
-    indirect: createIndexedIndirectCommand(6, visible.length),
+    indirectCommands: createLodIndirectCommands(lodCounts),
   };
+}
+
+export function validateVisibilityCommandReadback(
+  values: Uint32Array,
+  expectedTested?: number,
+): VisibilityCommandEvidence {
+  const commands = Array.from({ length: LOD_COUNT }, (_, lod) =>
+    values.slice(lod * INDIRECT_COMMAND_WORDS, (lod + 1) * INDIRECT_COMMAND_WORDS),
+  ) as [Uint32Array, Uint32Array, Uint32Array];
+  const statsOffset = LOD_COUNT * INDIRECT_COMMAND_WORDS;
+  const tested = values[statsOffset] ?? 0;
+  const visible = values[statsOffset + 1] ?? 0;
+  const lodCounts: [number, number, number] = [
+    values[statsOffset + 2] ?? 0,
+    values[statsOffset + 3] ?? 0,
+    values[statsOffset + 4] ?? 0,
+  ];
+  const valid =
+    commands.every(
+      (command, lod) =>
+        command.length === INDIRECT_COMMAND_WORDS &&
+        command[0] === LOD_INDEX_COUNTS[lod] &&
+        command[1] === lodCounts[lod] &&
+        command[2] === LOD_FIRST_INDICES[lod] &&
+        command[3] === 0 &&
+        command[4] === 0,
+    ) &&
+    visible === lodCounts.reduce((sum, count) => sum + count, 0) &&
+    (expectedTested === undefined || tested === expectedTested);
+  return { tested, visible, lodCounts, commands, valid };
 }
 
 export async function createVisibilityRenderer(
@@ -179,11 +257,13 @@ export function createVisibilityFallbackRenderer(
 class CanvasVisibilityRenderer implements VisibilityRenderer {
   private readonly canvas: HTMLCanvasElement;
   private readonly items: VisibilityInstance[];
-  private readonly reference: VisibilityReference;
+  private reference: VisibilityReference;
   private readonly report: ReturnType<typeof createMetricReporter>;
   private context2d: CanvasRenderingContext2D;
   private raf = 0;
   private running = false;
+  private cameraSweep = false;
+  private cameraX = 0;
 
   constructor(
     private readonly shell: DemoContext,
@@ -205,6 +285,10 @@ class CanvasVisibilityRenderer implements VisibilityRenderer {
     );
   }
 
+  setCameraSweep(active: boolean): void {
+    this.cameraSweep = active;
+  }
+
   pause(): void {
     this.running = false;
     cancelAnimationFrame(this.raf);
@@ -218,6 +302,7 @@ class CanvasVisibilityRenderer implements VisibilityRenderer {
   }
 
   reset(): void {
+    this.cameraX = 0;
     if (this.running) this.render();
   }
 
@@ -227,12 +312,16 @@ class CanvasVisibilityRenderer implements VisibilityRenderer {
     this.shell.canvas.hidden = false;
   }
 
-  private render = (): void => {
+  private render = (now = performance.now()): void => {
     if (!this.running) return;
     this.raf = 0;
     const { width, height } = this.shell.stage.getBoundingClientRect();
+    if (this.cameraSweep) this.cameraX = Math.sin(now * 0.00055) * 7;
+    const cullStarted = performance.now();
+    const frustum = frustumForCamera(this.cameraX);
+    this.reference = buildVisibilityReference(this.items, frustum);
+    const cullingMs = performance.now() - cullStarted;
     drawStageBackdrop(this.context2d, width, height);
-    const frustum = DEFAULT_VISIBILITY_FRUSTUM;
     const visible = new Set<number>(this.reference.visibleIndices);
     const stride = Math.max(1, Math.ceil(this.items.length / 4_000));
     for (let index = 0; index < this.items.length; index += stride) {
@@ -254,7 +343,8 @@ class CanvasVisibilityRenderer implements VisibilityRenderer {
     );
     this.report({
       backend: this.runtimeKind === "fallback" ? "Canvas fallback" : "CPU baseline / Canvas",
-      status: `${this.reference.visibleIndices.length.toLocaleString()} visible; deterministic frustum reference`,
+      status: `${this.reference.visibleIndices.length.toLocaleString()} visible / LOD ${this.reference.lodCounts.join("/")} / CPU cull ${cullingMs.toFixed(2)} ms`,
+      compileMs: Number(cullingMs.toFixed(2)),
       metricSource: "cpu-wall-clock",
     });
     this.schedule();
@@ -276,7 +366,15 @@ class WebGpuVisibilityRenderer implements VisibilityRenderer {
   private disposed = false;
   private frame = 0;
   private evidenceBusy = false;
-  private latestEvidence: [number, number, number, number] = [0, 0, 0, 0];
+  private cameraSweep = false;
+  private cameraX = 0;
+  private latestEvidence: VisibilityCommandEvidence = {
+    tested: 0,
+    visible: 0,
+    lodCounts: [0, 0, 0],
+    commands: createLodIndirectCommands([0, 0, 0]),
+    valid: false,
+  };
 
   private constructor(
     private readonly shell: DemoContext,
@@ -285,6 +383,7 @@ class WebGpuVisibilityRenderer implements VisibilityRenderer {
     private readonly context: GPUCanvasContext,
     private readonly format: GPUTextureFormat,
     private readonly count: number,
+    private readonly cameraBuffer: GPUBuffer,
     private readonly indirectBuffer: GPUBuffer,
     private readonly statsBuffer: GPUBuffer,
     private readonly statsReadback: GPUBuffer,
@@ -292,7 +391,7 @@ class WebGpuVisibilityRenderer implements VisibilityRenderer {
     private readonly computePipeline: GPUComputePipeline,
     private readonly renderPipeline: GPURenderPipeline,
     private readonly computeBindGroup: GPUBindGroup,
-    private readonly renderBindGroup: GPUBindGroup,
+    private readonly renderBindGroups: readonly [GPUBindGroup, GPUBindGroup, GPUBindGroup],
     private readonly timestamps: VisibilityTimestampState | undefined,
   ) {
     this.report = createMetricReporter(shell);
@@ -335,31 +434,36 @@ class WebGpuVisibilityRenderer implements VisibilityRenderer {
       });
       device.queue.writeBuffer(instanceBuffer, 0, data);
       const visibleIndexBuffer = createBuffer({
-        label: "Visibility/CompactedIndices",
-        size: count * 4,
+        label: "Visibility/CompactedLodIndices",
+        size: count * LOD_COUNT * Uint32Array.BYTES_PER_ELEMENT,
         usage: GPUBufferUsage.STORAGE,
       });
+      const cameraBuffer = createBuffer({
+        label: "Visibility/Camera",
+        size: 16,
+        usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+      });
       const indirectBuffer = createBuffer({
-        label: "Visibility/IndexedIndirect32",
-        size: INDEXED_INDIRECT_STRIDE_BYTES,
+        label: "Visibility/LodIndexedIndirect32",
+        size: LOD_COUNT * INDEXED_INDIRECT_STRIDE_BYTES,
         usage: GPUBufferUsage.STORAGE | GPUBufferUsage.INDIRECT | GPUBufferUsage.COPY_DST,
       });
       const statsBuffer = createBuffer({
         label: "Visibility/AtomicStats",
-        size: 16,
+        size: 20,
         usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
       });
       const statsReadback = createBuffer({
         label: "Visibility/StatsReadback",
-        size: 16,
+        size: LOD_COUNT * INDEXED_INDIRECT_STRIDE_BYTES + 20,
         usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ,
       });
       const indexBuffer = createBuffer({
-        label: "Visibility/LODQuadIndices",
-        size: 24,
+        label: "Visibility/LodIndexRanges",
+        size: 36 * Uint32Array.BYTES_PER_ELEMENT,
         usage: GPUBufferUsage.INDEX | GPUBufferUsage.COPY_DST,
       });
-      device.queue.writeBuffer(indexBuffer, 0, new Uint32Array([0, 1, 2, 2, 1, 3]));
+      device.queue.writeBuffer(indexBuffer, 0, LOD_INDEX_DATA);
       const computeModule = device.createShaderModule({
         label: "Visibility/CullWGSL",
         code: CULL_WGSL,
@@ -389,15 +493,29 @@ class WebGpuVisibilityRenderer implements VisibilityRenderer {
           { binding: 1, resource: { buffer: visibleIndexBuffer } },
           { binding: 2, resource: { buffer: indirectBuffer } },
           { binding: 3, resource: { buffer: statsBuffer } },
+          { binding: 4, resource: { buffer: cameraBuffer } },
         ],
       });
-      const renderBindGroup = device.createBindGroup({
-        layout: renderPipeline.getBindGroupLayout(0),
-        entries: [
-          { binding: 0, resource: { buffer: instanceBuffer } },
-          { binding: 1, resource: { buffer: visibleIndexBuffer } },
-        ],
-      });
+      const lodUniformBuffers = LOD_INDEX_COUNTS.map((_, lod) => {
+        const buffer = createBuffer({
+          label: `Visibility/Lod${lod}DrawUniform`,
+          size: 16,
+          usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+        });
+        device.queue.writeBuffer(buffer, 0, new Uint32Array([lod, 0, 0, 0]));
+        return buffer;
+      }) as [GPUBuffer, GPUBuffer, GPUBuffer];
+      const renderBindGroups = LOD_INDEX_COUNTS.map((_, lod) =>
+        device.createBindGroup({
+          layout: renderPipeline.getBindGroupLayout(0),
+          entries: [
+            { binding: 0, resource: { buffer: instanceBuffer } },
+            { binding: 1, resource: { buffer: visibleIndexBuffer } },
+            { binding: 2, resource: { buffer: lodUniformBuffers[lod] } },
+            { binding: 3, resource: { buffer: cameraBuffer } },
+          ],
+        }),
+      ) as [GPUBindGroup, GPUBindGroup, GPUBindGroup];
       if (requestedTimestamps) {
         try {
           timestamps = VisibilityTimestampState.create(device);
@@ -412,6 +530,7 @@ class WebGpuVisibilityRenderer implements VisibilityRenderer {
         context,
         format,
         count,
+        cameraBuffer,
         indirectBuffer,
         statsBuffer,
         statsReadback,
@@ -419,7 +538,7 @@ class WebGpuVisibilityRenderer implements VisibilityRenderer {
         computePipeline,
         renderPipeline,
         computeBindGroup,
-        renderBindGroup,
+        renderBindGroups,
         timestamps,
       );
       allocations.forEach((resource) => renderer.resources.track(resource));
@@ -455,6 +574,10 @@ class WebGpuVisibilityRenderer implements VisibilityRenderer {
     this.context.configure({ device: this.device, format: this.format, alphaMode: "opaque" });
   }
 
+  setCameraSweep(active: boolean): void {
+    this.cameraSweep = active;
+  }
+
   pause(): void {
     this.running = false;
     cancelAnimationFrame(this.raf);
@@ -469,7 +592,14 @@ class WebGpuVisibilityRenderer implements VisibilityRenderer {
 
   reset(): void {
     this.frame = 0;
-    this.latestEvidence = [0, 0, 0, 0];
+    this.cameraX = 0;
+    this.latestEvidence = {
+      tested: 0,
+      visible: 0,
+      lodCounts: [0, 0, 0],
+      commands: createLodIndirectCommands([0, 0, 0]),
+      valid: false,
+    };
   }
 
   dispose(): void {
@@ -481,11 +611,13 @@ class WebGpuVisibilityRenderer implements VisibilityRenderer {
     this.device.destroy();
   }
 
-  private render = (): void => {
+  private render = (now = performance.now()): void => {
     if (!this.running || this.disposed) return;
     this.raf = 0;
-    this.device.queue.writeBuffer(this.indirectBuffer, 0, createIndexedIndirectCommand(6, 0));
-    this.device.queue.writeBuffer(this.statsBuffer, 0, new Uint32Array(4));
+    if (this.cameraSweep) this.cameraX = Math.sin(now * 0.00055) * 7;
+    this.device.queue.writeBuffer(this.cameraBuffer, 0, new Float32Array([this.cameraX, 0, 0, 0]));
+    this.device.queue.writeBuffer(this.indirectBuffer, 0, packLodIndirectCommands([0, 0, 0]));
+    this.device.queue.writeBuffer(this.statsBuffer, 0, new Uint32Array(5));
     const encoder = this.device.createCommandEncoder({ label: `Visibility/Frame${this.frame}` });
     const compute = encoder.beginComputePass(
       this.timestamps?.computeDescriptor ?? { label: "Visibility/ComputeCull" },
@@ -507,14 +639,29 @@ class WebGpuVisibilityRenderer implements VisibilityRenderer {
       timestampWrites: this.timestamps?.renderWrites,
     });
     pass.setPipeline(this.renderPipeline);
-    pass.setBindGroup(0, this.renderBindGroup);
     pass.setIndexBuffer(this.indexBuffer, "uint32");
-    pass.drawIndexedIndirect(this.indirectBuffer, 0);
+    for (let lod = 0; lod < LOD_COUNT; lod += 1) {
+      pass.setBindGroup(0, this.renderBindGroups[lod]);
+      pass.drawIndexedIndirect(this.indirectBuffer, lod * INDEXED_INDIRECT_STRIDE_BYTES);
+    }
     pass.end();
     const readEvidence = this.frame % READBACK_INTERVAL === 0 && !this.evidenceBusy;
     if (readEvidence) {
       this.evidenceBusy = true;
-      encoder.copyBufferToBuffer(this.statsBuffer, 0, this.statsReadback, 0, 16);
+      encoder.copyBufferToBuffer(
+        this.indirectBuffer,
+        0,
+        this.statsReadback,
+        0,
+        LOD_COUNT * INDEXED_INDIRECT_STRIDE_BYTES,
+      );
+      encoder.copyBufferToBuffer(
+        this.statsBuffer,
+        0,
+        this.statsReadback,
+        LOD_COUNT * INDEXED_INDIRECT_STRIDE_BYTES,
+        20,
+      );
     }
     this.timestamps?.encodeResolve(encoder, this.frame, (metrics) => this.publish(metrics));
     this.device.queue.submit([encoder.finish()]);
@@ -536,8 +683,8 @@ class WebGpuVisibilityRenderer implements VisibilityRenderer {
   }
 
   private statusLabel(): string {
-    const [visible, lod0, lod1, lod2] = this.latestEvidence;
-    return `${visible.toLocaleString()} visible / LOD ${lod0}/${lod1}/${lod2} / atomic compaction -> drawIndexedIndirect`;
+    const { tested, visible, lodCounts, valid } = this.latestEvidence;
+    return `${tested.toLocaleString()} tested / ${visible.toLocaleString()} visible / LOD ${lodCounts.join("/")} / 3 indirect commands ${valid ? "verified" : "pending"}`;
   }
 
   private publish(metrics: VisibilityTimestampMetrics): void {
@@ -554,7 +701,7 @@ class WebGpuVisibilityRenderer implements VisibilityRenderer {
       .mapAsync(GPUMapMode.READ)
       .then(() => {
         const values = new Uint32Array(this.statsReadback.getMappedRange().slice(0));
-        this.latestEvidence = [values[0], values[1], values[2], values[3]];
+        this.latestEvidence = validateVisibilityCommandReadback(values, this.count);
         this.statsReadback.unmap();
       })
       .catch(() => undefined)
@@ -657,13 +804,15 @@ const CULL_WGSL = /* wgsl */ `
 struct Instance { positionRadius: vec4f, color: vec4f }
 @group(0) @binding(0) var<storage, read> instances: array<Instance>;
 @group(0) @binding(1) var<storage, read_write> visibleIndices: array<u32>;
-// Five indexed indirect fields and twelve bytes of explicit 32-byte command padding.
+// Three 32-byte indexed-indirect slots. Atomic writes update instanceCount only.
 @group(0) @binding(2) var<storage, read_write> indirect: array<atomic<u32>>;
-// visible, lod0, lod1, lod2
+// tested, visible, lod0, lod1, lod2
 @group(0) @binding(3) var<storage, read_write> stats: array<atomic<u32>>;
+struct Camera { offsetX: f32, _pad0: f32, _pad1: f32, _pad2: f32 }
+@group(0) @binding(4) var<uniform> camera: Camera;
 
 fn visible(position: vec3f, radius: f32) -> bool {
-  return position.x + radius >= -11.0 && position.x - radius <= 11.0 &&
+  return position.x + radius >= -11.0 + camera.offsetX && position.x - radius <= 11.0 + camera.offsetX &&
     position.y + radius >= -6.2 && position.y - radius <= 6.2 &&
     position.z + radius >= 0.25 && position.z - radius <= 20.0;
 }
@@ -671,15 +820,18 @@ fn visible(position: vec3f, radius: f32) -> bool {
 @compute @workgroup_size(64)
 fn main(@builtin(global_invocation_id) id: vec3u) {
   if (id.x >= arrayLength(&instances)) { return; }
+  atomicAdd(&stats[0], 1u);
   let item = instances[id.x];
   if (!visible(item.positionRadius.xyz, item.positionRadius.w)) { return; }
-  let output = atomicAdd(&indirect[1], 1u);
-  visibleIndices[output] = id.x;
-  atomicAdd(&stats[0], 1u);
-  let distance = length(vec3f(item.positionRadius.x * 0.45, item.positionRadius.y * 0.45, item.positionRadius.z - 0.25));
-  if (distance < 7.5) { atomicAdd(&stats[1], 1u); }
-  else if (distance < 14.0) { atomicAdd(&stats[2], 1u); }
-  else { atomicAdd(&stats[3], 1u); }
+  let distance = length(vec3f((item.positionRadius.x - camera.offsetX) * 0.45, item.positionRadius.y * 0.45, item.positionRadius.z - 0.25));
+  var lod = 2u;
+  if (distance < 7.5) { lod = 0u; }
+  else if (distance < 14.0) { lod = 1u; }
+  let output = atomicAdd(&indirect[lod * 8u + 1u], 1u);
+  let segment = lod * arrayLength(&instances);
+  visibleIndices[segment + output] = id.x;
+  atomicAdd(&stats[1], 1u);
+  atomicAdd(&stats[lod + 2u], 1u);
 }
 `;
 
@@ -687,21 +839,36 @@ const DRAW_WGSL = /* wgsl */ `
 struct Instance { positionRadius: vec4f, color: vec4f }
 @group(0) @binding(0) var<storage, read> instances: array<Instance>;
 @group(0) @binding(1) var<storage, read> visibleIndices: array<u32>;
+struct DrawLod { lod: u32, _pad0: u32, _pad1: u32, _pad2: u32 }
+@group(0) @binding(2) var<uniform> drawLod: DrawLod;
+struct Camera { offsetX: f32, _pad0: f32, _pad1: f32, _pad2: f32 }
+@group(0) @binding(3) var<uniform> camera: Camera;
 struct VertexOut { @builtin(position) position: vec4f, @location(0) color: vec3f }
 
 @vertex fn vs(@builtin(vertex_index) vertex: u32, @builtin(instance_index) instance: u32) -> VertexOut {
-  let item = instances[visibleIndices[instance]];
-  var corners = array<vec2f, 4>(vec2f(-1.0, -1.0), vec2f(1.0, -1.0), vec2f(-1.0, 1.0), vec2f(1.0, 1.0));
-  let distance = length(vec3f(item.positionRadius.x * 0.45, item.positionRadius.y * 0.45, item.positionRadius.z - 0.25));
-  let lodScale = select(select(0.65, 0.85, distance < 14.0), 1.0, distance < 7.5);
-  let position = vec2f(item.positionRadius.x / 11.0, item.positionRadius.y / 6.2) + corners[vertex] * item.positionRadius.w * 0.045 * lodScale;
+  let item = instances[visibleIndices[drawLod.lod * arrayLength(&instances) + instance]];
+  var vertices = array<vec2f, 18>(
+    vec2f(0.0, -1.0), vec2f(0.7, -0.7), vec2f(1.0, 0.0), vec2f(0.7, 0.7),
+    vec2f(0.0, 1.0), vec2f(-0.7, 0.7), vec2f(-1.0, 0.0), vec2f(-0.7, -0.7),
+    vec2f(0.0, -1.0), vec2f(0.86, -0.5), vec2f(0.86, 0.5), vec2f(0.0, 1.0),
+    vec2f(-0.86, 0.5), vec2f(-0.86, -0.5), vec2f(-1.0, -1.0), vec2f(1.0, -1.0),
+    vec2f(-1.0, 1.0), vec2f(1.0, 1.0)
+  );
+  let lodScale = select(select(0.68, 0.84, drawLod.lod == 1u), 1.0, drawLod.lod == 0u);
+  let position = vec2f((item.positionRadius.x - camera.offsetX) / 11.0, item.positionRadius.y / 6.2) + vertices[vertex] * item.positionRadius.w * 0.045 * lodScale;
   var out: VertexOut;
   out.position = vec4f(position, 0.0, 1.0);
-  out.color = item.color.rgb * (0.45 + 0.55 * clamp(1.0 - item.positionRadius.z / 20.0, 0.0, 1.0));
+  let tint = select(select(vec3f(0.55, 0.72, 0.98), vec3f(0.94, 0.62, 0.24), drawLod.lod == 1u), item.color.rgb, drawLod.lod == 0u);
+  out.color = tint * (0.45 + 0.55 * clamp(1.0 - item.positionRadius.z / 20.0, 0.0, 1.0));
   return out;
 }
 @fragment fn fs(input: VertexOut) -> @location(0) vec4f { return vec4f(input.color, 1.0); }
 `;
+
+const LOD_INDEX_DATA = new Uint32Array([
+  0, 1, 2, 0, 2, 3, 0, 3, 4, 0, 4, 5, 0, 5, 6, 0, 6, 7, 8, 9, 10, 8, 10, 11, 8, 11, 12, 8, 12, 13,
+  14, 15, 16, 16, 15, 17,
+]);
 
 function hash(value: number): number {
   return Math.abs(Math.sin(value * 12.9898) * 43758.5453) % 1;

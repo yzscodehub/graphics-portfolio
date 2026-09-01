@@ -9,14 +9,24 @@ test("Material & Lighting retains its node-renderer controls on the WebGPU/WebGL
 
   await shell.scrollIntoViewIfNeeded();
   await expect(shell).toHaveAttribute("data-demo-state", "running", { timeout: 20_000 });
-  await expect(controls.getByLabel("Base Color")).toBeVisible();
-  await expect(controls.getByLabel("Metalness")).toBeVisible();
-  await expect(controls.getByLabel("Roughness")).toBeVisible();
-  await expect(controls.getByLabel("Exposure")).toBeVisible();
-  await expect(controls.getByRole("button", { name: "DIRECT", exact: true })).toBeVisible();
-  await expect(controls.getByRole("button", { name: "INDIRECT", exact: true })).toBeVisible();
+  await expect(controls.getByLabel("Base Color", { exact: true })).toBeVisible();
+  await expect(controls.getByLabel("Metalness", { exact: true })).toBeVisible();
+  await expect(controls.getByLabel("Roughness", { exact: true })).toBeVisible();
+  await expect(controls.getByLabel("Clearcoat", { exact: true })).toBeVisible();
+  await expect(controls.getByLabel("Clearcoat Roughness", { exact: true })).toBeVisible();
+  await expect(controls.getByLabel("Exposure", { exact: true })).toBeVisible();
+  for (const preset of ["DIELECTRIC", "METAL", "ROUGH", "CLEARCOAT"])
+    await expect(controls.getByRole("button", { name: preset, exact: true })).toBeVisible();
+  await expect(
+    controls.getByRole("button", { name: "DIRECT ISOLATION", exact: true }),
+  ).toBeVisible();
+  await expect(controls.getByRole("button", { name: "IBL ISOLATION", exact: true })).toBeVisible();
 
-  await controls.getByRole("button", { name: "DIRECT", exact: true }).click();
+  await controls.getByRole("button", { name: "METAL", exact: true }).click();
+  await expect(controls.getByLabel("Metalness", { exact: true })).toHaveValue("1");
+  await expect(controls.getByLabel("Clearcoat", { exact: true })).toHaveValue("0");
+
+  await controls.getByRole("button", { name: "DIRECT ISOLATION", exact: true }).click();
   await expect(shell.locator("[data-demo-status]")).toContainText(
     "PMREM environment contribution is disabled",
   );
