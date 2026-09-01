@@ -1,0 +1,198 @@
+{
+  "format": "graphics-portfolio-packed-scene",
+  "version": 1,
+  "generator": "scripts/assets/build-placeholder-pack.mjs",
+  "placeholder": true,
+  "notice": "Self-authored deterministic procedural placeholder. It documents the production packed-scene contract and is not the later reviewed Meshopt/KTX2 scene.",
+  "coordinateSystem": "right-handed-y-up-meters",
+  "vertexLayout": {
+    "strideBytes": 32,
+    "attributes": [
+      {
+        "semantic": "POSITION",
+        "format": "float32x3",
+        "offsetBytes": 0
+      },
+      {
+        "semantic": "NORMAL_OCT",
+        "format": "snorm16x2",
+        "offsetBytes": 12
+      },
+      {
+        "semantic": "TANGENT",
+        "format": "snorm16x4",
+        "offsetBytes": 16
+      },
+      {
+        "semantic": "TEXCOORD_0",
+        "format": "float16x2",
+        "offsetBytes": 24
+      },
+      {
+        "semantic": "PADDING",
+        "format": "uint32",
+        "offsetBytes": 28
+      }
+    ]
+  },
+  "indexFormat": "uint32",
+  "materialLayout": {
+    "factors": [
+      "baseColor",
+      "metallic",
+      "roughness"
+    ],
+    "textureIndex": "uint32",
+    "alphaModes": [
+      "OPAQUE",
+      "MASK"
+    ],
+    "doubleSided": "bool"
+  },
+  "indirectCommand": {
+    "alignmentBytes": 32,
+    "firstInstance": 0
+  },
+  "meshes": [
+    {
+      "id": "courtyard-floor",
+      "vertexCount": 4,
+      "indexCount": 6,
+      "baseVertex": 0,
+      "indexOffset": 0,
+      "bounds": {
+        "center": [
+          0,
+          0,
+          0
+        ],
+        "radius": 9.9
+      },
+      "lod": {
+        "lod0Triangles": 2,
+        "lod1Triangles": 2,
+        "lod2Triangles": 2
+      }
+    },
+    {
+      "id": "arcade-pillar",
+      "vertexCount": 8,
+      "indexCount": 36,
+      "baseVertex": 4,
+      "indexOffset": 6,
+      "bounds": {
+        "center": [
+          0,
+          2.5,
+          0
+        ],
+        "radius": 2.7
+      },
+      "lod": {
+        "lod0Triangles": 12,
+        "lod1Triangles": 8,
+        "lod2Triangles": 4
+      }
+    }
+  ],
+  "instances": [
+    {
+      "meshId": "courtyard-floor",
+      "material": "concrete",
+      "transform": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0
+      ]
+    },
+    {
+      "meshId": "arcade-pillar",
+      "material": "concrete",
+      "transform": [
+        1,
+        0,
+        0,
+        -6,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        -4
+      ]
+    },
+    {
+      "meshId": "arcade-pillar",
+      "material": "concrete",
+      "transform": [
+        1,
+        0,
+        0,
+        6,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        -4
+      ]
+    },
+    {
+      "meshId": "arcade-pillar",
+      "material": "concrete",
+      "transform": [
+        1,
+        0,
+        0,
+        -6,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        4
+      ]
+    },
+    {
+      "meshId": "arcade-pillar",
+      "material": "concrete",
+      "transform": [
+        1,
+        0,
+        0,
+        6,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        4
+      ]
+    }
+  ],
+  "renderPasses": {
+    "deferredOpaque": [
+      "courtyard-floor",
+      "arcade-pillar"
+    ],
+    "alphaMaskForward": [],
+    "notes": "The future chain-link fence is reserved for alpha-mask forward rendering and must not be added to deferred opaque."
+  }
+}

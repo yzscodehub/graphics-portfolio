@@ -1,0 +1,23 @@
+{
+  "format": "graphics-portfolio-scene-contract",
+  "version": 1,
+  "assetId": "cornell-scene",
+  "generator": "scripts/assets/build-placeholder-pack.mjs",
+  "coordinateSystem": "right-handed-y-up-meters",
+  "primitives": [
+    "walls",
+    "rectangular-light",
+    "diffuse-sphere",
+    "metal-sphere",
+    "dielectric-sphere"
+  ],
+  "acceleration": {
+    "builder": "cpu-median-split-bvh",
+    "traversal": "wgsl-fixed-stack"
+  },
+  "transport": {
+    "maxBounces": 4,
+    "accumulation": "rgba16float-linear"
+  },
+  "externalAssets": false
+}

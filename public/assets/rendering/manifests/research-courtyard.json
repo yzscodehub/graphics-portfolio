@@ -1,0 +1,31 @@
+{
+  "version": 1,
+  "assets": [
+    {
+      "id": "research-courtyard",
+      "kind": "scene",
+      "role": "packed-scene-placeholder",
+      "path": "public/assets/rendering/packs/research-courtyard.pack.json",
+      "sourceUrl": null,
+      "authors": [
+        "yzscodehub"
+      ],
+      "license": "self-authored",
+      "sourceSha256": null,
+      "outputSha256": "cf52097ca14b4da7c15780e784d2e5147818b2dabcf89515c1ea17d69a818e26",
+      "bytes": 3501,
+      "triangles": 14,
+      "lodTriangles": [
+        14,
+        10,
+        6
+      ],
+      "usedBy": [
+        "clustered-lighting",
+        "gpu-particles",
+        "shadow-aa",
+        "frame-inspector"
+      ]
+    }
+  ]
+}

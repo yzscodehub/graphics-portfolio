@@ -1,0 +1,95 @@
+{
+  "version": 1,
+  "policy": {
+    "license": "CC0",
+    "downloaded": false,
+    "sourceHashPolicy": "An external source needs a reviewed SHA-256 before it can be fetched into the ignored local cache or replace a placeholder.",
+    "disallowedExtensions": [".zip", ".blend", ".exr", ".psd", ".tif", ".tiff"]
+  },
+  "defaults": {
+    "authors": ["Poly Haven"],
+    "license": "CC0",
+    "sourceUrl": "https://polyhaven.com/a/",
+    "sourceSha256": null,
+    "status": "planned-not-downloaded"
+  },
+  "sources": [
+    {
+      "id": "concrete-road-barrier",
+      "kind": "mesh",
+      "page": "concrete_road_barrier",
+      "authors": ["Amal Kumar"],
+      "usedBy": ["clustered-lighting", "shadow-aa", "frame-inspector"]
+    },
+    {
+      "id": "fire-hydrant",
+      "kind": "mesh",
+      "page": "fire_hydrant",
+      "authors": ["Gonçalo Felício"],
+      "usedBy": ["clustered-lighting", "gpu-particles"]
+    },
+    {
+      "id": "plastic-crate-02",
+      "kind": "mesh",
+      "page": "plastic_crate_02",
+      "authors": ["Fabi_G"],
+      "usedBy": ["clustered-lighting", "gpu-particles"]
+    },
+    {
+      "id": "street-lamp-02",
+      "kind": "mesh",
+      "page": "street_lamp_02",
+      "authors": ["Josh Dean"],
+      "usedBy": ["clustered-lighting", "shadow-aa", "frame-inspector"]
+    },
+    {
+      "id": "modular-chainlink-fence",
+      "kind": "mesh",
+      "page": "modular_chainlink_fence",
+      "authors": ["Amal Kumar", "James Ray Cock"],
+      "usedBy": ["clustered-lighting", "shadow-aa", "frame-inspector"]
+    },
+    {
+      "id": "concrete-cat-statue",
+      "kind": "mesh",
+      "page": "concrete_cat_statue",
+      "authors": ["Riley Queen", "Rico Cilliers"],
+      "usedBy": ["clustered-lighting", "frame-inspector"]
+    },
+    {
+      "id": "concrete-floor-worn-001",
+      "kind": "texture",
+      "page": "concrete_floor_worn_001",
+      "authors": ["Dimitrios Savva", "Rico Cilliers"],
+      "usedBy": ["clustered-lighting", "shadow-aa", "frame-inspector"]
+    },
+    {
+      "id": "concrete-wall-007",
+      "kind": "texture",
+      "page": "concrete_wall_007",
+      "authors": ["Charlotte Baglioni", "Dario Barresi", "Rico Cilliers"],
+      "usedBy": ["clustered-lighting", "shadow-aa", "frame-inspector"]
+    },
+    {
+      "id": "rusty-metal",
+      "kind": "texture",
+      "page": "rusty_metal",
+      "authors": ["Rob Tuytel"],
+      "usedBy": ["material-lighting", "clustered-lighting"]
+    },
+    {
+      "id": "brick-floor-003",
+      "kind": "texture",
+      "page": "brick_floor_003",
+      "authors": ["Dimitrios Savva", "Rob Tuytel"],
+      "usedBy": ["clustered-lighting", "shadow-aa", "frame-inspector"]
+    },
+    {
+      "id": "courtyard-hdri-1k",
+      "kind": "hdri",
+      "page": "courtyard",
+      "authors": ["Greg Zaal"],
+      "usedBy": ["material-lighting", "clustered-lighting"]
+    }
+  ]
+}

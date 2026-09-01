@@ -1,0 +1,20 @@
+---
+import PageHero from "../../components/PageHero.astro";
+import RenderingCredits from "../../components/RenderingCredits.astro";
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import { profile } from "../../data/profile";
+---
+
+<BaseLayout
+  locale="zh-CN"
+  title="资源与致谢"
+  description="渲染资产来源、许可证、哈希和包体预算的公开清单。"
+  handle={profile.displayName}
+>
+  <PageHero
+    eyebrow="CREDITS / ASSET GOVERNANCE"
+    title="资源来源与构建账本"
+    description="公开列出当前随站发布的渲染资源、它们的哈希与包体预算，以及未来场景使用的 CC0 来源。"
+  />
+  <RenderingCredits locale="zh-CN" />
+</BaseLayout>

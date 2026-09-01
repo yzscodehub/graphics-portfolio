@@ -28,6 +28,9 @@ The local development server uses the `/graphics-portfolio/` base path required 
 | `pnpm test:content`        | Validate the required content inventory and metadata.                   |
 | `pnpm test:links`          | Validate built internal links and the Pages base path.                  |
 | `pnpm test:e2e`            | Run Chromium checks against `dist/`.                                    |
+| `pnpm assets:verify`       | Verify rendering asset hashes, licenses, budgets, and Demo bindings.    |
+| `pnpm assets:rebuild`      | Deterministically rebuild the self-authored placeholder scene pack.     |
+| `pnpm assets:fetch`        | Fetch only externally reviewed sources with locked SHA-256 values.      |
 | `pnpm verify:preview`      | Verify preview privacy, noindex, robots, model, and deferred artifacts. |
 | `pnpm deferred:resume:pdf` | Regenerate deferred resume PDFs after release materials return.         |
 | `pnpm build:release`       | Run the future release privacy, content, and link checks.               |
@@ -37,11 +40,13 @@ The local development server uses the `/graphics-portfolio/` base path required 
 Content collections live in `src/content/` and are validated by `src/content.config.ts`.
 
 - `projects`: exactly four published Chinese entries.
-- `demos`: exactly seven published Chinese entries.
-- `writing`: ten published Chinese technical articles organized into six graphics tracks plus one adjacent multimedia track; each includes an English title and abstract.
+- `demos`: exactly eight published Chinese entries, including Clustered/Deferred Lighting.
+- `writing`: twelve published Chinese technical articles organized into six graphics tracks plus one adjacent multimedia track; each includes an English title and abstract.
 - `experience`: anonymous capability entries only.
 
 Every entry needs `locale`, `translationKey`, and its collection-specific metadata. `draft: true` entries do not enter the preview inventory.
+
+Every Demo also declares its runtime modes, public source URL, asset IDs, and optional shared reference scene. The asset IDs must resolve through `public/assets/rendering/manifest.json`; original Poly Haven downloads remain outside Git and `dist` until each direct URL and SHA-256 has been reviewed.
 
 Writing follows an explicit learning map:
 

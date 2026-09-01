@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" role="img" aria-labelledby="title desc">
+  <title id="title">Research Courtyard placeholder</title>
+  <desc id="desc">A self-authored procedural fallback showing a modular courtyard, diagnostic grid, clustered light volume and depth layers.</desc>
+  <rect width="1600" height="900" fill="#080b0d"/>
+  <g stroke="#26363a" stroke-width="1" opacity=".9"><path d="M0 120H1600M0 240H1600M0 360H1600M0 480H1600M0 600H1600M0 720H1600M0 840H1600"/><path d="M120 0V900M240 0V900M360 0V900M480 0V900M600 0V900M720 0V900M840 0V900M960 0V900M1080 0V900M1200 0V900M1320 0V900M1440 0V900"/></g>
+  <path d="M110 730 800 370 1490 730 800 865Z" fill="#152328" stroke="#57e3c2" stroke-width="3"/>
+  <path d="M270 730 800 453 1330 730 800 804Z" fill="#0f1518" stroke="#40575c" stroke-width="2"/>
+  <g fill="#101c20" stroke="#76a9fa" stroke-width="3"><path d="M302 678V380L405 326V624Z"/><path d="M459 595V296L562 242V541Z"/><path d="M1038 541V242L1141 296V595Z"/><path d="M1195 624V326L1298 380V678Z"/></g>
+  <g fill="#f0b84b" opacity=".8"><circle cx="511" cy="318" r="10"/><circle cx="660" cy="441" r="10"/><circle cx="800" cy="515" r="10"/><circle cx="940" cy="441" r="10"/><circle cx="1089" cy="318" r="10"/></g>
+  <g fill="#57e3c2" font-family="monospace" font-size="24" letter-spacing="3"><text x="72" y="84">RESEARCH COURTYARD / PROCEDURAL FALLBACK</text><text x="72" y="844">Y-UP · METERS · SELF-AUTHORED · NO EXTERNAL MESHES SHIPPED</text></g>
+  <g fill="#8c9a9f" font-family="monospace" font-size="18" letter-spacing="2"><text x="1140" y="84">PLACEHOLDER PACK v1</text><text x="1140" y="114">CLUSTER / DEPTH / MOTION</text></g>
+</svg>
