@@ -3,6 +3,11 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { loadRenderingSourceLock, projectRoot } from "./manifest.mjs";
+import {
+  assertExactSourceCachePath,
+  isSafePortableRelativePath,
+  resolveSourceCachePath,
+} from "./manifest.mjs";
 
 const cacheRoot = path.join(projectRoot, ".cache", "rendering-sources");
 const shaPattern = /^[a-f0-9]{64}$/;
@@ -12,7 +17,15 @@ function sourceFiles(source) {
 }
 
 export function findFetchBlockers(sourceLock) {
-  return sourceLock.sources.flatMap((source) => {
+  const stage = sourceLock.policy?.stage;
+  const stageStateIsValid =
+    (stage === "sources-reviewed" && sourceLock.policy?.downloaded === false) ||
+    (stage === "integrated" && sourceLock.policy?.downloaded === true);
+  const stageBlockers = [];
+  if (!stageStateIsValid || sourceLock.defaults?.status !== "sources-reviewed") {
+    stageBlockers.push("source lock: approved stage and download state");
+  }
+  const fileBlockers = sourceLock.sources.flatMap((source) => {
     const files = sourceFiles(source);
     if (!files.length) return [source.id + ": selected files"];
     return files.flatMap((file) => {
@@ -29,9 +42,30 @@ export function findFetchBlockers(sourceLock) {
           .includes("..")
       )
         blockers.push(label + ": safe cache path");
+      try {
+        if (!isSafePortableRelativePath(file.relativePath))
+          throw new Error("unsafe source relative path");
+        resolveSourceCachePath(
+          projectRoot,
+          sourceLock.policy?.rawCache,
+          source.id,
+          file.cachePath,
+          label + ": cache path",
+        );
+        assertExactSourceCachePath(
+          sourceLock.policy?.rawCache,
+          source.id,
+          file.relativePath,
+          file.cachePath,
+          label + ": cache path",
+        );
+      } catch {
+        blockers.push(label + ": safe source/cache path");
+      }
       return blockers;
     });
   });
+  return [...stageBlockers, ...fileBlockers];
 }
 
 export async function fetchReviewedSources(sourceLock, destination = projectRoot) {
@@ -52,6 +86,22 @@ export async function fetchReviewedSources(sourceLock, destination = projectRoot
       const relative = path.relative(destination, target);
       if (relative.startsWith("..") || path.isAbsolute(relative))
         throw new Error(source.id + "/" + file.relativePath + ": cache path escaped destination");
+      const authorizedTarget = resolveSourceCachePath(
+        destination,
+        sourceLock.policy?.rawCache,
+        source.id,
+        file.cachePath,
+        source.id + "/" + file.relativePath + ": cache path",
+      );
+      if (path.resolve(target) !== authorizedTarget)
+        throw new Error(source.id + "/" + file.relativePath + ": cache path escaped destination");
+      assertExactSourceCachePath(
+        sourceLock.policy?.rawCache,
+        source.id,
+        file.relativePath,
+        file.cachePath,
+        source.id + "/" + file.relativePath + ": cache path",
+      );
       mkdirSync(path.dirname(target), { recursive: true });
       writeFileSync(target, bytes);
     }

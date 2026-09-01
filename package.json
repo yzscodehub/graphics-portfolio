@@ -14,6 +14,8 @@
     "generate:assets": "node scripts/generate-media.mjs && node scripts/generate-og.mjs",
     "assets:verify": "node scripts/assets/verify-rendering-assets.mjs",
     "assets:refresh-lock": "node scripts/assets/refresh-polyhaven-lock.mjs",
+    "assets:download-candidates": "node scripts/assets/download-source-candidates.mjs",
+    "assets:approve-review": "node scripts/assets/approve-source-review.mjs",
     "assets:fetch": "node scripts/assets/fetch-sources.mjs",
     "assets:preflight:reviewed": "node scripts/assets/rebuild-reviewed-assets.mjs",
     "assets:rebuild:placeholder": "node scripts/assets/build-placeholder-pack.mjs && pnpm run assets:verify",

@@ -354,6 +354,7 @@ export function validateRenderingReleaseReadiness(root = projectRoot) {
   if (
     sourceLock.version !== 2 ||
     sourceLock.policy?.downloaded !== true ||
+    sourceLock.policy?.stage !== "integrated" ||
     missingSourceMetadata ||
     incompleteFiles.length > 0
   )

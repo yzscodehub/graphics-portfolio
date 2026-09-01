@@ -86,7 +86,7 @@ describe("production privacy policy", () => {
         path.join(renderingRoot, "sources.lock.json"),
         JSON.stringify({
           version: 2,
-          policy: { downloaded: true },
+          policy: { downloaded: true, stage: "integrated" },
           sources: [
             {
               id: "fixture-courtyard",

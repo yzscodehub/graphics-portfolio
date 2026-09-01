@@ -43,10 +43,6 @@ export function findReviewedRebuildBlockers(sourceLock, versionLookup = toolVers
       );
   }
   blockers.push(...findFetchBlockers(sourceLock));
-  if (!sourceLock.policy || sourceLock.policy.downloaded !== true)
-    blockers.push(
-      "source lock is metadata-locked; reviewed raw-source SHA-256 values are required before conversion",
-    );
   return blockers;
 }
 

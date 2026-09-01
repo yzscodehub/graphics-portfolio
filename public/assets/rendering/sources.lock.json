@@ -3,6 +3,7 @@
   "policy": {
     "license": "CC0",
     "downloaded": false,
+    "stage": "metadata-locked",
     "rawCache": ".cache/rendering-sources",
     "sourceHashPolicy": "Each selected file needs its own reviewed SHA-256 before cache download or conversion.",
     "disallowedExtensions": [".zip", ".blend", ".exr", ".psd", ".tif", ".tiff"]

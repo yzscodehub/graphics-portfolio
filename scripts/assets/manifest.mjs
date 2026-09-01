@@ -45,6 +45,66 @@ function isWithinRoot(root, candidate) {
   return relative === "" || (!relative.startsWith("..") && !path.isAbsolute(relative));
 }
 
+/**
+ * Source-lock paths are authored with POSIX separators but consumed on Windows
+ * too. Validate both grammars before resolving, so `..\\`, drive paths, and UNC
+ * paths cannot be treated as harmless filenames on the opposite platform.
+ */
+export function isSafePortableRelativePath(value) {
+  if (
+    typeof value !== "string" ||
+    value.length === 0 ||
+    value.includes("\0") ||
+    value.includes("\\")
+  )
+    return false;
+  if (path.posix.isAbsolute(value) || path.win32.isAbsolute(value) || /^[a-zA-Z]:/.test(value))
+    return false;
+  if (/[<>:"|?*]/.test(value)) return false;
+  return value
+    .split("/")
+    .every((segment) => segment.length > 0 && segment !== "." && segment !== "..");
+}
+
+function portableSegments(value) {
+  return value.replaceAll("\\", "/").split("/");
+}
+
+export function assertPathWithinRoot(root, candidate, label = "path") {
+  const resolvedRoot = path.resolve(root);
+  const resolvedCandidate = path.resolve(candidate);
+  if (!isWithinRoot(resolvedRoot, resolvedCandidate))
+    throw new Error(label + " escaped its allowed root.");
+  return resolvedCandidate;
+}
+
+export function resolvePortablePathWithinRoot(root, relative, label = "path") {
+  if (!isSafePortableRelativePath(relative))
+    throw new Error(label + " is not a safe relative path.");
+  const candidate = path.resolve(path.resolve(root), ...portableSegments(relative));
+  return assertPathWithinRoot(root, candidate, label);
+}
+
+export function resolveSourceCachePath(root, rawCache, sourceId, cachePath, label = "cache path") {
+  if (!/^[a-z0-9-]+$/.test(sourceId ?? "")) throw new Error(label + " has an unsafe source id.");
+  const cacheRoot = resolvePortablePathWithinRoot(root, rawCache, "source cache root");
+  const sourceRoot = resolvePortablePathWithinRoot(cacheRoot, sourceId, "source cache directory");
+  const target = resolvePortablePathWithinRoot(root, cachePath, label);
+  if (target === sourceRoot) throw new Error(label + " must name a source file.");
+  return assertPathWithinRoot(sourceRoot, target, label);
+}
+
+export function assertExactSourceCachePath(rawCache, sourceId, relativePath, cachePath, label) {
+  if (rawCache !== ".cache/rendering-sources")
+    throw new Error(label + " must use the configured source cache root.");
+  if (!/^[a-z0-9-]+$/.test(sourceId ?? "")) throw new Error(label + " has an unsafe source id.");
+  if (!isSafePortableRelativePath(relativePath) || !isSafePortableRelativePath(cachePath))
+    throw new Error(label + " is not a safe portable path.");
+  const expected = `${rawCache}/${sourceId}/${relativePath}`;
+  if (cachePath !== expected)
+    throw new Error(label + " must exactly match the source-relative cache path.");
+}
+
 function sha256(file) {
   return createHash("sha256").update(readFileSync(file)).digest("hex");
 }
@@ -217,9 +277,13 @@ export function validateRenderingAssets(root = projectRoot) {
       sourceLockRelativePath,
       "rendering sources must remain CC0",
     );
+  const sourceStage = sourceLock.policy?.stage;
   if (
-    (manifest.status === "preview-placeholder" && sourceLock.policy?.downloaded !== false) ||
-    (manifest.status === "reviewed" && sourceLock.policy?.downloaded !== true)
+    (manifest.status === "preview-placeholder" &&
+      (sourceLock.policy?.downloaded !== false ||
+        !["metadata-locked", "sources-reviewed"].includes(sourceStage))) ||
+    (manifest.status === "reviewed" &&
+      (sourceLock.policy?.downloaded !== true || sourceStage !== "integrated"))
   )
     add(
       violations,
@@ -229,13 +293,26 @@ export function validateRenderingAssets(root = projectRoot) {
     );
 
   const defaults = sourceLock.defaults;
+  let validRawCache = false;
+  if (sourceLock.policy?.rawCache === ".cache/rendering-sources") {
+    try {
+      resolvePortablePathWithinRoot(root, sourceLock.policy?.rawCache, "source cache root");
+      validRawCache = true;
+    } catch {
+      validRawCache = false;
+    }
+  }
   if (
     defaults?.license !== "CC0" ||
     !String(defaults.sourceUrl ?? "").startsWith("https://polyhaven.com/a/") ||
-    !String(sourceLock.policy?.rawCache ?? "").startsWith(".cache/")
+    !validRawCache
   )
     add(violations, "rendering-source-defaults", sourceLockRelativePath, "invalid source defaults");
-  if (manifest.status === "preview-placeholder" && defaults.status !== "metadata-locked")
+  if (
+    manifest.status === "preview-placeholder" &&
+    ((sourceStage === "metadata-locked" && defaults.status !== "metadata-locked") ||
+      (sourceStage === "sources-reviewed" && defaults.status !== "sources-reviewed"))
+  )
     add(
       violations,
       "rendering-source-defaults",
@@ -305,16 +382,35 @@ export function validateRenderingAssets(root = projectRoot) {
     const relativePaths = new Set();
     const cachePaths = new Set();
     for (const file of source.files || []) {
+      let safeDescriptorPaths;
+      try {
+        if (!isSafePortableRelativePath(file.relativePath))
+          throw new Error("unsafe source relative path");
+        resolveSourceCachePath(
+          root,
+          sourceLock.policy?.rawCache,
+          source.id,
+          file.cachePath,
+          `${source.id || "source"}: cache path`,
+        );
+        assertExactSourceCachePath(
+          sourceLock.policy?.rawCache,
+          source.id,
+          file.relativePath,
+          file.cachePath,
+          `${source.id || "source"}: cache path`,
+        );
+        safeDescriptorPaths = true;
+      } catch {
+        safeDescriptorPaths = false;
+      }
       const validDescriptor =
         typeof file.role === "string" &&
-        typeof file.relativePath === "string" &&
-        !file.relativePath.startsWith("/") &&
-        !file.relativePath.split("/").includes("..") &&
+        safeDescriptorPaths &&
         /^https:\/\/dl\.polyhaven\.org\/file\//.test(file.directUrl || "") &&
         Number.isSafeInteger(file.bytes) &&
         file.bytes > 0 &&
-        /^[a-f0-9]{32}$/i.test(file.md5 || "") &&
-        String(file.cachePath || "").startsWith(`${sourceLock.policy.rawCache}/${source.id}/`);
+        /^[a-f0-9]{32}$/i.test(file.md5 || "");
       if (relativePaths.has(file.relativePath) || cachePaths.has(file.cachePath))
         add(
           violations,
@@ -331,7 +427,7 @@ export function validateRenderingAssets(root = projectRoot) {
           sourceLockRelativePath,
           `${source.id || "source"}: invalid selected file descriptor`,
         );
-      const reviewed = sourceLock.policy?.downloaded === true;
+      const reviewed = sourceStage === "sources-reviewed" || sourceStage === "integrated";
       if (
         (reviewed && (!shaPattern.test(file.sha256 || "") || file.status !== "reviewed")) ||
         (!reviewed && (file.sha256 !== null || file.status !== "metadata-locked"))

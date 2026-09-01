@@ -68,6 +68,8 @@ async function json(url) {
 }
 
 export async function refreshPolyHavenSourceLock(sourceLock) {
+  if (sourceLock?.policy?.stage !== "metadata-locked")
+    throw new Error("Refusing to refresh a source lock after candidate approval or integration.");
   const sources = await Promise.all(
     sourceLock.sources.map(async (source) => {
       const infoUrl = `${API_ROOT}/info/${source.page}`;
@@ -110,6 +112,7 @@ function nextLock(sources) {
     policy: {
       license: "CC0",
       downloaded: false,
+      stage: "metadata-locked",
       rawCache: CACHE_ROOT,
       sourceHashPolicy:
         "Each selected file needs its own reviewed SHA-256 before cache download or conversion.",

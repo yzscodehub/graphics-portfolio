@@ -135,6 +135,7 @@ describe("rendering asset pipeline", () => {
     const sourceLock = loadRenderingSourceLock(projectRoot) as RenderingSourceLock;
     expect(sourceLock.version).toBe(2);
     expect(sourceLock.policy.downloaded).toBe(false);
+    expect(sourceLock.policy.stage).toBe("metadata-locked");
     expect(sourceLock.defaults).toMatchObject({ license: "CC0", status: "metadata-locked" });
     expect(sourceLock.sources).toHaveLength(11);
     expect(sourceLock.sources.filter((source) => source.kind === "mesh")).toHaveLength(6);
@@ -169,7 +170,7 @@ describe("rendering asset pipeline", () => {
         ),
       ),
     ).toBe(true);
-    expect(findFetchBlockers(sourceLock)).toHaveLength(selectedFileCount);
+    expect(findFetchBlockers(sourceLock)).toHaveLength(selectedFileCount + 1);
     const expectedVersions = new Map(reviewedToolchain.map((tool) => [tool.command, tool.version]));
     expect(
       findReviewedRebuildBlockers(sourceLock, (command) => expectedVersions.get(command) ?? ""),
@@ -225,6 +226,8 @@ describe("rendering asset pipeline", () => {
       );
 
       sourceLock.policy.downloaded = true;
+      sourceLock.policy.stage = "integrated";
+      sourceLock.defaults.status = "sources-reviewed";
       sourceLock.sources = sourceLock.sources.map((source, sourceIndex) => ({
         ...source,
         files: source.files.map((file, fileIndex) => ({
@@ -235,6 +238,41 @@ describe("rendering asset pipeline", () => {
       }));
       writeFileSync(sourceLockPath, `${JSON.stringify(sourceLock, null, 2)}\n`);
 
+      expect(validateRenderingAssets(fixtureRoot)).toEqual([]);
+    } finally {
+      rmSync(fixtureRoot, { recursive: true, force: true });
+    }
+  });
+
+  it("allows a Preview lock to hold reviewed source hashes before pack integration", () => {
+    const fixtureRoot = mkdtempSync(path.join(os.tmpdir(), "rendering-sources-reviewed-"));
+    try {
+      const fixtureAssets = path.join(fixtureRoot, "public", "assets");
+      mkdirSync(fixtureAssets, { recursive: true });
+      cpSync(
+        path.join(projectRoot, "public", "assets", "rendering"),
+        path.join(fixtureAssets, "rendering"),
+        { recursive: true },
+      );
+      cpSync(
+        path.join(projectRoot, "public", "models"),
+        path.join(fixtureRoot, "public", "models"),
+        { recursive: true },
+      );
+      const sourceLockPath = path.join(fixtureAssets, "rendering", "sources.lock.json");
+      const sourceLock = JSON.parse(readFileSync(sourceLockPath, "utf8")) as RenderingSourceLock;
+      sourceLock.policy.stage = "sources-reviewed";
+      sourceLock.policy.downloaded = false;
+      sourceLock.defaults.status = "sources-reviewed";
+      sourceLock.sources = sourceLock.sources.map((source, sourceIndex) => ({
+        ...source,
+        files: source.files.map((file, fileIndex) => ({
+          ...file,
+          sha256: (sourceIndex * 100 + fileIndex).toString(16).padStart(64, "a").slice(-64),
+          status: "reviewed" as const,
+        })),
+      }));
+      writeFileSync(sourceLockPath, `${JSON.stringify(sourceLock, null, 2)}\n`);
       expect(validateRenderingAssets(fixtureRoot)).toEqual([]);
     } finally {
       rmSync(fixtureRoot, { recursive: true, force: true });

@@ -73,6 +73,7 @@ export interface RenderingSourceLock {
   policy: {
     license: "CC0";
     downloaded: boolean;
+    stage: "metadata-locked" | "sources-reviewed" | "integrated";
     rawCache: string;
     sourceHashPolicy: string;
     disallowedExtensions: string[];
@@ -80,7 +81,7 @@ export interface RenderingSourceLock {
   defaults: {
     license: "CC0";
     sourceUrl: string;
-    status: "metadata-locked";
+    status: "metadata-locked" | "sources-reviewed";
   };
   sources: RenderingSourceRecord[];
 }
@@ -114,7 +115,7 @@ export const plannedRenderingSources = renderingSourceLock.sources.map((source) 
   status: source.files.every(
     (file) => file.status === "reviewed" && typeof file.sha256 === "string",
   )
-    ? ("reviewed" as const)
+    ? ("sources-reviewed" as const)
     : renderingSourceLock.defaults.status,
   sourceFileCount: source.files.length,
   sourceBytes: source.files.reduce((total, file) => total + file.bytes, 0),

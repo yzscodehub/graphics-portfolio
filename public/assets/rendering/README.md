@@ -6,12 +6,14 @@ This directory is intentionally small and auditable. The current Preview ships s
 
 Before a future external replacement can enter the build, a reviewer must record the exact source SHA-256 in `sources.lock.json`, fetch it into the ignored `.cache/rendering-sources/`, run the locked conversion toolchain, and update output hashes and budgets in `manifest.json`.
 
-The ledger has two fail-closed states. `preview-placeholder` requires an unhashed, non-downloaded source lock and an explicitly marked placeholder pack. `reviewed` requires every source to carry a direct HTTPS download URL and SHA-256, the packed scene to set `placeholder: false`, and the source-lock download state to be true. Release validation accepts only the second state.
+The ledger has three fail-closed source stages. `metadata-locked` records official URLs, sizes, and MD5 values without treating the bytes as reviewed. `sources-reviewed` adds per-file SHA-256 values after an isolated quarantine review, but Preview still serves the explicitly marked procedural placeholder. `integrated` additionally requires the processed pack, runtime payload hashes, and downloaded state to match. Release validation accepts only an integrated source lock paired with a reviewed public asset manifest.
 
 Commands:
 
 - `pnpm run assets:verify` checks the lock, licenses, output hashes, paths, budgets, and placeholder scene contract.
 - `pnpm run assets:refresh-lock` explicitly refreshes official API metadata and direct URLs; it does not download source bytes.
+- `pnpm run assets:download-candidates -- --review-id <id>` downloads to an isolated quarantine, verifies API bytes/MD5, computes SHA-256, and writes `review.json` without modifying the formal lock.
+- `pnpm run assets:approve-review -- --review <review.json>` revalidates the complete quarantine and writes a reviewed lock proposal. Add `--apply` only after inspecting that proposal.
 - `pnpm run assets:rebuild` regenerates only the deterministic self-authored placeholder pack, then verifies it.
 - `pnpm run assets:fetch` deliberately fails until every selected file has an independently reviewed SHA-256.
 - `pnpm run assets:preflight:reviewed` reports missing per-file hashes and missing locked conversion tools before any reviewed rebuild can begin.
