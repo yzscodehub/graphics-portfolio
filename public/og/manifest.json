@@ -55,6 +55,14 @@
       "sha256": "2259c10b91baae493e7aa1f52d85523409d3d16f619a189b9dd91928813a34c4"
     },
     {
+      "path": "/og/demos/clustered-lighting.png",
+      "title": "Clustered / Deferred Lighting",
+      "width": 1200,
+      "height": 630,
+      "bytes": 56185,
+      "sha256": "14632df01ca76381f1d3c7207e88a7a1345b80358e5a7942e798f916eb8e226e"
+    },
+    {
       "path": "/og/demos/render-graph.png",
       "title": "Render Graph Explorer",
       "width": 1200,
@@ -64,11 +72,11 @@
     },
     {
       "path": "/og/demos/gpu-particles.png",
-      "title": "GPU Compute Particles",
+      "title": "GPU-Driven Visibility & Compute",
       "width": 1200,
       "height": 630,
-      "bytes": 56023,
-      "sha256": "92e1c1ff673a51a05b1a2d96f1b4945e85faf33d67c6b5ac8b49831c028b104a"
+      "bytes": 57202,
+      "sha256": "d7d9f669d1da23165e60961816ee0e3fb6f70758e7891643fda537816b796223"
     },
     {
       "path": "/og/demos/shadow-aa.png",
@@ -111,6 +119,14 @@
       "sha256": "38c362e6399ddba60f66ac5d5165ae9045673bc139a451c2a24c1c4f6d5732f9"
     },
     {
+      "path": "/og/writing/clustered-deferred-lighting.png",
+      "title": "From G-Buffer to Cluster Light Lists: Deferred and Clustered Lighting",
+      "width": 1200,
+      "height": 630,
+      "bytes": 59769,
+      "sha256": "47367fa918f356d031853499a99231985a455e1ced050cc39878781071dd14ab"
+    },
+    {
       "path": "/og/writing/compute-geometry-performance.png",
       "title": "Large-Scale Geometry Processing with Compute Shaders",
       "width": 1200,
@@ -125,6 +141,14 @@
       "height": 630,
       "bytes": 63320,
       "sha256": "d725796dae8e8c09cd24827de2e798b395d49c278b511f32584f29b97d725afa"
+    },
+    {
+      "path": "/og/writing/gpu-driven-visibility-indirect.png",
+      "title": "GPU-Driven Visibility: Culling, Compaction, LOD, and Indirect Draw",
+      "width": 1200,
+      "height": 630,
+      "bytes": 61267,
+      "sha256": "cdadda91a50153c9d290c2f3f0825afbd8bc085e6083ea176759dbb2c65bbb8c"
     },
     {
       "path": "/og/writing/material-lighting-color-pipeline.png",

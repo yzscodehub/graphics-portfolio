@@ -2,8 +2,8 @@
 routeSlug: gpu-particles
 translationKey: gpu-particles
 locale: zh-CN
-title: GPU Compute Particles
-summary: 使用原生 WebGPU 和 WGSL 更新 Ping-Pong 粒子状态，包含生命周期、吸引子和可选 timestamp-query 证据。
+title: GPU-Driven Visibility & Compute
+summary: 在同一原生 WebGPU 数据路径中比较 Ping-Pong 粒子模拟与实例可见性、LOD、Compaction 和 Indirect Draw 证据。
 category: gpu
 renderer: Raw WebGPU + WGSL / Canvas 2D 回退
 backend: raw-webgpu
@@ -34,6 +34,8 @@ fallback:
   description: WebGPU 不可用时使用缩减的 Canvas 2D 生命周期预览，并保留控件和明确标签。
   image: /media/demos/gpu-particles-poster.svg
 controls:
+  - MODE SIMULATION
+  - MODE VISIBILITY
   - 25K particles
   - 100K particles
   - 250K particles
@@ -45,12 +47,21 @@ metrics: []
 metricSource:
   kind: runtime
   description: 支持 timestamp-query 时从 GPU 时间戳读取 Compute/Render 区间，否则仅报告 animation-frame 状态，不声称 GPU 时间。
+currentLimit: 只有 timestamp-query 可用时才报告 GPU 时间；CPU 与 Canvas 帧节奏不可直接比较，Hi-Z、Meshlet 与遮挡剔除不在本轮范围。
 fallbackImage: /media/demos/gpu-particles-poster.svg
 relatedProjects:
   - webgpu-compute-lab
 relatedArticles:
   - compute-geometry-performance
   - webgpu-particles-path-tracing
+  - gpu-driven-visibility-indirect
+assetIds:
+  - research-courtyard
+modes:
+  - simulation
+  - visibility
+referenceScene: research-courtyard
+sourceUrl: https://github.com/yzscodehub/graphics-portfolio/blob/main/src/demos/gpu-particles.ts
 draft: false
 ---
 

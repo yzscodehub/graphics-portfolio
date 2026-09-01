@@ -283,6 +283,44 @@ ${FULLSCREEN_VERTEX}
 }
 `;
 
+// This is deliberately a Reference Frame-local diagnostic. It derives an
+// 8x5x8 cluster coordinate from the same G-Buffer depth/camera contract and
+// counts intersections with eight analytic proxy lights. It is not sampled
+// from the separate Clustered Lighting renderer or a cross-device texture.
+export const CLUSTER_LIGHT_COUNT_WGSL = /* wgsl */ `
+${FULLSCREEN_VERTEX}
+${PARAMS}
+@group(0) @binding(1) var linearDepthTexture: texture_2d<f32>;
+
+fn clusterCenter(uv: vec2f, depth: f32) -> vec3f {
+  let clusterUv = (floor(uv * vec2f(8.0, 5.0)) + vec2f(0.5)) / vec2f(8.0, 5.0);
+  let clusterDepth = (floor(clamp(depth, 0.0, 0.9999) * 8.0) + 0.5) / 8.0;
+  let aspect = params.resolutionTime.x / max(params.resolutionTime.y, 1.0);
+  let screen = (clusterUv * 2.0 - 1.0) * vec2f(aspect, 1.0);
+  let origin = vec3f(0.0, 0.35, -4.4);
+  let direction = normalize(vec3f(screen.x, -screen.y, 1.8));
+  return origin + direction * clusterDepth * 12.0;
+}
+
+@fragment fn fs(input: VertexOutput) -> @location(0) f32 {
+  let dimensions = vec2i(textureDimensions(linearDepthTexture));
+  let coordinate = clamp(vec2i(input.uv * vec2f(dimensions)), vec2i(0), dimensions - 1);
+  let depth = textureLoad(linearDepthTexture, coordinate, 0).x;
+  if (depth >= 0.9999) { return 0.0; }
+  let center = clusterCenter(input.uv, depth);
+  let time = params.resolutionTime.z;
+  var count = 0.0;
+  for (var index = 0; index < 8; index = index + 1) {
+    let id = f32(index);
+    let angle = id * 0.78539816 + time * (0.22 + fract(id * 0.173) * 0.15);
+    let light = vec3f(cos(angle) * (1.4 + fract(id * 0.37)), -0.15 + fract(id * 0.61) * 2.6, 1.0 + sin(angle) * 1.8);
+    let radius = 1.2 + fract(id * 0.29) * 1.25;
+    if (distance(center, light) <= radius) { count += 1.0; }
+  }
+  return count / 8.0;
+}
+`;
+
 export const RESOLVE_WGSL = /* wgsl */ `
 ${FULLSCREEN_VERTEX}
 struct Params {
@@ -302,6 +340,7 @@ struct Params {
 struct ResolveOutput {
   @location(0) color: vec4f,
   @location(1) depth: f32,
+  @location(2) rejectMask: f32,
 }
 
 fn fxaa(uv: vec2f, texel: vec2f) -> vec3f {
@@ -324,6 +363,7 @@ fn fxaa(uv: vec2f, texel: vec2f) -> vec3f {
   let currentDepth = textureLoad(currentDepthTexture, coordinate, 0).x;
   let aaMode = i32(params.modesFrame.y + 0.5);
   var current = textureLoad(lightingTexture, coordinate, 0).rgb;
+  var rejectMask = 1.0;
   if (aaMode == 1) { current = fxaa(input.uv, texel); }
 
   if (aaMode == 2 && params.modesFrame.w > 0.5) {
@@ -347,13 +387,17 @@ fn fxaa(uv: vec2f, texel: vec2f) -> vec3f {
       }
       history = clamp(history, neighborhoodMin, neighborhoodMax);
       let depthValid = abs(currentDepth - previousDepth) < 0.025;
-      current = mix(current, history, select(0.0, 0.9, depthValid));
+      if (depthValid) {
+        current = mix(current, history, 0.9);
+        rejectMask = 0.0;
+      }
     }
   }
 
   var output: ResolveOutput;
   output.color = vec4f(current, 1.0);
   output.depth = currentDepth;
+  output.rejectMask = rejectMask;
   return output;
 }
 `;
@@ -375,6 +419,8 @@ struct Params {
 @group(0) @binding(6) var resolvedTexture: texture_2d<f32>;
 @group(0) @binding(7) var linearSampler: sampler;
 @group(0) @binding(8) var<uniform> params: Params;
+@group(0) @binding(9) var historyRejectTexture: texture_2d<f32>;
+@group(0) @binding(10) var clusterLightCountTexture: texture_2d<f32>;
 
 fn aces(color: vec3f) -> vec3f {
   let a = 2.51;
@@ -415,6 +461,13 @@ fn aces(color: vec3f) -> vec3f {
     // view's SSAO display modulation. This makes Frame Inspector provenance
     // match the Temporal Resolve writer reported in the UI.
     color = pow(aces(textureSampleLevel(resolvedTexture, linearSampler, input.uv, 0.0).rgb), vec3f(1.0 / 2.2));
+  } else if (view == 8) {
+    color = vec3f(textureLoad(historyRejectTexture, coordinate, 0).x);
+  } else if (view == 9) {
+    let normalizedCount = textureLoad(clusterLightCountTexture, coordinate, 0).x;
+    let count = normalizedCount * 8.0;
+    let ramp = clamp(count / 4.0, 0.0, 1.0);
+    color = mix(vec3f(0.025, 0.08, 0.1), vec3f(0.95, 0.55, 0.1), ramp);
   } else {
     let resolved = textureSampleLevel(resolvedTexture, linearSampler, input.uv, 0.0).rgb;
     let ao = textureLoad(ssaoTexture, coordinate, 0).x;

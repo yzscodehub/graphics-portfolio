@@ -1,5 +1,14 @@
 export type ReferenceView =
-  "final" | "albedo" | "normal" | "depth" | "velocity" | "lighting" | "ssao" | "history";
+  | "final"
+  | "albedo"
+  | "normal"
+  | "depth"
+  | "velocity"
+  | "lighting"
+  | "ssao"
+  | "history"
+  | "history-reject"
+  | "cluster-light-count";
 
 export type ShadowTechnique = "hard" | "pcf" | "pcss";
 export type AaTechnique = "none" | "fxaa" | "taa";
@@ -10,6 +19,21 @@ export interface AttachmentInfo {
   format: GPUTextureFormat | "preferred-canvas-format";
   range: string;
   lastWriter: string;
+}
+
+export interface ReferencePixelProbe {
+  view: ReferenceView;
+  x: number;
+  y: number;
+  values: number[];
+  interpretation: string;
+}
+
+export interface ReferenceHistogram {
+  view: ReferenceView;
+  bins: number[];
+  samples: number;
+  interpretation: string;
 }
 
 export const REFERENCE_ATTACHMENTS: readonly AttachmentInfo[] = [
@@ -66,8 +90,22 @@ export const REFERENCE_ATTACHMENTS: readonly AttachmentInfo[] = [
     view: "history",
     label: "TAA HISTORY",
     format: "rgba16float",
-    range: "linear HDR / latest Temporal Resolve (ACES + sRGB display transform)",
+    range: "linear HDR / latest Temporal Resolve; Inspector applies ACES + sRGB only for display",
     lastWriter: "Temporal Resolve",
+  },
+  {
+    view: "history-reject",
+    label: "HISTORY REJECT",
+    format: "r8unorm",
+    range: "1.0 = no valid history, UV bounds reject, or depth reject; 0.0 = accepted history",
+    lastWriter: "Temporal Resolve / Reject Mask",
+  },
+  {
+    view: "cluster-light-count",
+    label: "CLUSTER LIGHT COUNT",
+    format: "r8unorm",
+    range: "normalized [0,1] = Reference Frame local proxy count [0,8] / 8",
+    lastWriter: "ReferenceFrame / Local Cluster Count",
   },
 ] as const;
 

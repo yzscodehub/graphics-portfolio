@@ -44,12 +44,19 @@ metrics: []
 metricSource:
   kind: runtime
   description: 面板报告累计 SPP 和 animation-frame 状态，不发布固定 GPU 耗时数字。
+currentLimit: Canvas 路径只是视觉近似且样本不代表 GPU 测量；MIS、ReSTIR 与超过四次反弹仍不在本轮范围。
 fallbackImage: /media/demos/path-tracer-poster.svg
 relatedProjects:
   - webgpu-compute-lab
 relatedArticles:
   - webgpu-particles-path-tracing
   - bvh-progressive-path-tracing
+assetIds:
+  - cornell-scene
+modes:
+  - progressive
+referenceScene: cornell
+sourceUrl: https://github.com/yzscodehub/graphics-portfolio/blob/main/src/demos/path-tracer.ts
 draft: false
 ---
 

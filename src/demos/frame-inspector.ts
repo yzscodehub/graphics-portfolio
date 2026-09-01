@@ -6,6 +6,8 @@ import {
   REFERENCE_ATTACHMENTS,
   attachmentInfo,
   type AttachmentInfo,
+  type ReferenceHistogram,
+  type ReferencePixelProbe,
   type ReferenceView,
 } from "./reference-frame/types";
 
@@ -64,6 +66,8 @@ interface InspectorRenderer {
   readonly historyStatus: string;
   resize(width: number, height: number): void;
   getAttachmentInfo(view: ReferenceView): AttachmentInfo;
+  probe?(view: ReferenceView, u: number, v: number): Promise<ReferencePixelProbe | undefined>;
+  histogram?(view: ReferenceView): Promise<ReferenceHistogram | undefined>;
   setView(view: ReferenceView): void;
   setFrozen(frozen: boolean): void;
   pause(): void;
@@ -147,7 +151,7 @@ export function createDemo(): DemoController {
       if (running) renderer.resume();
       context.setRuntimeState?.("running");
       context.setStatus(
-        "Live WebGPU attachments share one reference frame; select a buffer or freeze the frame.",
+        "Live Reference Frame attachments include its local Cluster Light Count; the separate Clustered Lighting demo still owns a different WebGPU device and textures.",
         "success",
       );
       context.setMetrics({ backend: renderer.backendLabel, status: "LIVE ATTACHMENTS" });
@@ -189,7 +193,82 @@ export function createDemo(): DemoController {
         },
         { signal: context.signal },
       );
-      context.controls.append(...viewButtons, freezeButton);
+      let probeArmed = false;
+      const probeButton = makeButton("PIXEL PROBE", false);
+      probeButton.addEventListener(
+        "click",
+        () => {
+          probeArmed = !probeArmed;
+          probeButton.setAttribute("aria-pressed", String(probeArmed));
+          context.setStatus(
+            probeArmed
+              ? "Pixel Probe armed: click the render area to read the selected real attachment."
+              : "Pixel Probe disabled.",
+            "info",
+          );
+        },
+        { signal: context.signal },
+      );
+      context.stage.addEventListener(
+        "click",
+        (event) => {
+          if (!probeArmed) return;
+          const bounds = context.stage.getBoundingClientRect();
+          const u = (event.clientX - bounds.left) / Math.max(1, bounds.width);
+          const v = (event.clientY - bounds.top) / Math.max(1, bounds.height);
+          void active?.probe?.(selected, u, v).then((probe) => {
+            if (!probe) {
+              context.setStatus(
+                "Pixel Probe is unavailable for Final or Canvas fallback; choose a real attachment.",
+                "warning",
+              );
+              return;
+            }
+            context.setStatus(
+              `PIXEL ${probe.x},${probe.y} | ${probe.interpretation} | [${probe.values.map((value) => value.toFixed(4)).join(", ")}]`,
+              "success",
+            );
+          });
+        },
+        { signal: context.signal },
+      );
+      const histogramButton = makeButton("HISTOGRAM 64");
+      histogramButton.addEventListener(
+        "click",
+        () => {
+          histogramButton.disabled = true;
+          void active
+            ?.histogram?.(selected)
+            .then((histogram) => {
+              if (!histogram) {
+                context.setStatus(
+                  "Histogram is unavailable for Final or Canvas fallback; choose a real attachment.",
+                  "warning",
+                );
+                return;
+              }
+              const peak = histogram.bins.reduce(
+                (best, value, index) => (value > histogram.bins[best] ? index : best),
+                0,
+              );
+              context.setStatus(
+                `HISTOGRAM 64 | ${histogram.samples} sampled pixels | peak bin ${peak} | ${histogram.interpretation}`,
+                "success",
+              );
+            })
+            .catch((error: unknown) => {
+              context.setStatus(
+                `Histogram readback failed: ${error instanceof Error ? error.message : "unknown failure"}`,
+                "error",
+              );
+            })
+            .finally(() => {
+              histogramButton.disabled = false;
+            });
+        },
+        { signal: context.signal },
+      );
+      context.controls.append(...viewButtons, freezeButton, probeButton, histogramButton);
       await setup();
       updateEvidence();
     },
@@ -306,6 +385,8 @@ class CanvasInspectorFallback implements InspectorRenderer {
       lighting: ["#fff1ad", "#6b3b13"],
       ssao: ["#e0ded1", "#4b5550"],
       history: ["#57e3c2", "#18343c"],
+      "history-reject": ["#f0b84b", "#652a1e"],
+      "cluster-light-count": ["#0f2c35", "#f0b84b"],
     };
     const gradient = this.ctx.createLinearGradient(x, y, x + width, y + height);
     gradient.addColorStop(0, gradients[view][0]);

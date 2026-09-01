@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" role="img" aria-labelledby="title desc">
-  <title id="title">GPU Compute Particles</title><desc id="desc">PING-PONG / LIFECYCLE / TIMESTAMP</desc>
+  <title id="title">GPU-Driven Visibility &amp; Compute</title><desc id="desc">SIMULATION / CULLING / LOD / INDIRECT</desc>
   <defs>
     <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse"><path d="M40 0H0V40" fill="none" stroke="#31433f" stroke-opacity=".34"/></pattern>
     <linearGradient id="fade" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#57e3c2" stop-opacity=".16"/><stop offset="1" stop-color="#f0b84b" stop-opacity=".03"/></linearGradient>
@@ -15,6 +15,6 @@
     <circle cx="790" cy="395" r="52" fill="#f0b84b" opacity=".22"/><path d="M260 250h240v90H260zM1100 250h240v90h-240z" fill="#10191a" stroke="#31433f"/>
     <text x="380" y="304" fill="#e8e6dc" font-family="monospace" font-size="22" text-anchor="middle">STATE A / READ</text><text x="1220" y="304" fill="#e8e6dc" font-family="monospace" font-size="22" text-anchor="middle">STATE B / WRITE</text>
     <path d="M500 295h190M1090 295H900" stroke="#f0b84b" stroke-width="4"/><text x="690" y="278" fill="#8fa29f" font-family="monospace" font-size="17">COMPUTE</text>
-  <text x="92" y="792" fill="#e8e6dc" font-family="Arial Narrow, sans-serif" font-weight="700" font-size="64">GPU Compute Particles</text>
-  <text x="94" y="828" fill="#8fa29f" font-family="monospace" font-size="20">PING-PONG / LIFECYCLE / TIMESTAMP</text>
+  <text x="92" y="792" fill="#e8e6dc" font-family="Arial Narrow, sans-serif" font-weight="700" font-size="64">GPU-Driven Visibility &amp; Compute</text>
+  <text x="94" y="828" fill="#8fa29f" font-family="monospace" font-size="20">SIMULATION / CULLING / LOD / INDIRECT</text>
   </svg>

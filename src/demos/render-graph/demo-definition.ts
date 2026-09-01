@@ -1,106 +1,96 @@
-import type { PassDesc, RenderGraphDefinition } from "./core";
+import {
+  referenceFramePasses,
+  referenceFrameResources,
+  type ReferenceFrameAccessManifest,
+} from "../reference-frame/manifest";
+import type { Access, PassDesc, RenderGraphDefinition, ResourceDesc, ResourceUsage } from "./core";
 
-const RESOURCES: RenderGraphDefinition["resources"] = [
-  { id: "scene", kind: "buffer", format: "scene-data-v1", size: 4_096, external: true },
-  { id: "depth", kind: "texture", format: "depth24plus", width: 1280, height: 720 },
-  { id: "normal", kind: "texture", format: "rgba16float", width: 1280, height: 720 },
-  { id: "albedo", kind: "texture", format: "rgba8unorm", width: 1280, height: 720 },
-  { id: "velocity", kind: "texture", format: "rg16float", width: 1280, height: 720 },
-  { id: "ao", kind: "texture", format: "r8unorm", width: 1280, height: 720 },
-  { id: "hdr", kind: "texture", format: "rgba16float", width: 1280, height: 720 },
-  {
-    id: "history",
-    kind: "texture",
-    format: "rgba16float",
-    width: 1280,
-    height: 720,
-    external: true,
-    persistent: true,
-  },
-  {
-    id: "present",
-    kind: "texture",
-    format: "bgra8unorm",
-    width: 1280,
-    height: 720,
-    external: true,
-    present: true,
-  },
-  { id: "debug-grid", kind: "texture", format: "rgba8unorm", width: 1280, height: 720 },
-];
+const REFERENCE_WIDTH = 1280;
+const REFERENCE_HEIGHT = 720;
 
-const PASSES: PassDesc[] = [
-  {
-    id: "depth",
-    label: "DEPTH PREPASS",
-    reads: [{ resource: "scene", usage: "storage-read" }],
-    writes: [{ resource: "depth", usage: "depth-attachment" }],
-  },
-  {
-    id: "gbuffer",
-    label: "G-BUFFER",
-    reads: [{ resource: "depth", usage: "depth-attachment" }],
-    writes: [
-      { resource: "normal", usage: "render-attachment" },
-      { resource: "albedo", usage: "render-attachment" },
-      { resource: "velocity", usage: "render-attachment" },
-    ],
-  },
-  {
-    id: "ssao",
-    label: "SSAO",
-    reads: [
-      { resource: "depth", usage: "sampled" },
-      { resource: "normal", usage: "sampled" },
-    ],
-    writes: [{ resource: "ao", usage: "render-attachment" }],
-  },
-  {
-    id: "lighting",
-    label: "LIGHTING",
-    reads: [
-      { resource: "depth", usage: "sampled" },
-      { resource: "normal", usage: "sampled" },
-      { resource: "albedo", usage: "sampled" },
-      { resource: "ao", usage: "sampled" },
-    ],
-    writes: [{ resource: "hdr", usage: "render-attachment" }],
-  },
-  {
-    id: "taa",
-    label: "TEMPORAL RESOLVE",
-    reads: [
-      { resource: "hdr", usage: "sampled" },
-      { resource: "velocity", usage: "sampled" },
-      { resource: "history", usage: "sampled" },
-    ],
-    writes: [{ resource: "history", usage: "render-attachment" }],
-  },
-  {
-    id: "tone",
-    label: "PRESENT",
-    reads: [{ resource: "history", usage: "sampled" }],
-    writes: [{ resource: "present", usage: "present" }],
-    sideEffect: true,
-  },
-  {
-    id: "debug-overlay",
-    label: "DEBUG OVERLAY",
-    reads: [{ resource: "hdr", usage: "sampled" }],
-    writes: [{ resource: "debug-grid", usage: "render-attachment" }],
-  },
-];
+/**
+ * A deliberately synthetic, unconsumed pass keeps Pass Culling observable in
+ * the Explorer. Every other resource/pass is derived from Reference Frame.
+ */
+const diagnosticCullingResource: ResourceDesc = {
+  id: "diagnostic-debug-grid",
+  kind: "texture",
+  format: "rgba8unorm",
+  width: REFERENCE_WIDTH,
+  height: REFERENCE_HEIGHT,
+};
 
-export function createRenderGraphDefinition(enabled: ReadonlySet<string>): RenderGraphDefinition {
+const diagnosticCullingPass: PassDesc = {
+  id: "diagnostic-debug-overlay",
+  label: "DIAGNOSTIC DEBUG OVERLAY",
+  reads: [{ resource: "lighting", usage: "sampled" }],
+  writes: [{ resource: "diagnostic-debug-grid", usage: "render-attachment" }],
+};
+
+function access(entry: ReferenceFrameAccessManifest): Access {
+  return { resource: entry.resource, usage: entry.usage as ResourceUsage };
+}
+
+function resource(entry: (typeof referenceFrameResources)[number]): ResourceDesc {
   return {
-    passes: PASSES.map((pass) => ({
-      ...pass,
-      enabled: enabled.has(pass.id),
-      reads: pass.reads?.map((access) => ({ ...access })),
-      writes: pass.writes?.map((access) => ({ ...access })),
-    })),
-    resources: RESOURCES.map((resource) => ({ ...resource })),
+    id: entry.id,
+    kind: "texture",
+    format: entry.format,
+    width: REFERENCE_WIDTH,
+    height: REFERENCE_HEIGHT,
+    ...(entry.external ? { external: true } : {}),
+    ...(entry.persistent ? { persistent: true } : {}),
+    ...(entry.present ? { present: true } : {}),
   };
 }
 
-export const renderGraphPasses = PASSES.map(({ id, label }) => ({ id, label }));
+function pass(entry: (typeof referenceFramePasses)[number]): PassDesc {
+  return {
+    id: entry.id,
+    label: entry.label,
+    ...(entry.sideEffect ? { sideEffect: true } : {}),
+    reads: entry.reads.map(access),
+    writes: entry.writes.map(access),
+  };
+}
+
+export const referenceFrameRenderGraphPasses = referenceFramePasses.map((entry) => pass(entry));
+export const referenceFrameRenderGraphResources = referenceFrameResources.map((entry) =>
+  resource(entry),
+);
+
+export function createReferenceFrameRenderGraphDefinition(
+  enabled: ReadonlySet<string>,
+): RenderGraphDefinition {
+  return {
+    passes: referenceFrameRenderGraphPasses.map((entry) => ({
+      ...entry,
+      enabled: enabled.has(entry.id),
+      reads: entry.reads?.map((item) => ({ ...item })),
+      writes: entry.writes?.map((item) => ({ ...item })),
+    })),
+    resources: referenceFrameRenderGraphResources.map((entry) => ({ ...entry })),
+  };
+}
+
+export function createRenderGraphDefinition(enabled: ReadonlySet<string>): RenderGraphDefinition {
+  const definition = createReferenceFrameRenderGraphDefinition(enabled);
+  return {
+    ...definition,
+    resources: [...definition.resources, { ...diagnosticCullingResource }],
+    passes: [
+      ...definition.passes,
+      {
+        ...diagnosticCullingPass,
+        enabled: enabled.has(diagnosticCullingPass.id),
+        reads: diagnosticCullingPass.reads?.map((item) => ({ ...item })),
+        writes: diagnosticCullingPass.writes?.map((item) => ({ ...item })),
+      },
+    ],
+  };
+}
+
+export const renderGraphPasses = [
+  ...referenceFramePasses.map(({ id, label }) => ({ id, label })),
+  { id: diagnosticCullingPass.id, label: diagnosticCullingPass.label },
+];

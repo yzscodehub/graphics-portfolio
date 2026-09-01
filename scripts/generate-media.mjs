@@ -50,6 +50,17 @@ const demoBodies = {
     <circle cx="708" cy="350" r="38" fill="#f5f1d9"/><path d="M220 650h1080" stroke="${palette.line}"/>
     <path d="M1140 210 905 380M1185 254 930 410M1080 178 875 350" stroke="${palette.amber}" stroke-width="3" stroke-opacity=".65"/>
     <g fill="${palette.muted}" font-family="monospace" font-size="18"><text x="180" y="250">PBR / IBL</text><text x="180" y="282">ROUGHNESS 0.28</text><text x="180" y="314">METALNESS 0.72</text><text x="180" y="346">ACES 1.10 EV</text></g>`,
+  "clustered-lighting": `
+    <path d="M180 610V250h1240v360M180 250l230-110h780l230 110" fill="${palette.panel}" stroke="${palette.line}" stroke-width="3"/>
+    <g fill="none" stroke="${palette.mint}" stroke-opacity=".45">${Array.from({ length: 8 }, (_, x) => `<path d="M${290 + x * 135} 250v360"/>`).join("")}${Array.from({ length: 4 }, (_, y) => `<path d="M180 ${322 + y * 72}h1240"/>`).join("")}</g>
+    <g>${Array.from({ length: 54 }, (_, i) => {
+      const x = 225 + (i % 9) * 140;
+      const y = 285 + Math.floor(i / 9) * 52;
+      const colors = [palette.mint, palette.amber, palette.blue, palette.rust];
+      return `<circle cx="${x}" cy="${y}" r="${5 + (i % 5) * 2}" fill="${colors[i % colors.length]}" opacity=".72"/>`;
+    }).join("")}</g>
+    <rect x="230" y="640" width="1140" height="18" fill="${palette.line}"/><rect x="230" y="640" width="760" height="18" fill="${palette.amber}"/>
+    <text x="230" y="705" fill="${palette.text}" font-family="monospace" font-size="20">NAIVE / DEFERRED / CLUSTERED</text><text x="1040" y="705" fill="${palette.muted}" font-family="monospace" font-size="18">512 LIGHTS / OVERFLOW 0</text>`,
   "render-graph": `
     <g fill="${palette.panel}" stroke="${palette.mint}" stroke-width="2"><rect x="160" y="280" width="220" height="92"/><rect x="500" y="210" width="220" height="92"/><rect x="500" y="430" width="220" height="92"/><rect x="850" y="300" width="220" height="92"/><rect x="1190" y="300" width="220" height="92"/></g>
     <g stroke="${palette.amber}" stroke-width="4" fill="none"><path d="M380 326C440 326 440 256 500 256"/><path d="M380 326C440 326 440 476 500 476"/><path d="M720 256C790 256 790 346 850 346"/><path d="M720 476C790 476 790 346 850 346"/><path d="M1070 346h120"/></g>
@@ -104,8 +115,13 @@ const demoBodies = {
 
 const demos = [
   ["material-lighting", "Material & Lighting", "WEBGPU / TSL / PBR / IBL"],
+  [
+    "clustered-lighting",
+    "Clustered / Deferred Lighting",
+    "GBUFFER / DEPTH SLICES / CLUSTER LIGHT LIST",
+  ],
   ["render-graph", "Render Graph Explorer", "CULLING / LIFETIME / ALIAS / USAGE"],
-  ["gpu-particles", "GPU Compute Particles", "PING-PONG / LIFECYCLE / TIMESTAMP"],
+  ["gpu-particles", "GPU-Driven Visibility & Compute", "SIMULATION / CULLING / LOD / INDIRECT"],
   ["shadow-aa", "Shadow & Temporal AA", "PCF / PCSS / FXAA / TAA"],
   ["path-tracer", "Progressive Path Tracer", "CPU BVH / WGSL / LINEAR ACCUMULATION"],
   ["frame-inspector", "Frame Inspector", "GBUFFER / DEPTH / VELOCITY / HISTORY"],

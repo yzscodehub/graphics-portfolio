@@ -23,6 +23,9 @@ type DemoPresentationData = {
   requirements?: DemoRequirement[];
   fallback?: DemoFallback;
   metricSource?: DemoMetricSource;
+  assetIds?: string[];
+  modes?: string[];
+  sourceUrl?: string;
 };
 
 const { locale } = Astro.props;
@@ -68,16 +71,16 @@ function fallbackText(data: DemoPresentationData): string {
   locale={locale}
   title={isEn ? "Demos" : "演示"}
   description={isEn
-    ? "Seven completed graphics studies with explicit evidence and fallback paths."
-    : "七个已完成的图形技术研究，明确展示证据、回退和指标来源。"}
+    ? "Eight published rendering-system studies with explicit maturity, evidence, and fallback paths."
+    : "八个已发布的渲染系统研究，明确展示成熟度、证据、回退和指标来源。"}
   handle={profile.displayName}
 >
   <PageHero
     eyebrow="DEMOS / RUNTIME"
     title={isEn ? "Evidence you can inspect." : "可以检查的技术证据。"}
     description={isEn
-      ? "Every Demo is marked completed, names its backend and requirements, and separates runtime evidence from offline metrics."
-      : "每个 Demo 都标记为已完成，明确后端与要求，并将运行时证据和离线指标分开。"}
+      ? "Seven studies are completed; Neural Denoising remains in progress until the Guided model clears the same-split quality gate. Every Demo names its backend, requirements, and evidence source."
+      : "七项研究已完成；Neural Denoising 在 Guided 模型通过同一数据划分的质量门禁前保持进行中。每项 Demo 都明确后端、要求与证据来源。"}
   />
   <section class="section">
     <div class="section-inner">
@@ -137,6 +140,22 @@ function fallbackText(data: DemoPresentationData): string {
                     <>
                       <dt style="color:var(--dim);">FALLBACK</dt>
                       <dd style="margin:2px 0 0; color:var(--muted);">{fallbackText(data)}</dd>
+                    </>
+                  </div>
+                  <div>
+                    <>
+                      <dt style="color:var(--dim);">MODES</dt>
+                      <dd style="margin:2px 0 0; color:var(--muted);">
+                        {data.modes?.join(" / ") || "single"}
+                      </dd>
+                    </>
+                  </div>
+                  <div>
+                    <>
+                      <dt style="color:var(--dim);">ASSETS</dt>
+                      <dd style="margin:2px 0 0; color:var(--muted);">
+                        {data.assetIds?.join(" / ") || "procedural"}
+                      </dd>
                     </>
                   </div>
                   <div style="grid-column:1 / -1;">

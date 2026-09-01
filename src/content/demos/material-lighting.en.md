@@ -52,11 +52,19 @@ metrics: []
 metricSource:
   kind: runtime
   description: The panel reports the active backend and requestAnimationFrame cadence; no fixed cross-device GPU timing claim is published.
+currentLimit: Frame cadence is CPU and RAF observability rather than a portable GPU benchmark; unsupported WebGPU features may fall back to WebGL2 or labeled Canvas.
 fallbackImage: /media/demos/material-lighting-poster.svg
 relatedProjects:
   - real-time-rendering-lab
 relatedArticles:
   - material-lighting-color-pipeline
+assetIds:
+  - calibration-rig
+modes:
+  - pbr-calibration
+  - debug-view
+referenceScene: calibration-rig
+sourceUrl: https://github.com/yzscodehub/graphics-portfolio/blob/main/src/demos/material-lighting.ts
 draft: false
 ---
 

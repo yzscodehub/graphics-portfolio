@@ -7,6 +7,13 @@ import {
   resizeCanvas,
 } from "./core/canvas";
 import type { DemoContext, DemoController } from "./core/types";
+import {
+  createVisibilityFallbackRenderer,
+  createVisibilityRenderer,
+  VISIBILITY_COUNTS,
+  type VisibilityExecution,
+  type VisibilityRenderer,
+} from "./gpu-visibility";
 
 export const PARTICLE_COUNTS = [25_000, 100_000, 250_000] as const;
 const PARTICLE_STRIDE_FLOATS = 8;
@@ -71,7 +78,258 @@ interface ParticleRenderer {
   dispose(): void;
 }
 
+type GpuComputeMode = "simulation" | "visibility";
+type ActiveRenderer = ParticleRenderer | VisibilityRenderer;
+
+/** Keeps the established gpu-particles URL while exposing two evidence modes. */
 export function createDemo(): DemoController {
+  let context: DemoContext;
+  let active: ActiveRenderer | undefined;
+  let mode: GpuComputeMode = "simulation";
+  let particleCount: number = PARTICLE_COUNTS[0];
+  let visibilityCount: number = VISIBILITY_COUNTS[0];
+  let visibilityExecution: VisibilityExecution = "gpu";
+  let attractor: [number, number] = [0, 0];
+  let strength = 1;
+  let userPaused = false;
+  let running = false;
+  let generation = 0;
+
+  const particle = (): ParticleRenderer | undefined =>
+    mode === "simulation" ? (active as ParticleRenderer | undefined) : undefined;
+
+  const useParticleFallback = (reason: string, expected: number) => {
+    if (generation !== expected) return;
+    active?.dispose();
+    const fallback = new CanvasParticleFallback(context, Math.min(1_800, particleCount));
+    fallback.setAttractor(attractor[0], attractor[1], strength);
+    fallback.setUserPaused(userPaused);
+    fallback.resize();
+    active = fallback;
+    context.setRuntimeState?.("fallback");
+    context.setStatus(
+      `${reason} Canvas fallback: reduced deterministic particle lifecycle.`,
+      "warning",
+    );
+    if (running && !userPaused) fallback.resume();
+  };
+
+  const setupSimulation = async () => {
+    const current = ++generation;
+    active?.dispose();
+    active = undefined;
+    let renderer: WebGpuParticleRenderer | undefined;
+    try {
+      renderer = await WebGpuParticleRenderer.create(context, particleCount, (reason) => {
+        if (generation === current) useParticleFallback(reason, ++generation);
+      });
+      if (generation !== current) {
+        renderer.dispose();
+        return;
+      }
+      renderer.setAttractor(attractor[0], attractor[1], strength);
+      renderer.setUserPaused(userPaused);
+      renderer.resize();
+      active = renderer;
+      context.setRuntimeState?.("running");
+      context.setStatus(
+        `Raw WebGPU Ping-Pong simulation: ${particleCount.toLocaleString()} particles. Move the pointer to steer the attractor.`,
+        "success",
+      );
+      if (running && !userPaused) renderer.resume();
+    } catch (error) {
+      renderer?.dispose();
+      useParticleFallback(
+        error instanceof Error ? error.message : "WebGPU particles could not initialize.",
+        current,
+      );
+    }
+  };
+
+  const setupVisibility = async (fallbackReason?: string) => {
+    const current = ++generation;
+    active?.dispose();
+    active = undefined;
+    const renderer = fallbackReason
+      ? createVisibilityFallbackRenderer(context, visibilityCount)
+      : await createVisibilityRenderer(context, visibilityCount, visibilityExecution, (reason) => {
+          if (generation === current) void setupVisibility(reason);
+        });
+    if (generation !== current) {
+      renderer.dispose();
+      return;
+    }
+    renderer.resize();
+    active = renderer;
+    if (renderer.runtimeKind === "fallback") {
+      context.setRuntimeState?.("fallback");
+      context.setStatus(
+        `${fallbackReason || "WebGPU visibility unavailable."} Canvas fallback: deterministic courtyard visibility heatmap only.`,
+        "warning",
+      );
+    } else if (renderer.runtimeKind === "cpu-baseline") {
+      context.setRuntimeState?.("running");
+      context.setStatus(
+        `CPU baseline: ${visibilityCount.toLocaleString()} deterministic instances; compare it with Raw WebGPU compaction.`,
+        "info",
+      );
+    } else {
+      context.setRuntimeState?.("running");
+      context.setStatus(
+        `Raw WebGPU: ${visibilityCount.toLocaleString()} instances; compute frustum culling, atomic compaction, LOD statistics and drawIndexedIndirect.`,
+        "success",
+      );
+    }
+    if (running && !userPaused) renderer.resume();
+  };
+
+  const setup = async () => {
+    if (mode === "simulation") await setupSimulation();
+    else await setupVisibility();
+  };
+
+  const renderControls = () => {
+    clearElement(context.controls);
+    const modeButtons = (["simulation", "visibility"] as const).map((candidate) =>
+      makeButton(candidate === "simulation" ? "SIMULATION" : "VISIBILITY", candidate === mode),
+    );
+    modeButtons.forEach((button, index) =>
+      button.addEventListener(
+        "click",
+        () => {
+          mode = index === 0 ? "simulation" : "visibility";
+          userPaused = false;
+          renderControls();
+          void setup();
+        },
+        { signal: context.signal },
+      ),
+    );
+    context.controls.append(...modeButtons);
+
+    if (mode === "simulation") {
+      const counts = PARTICLE_COUNTS.map((count) =>
+        makeButton(`${count / 1000}K`, count === particleCount),
+      );
+      counts.forEach((button, index) =>
+        button.addEventListener(
+          "click",
+          () => {
+            particleCount = PARTICLE_COUNTS[index];
+            renderControls();
+            void setupSimulation();
+          },
+          { signal: context.signal },
+        ),
+      );
+      const strengthRange = makeRange("Attractor", strength, 0, 2.5, 0.05);
+      strengthRange.addEventListener(
+        "input",
+        () => {
+          strength = Number(strengthRange.value);
+          particle()?.setAttractor(attractor[0], attractor[1], strength);
+        },
+        { signal: context.signal },
+      );
+      context.controls.append(...counts, strengthRange.parentElement!);
+    } else {
+      const counts = VISIBILITY_COUNTS.map((count) =>
+        makeButton(`${count / 1000}K INSTANCES`, count === visibilityCount),
+      );
+      const executionButtons = (["cpu", "gpu"] as const).map((candidate) =>
+        makeButton(
+          candidate === "cpu" ? "CPU BASELINE" : "RAW WEBGPU",
+          candidate === visibilityExecution,
+        ),
+      );
+      counts.forEach((button, index) =>
+        button.addEventListener(
+          "click",
+          () => {
+            visibilityCount = VISIBILITY_COUNTS[index];
+            renderControls();
+            void setupVisibility();
+          },
+          { signal: context.signal },
+        ),
+      );
+      executionButtons.forEach((button, index) =>
+        button.addEventListener(
+          "click",
+          () => {
+            visibilityExecution = index === 0 ? "cpu" : "gpu";
+            renderControls();
+            void setupVisibility();
+          },
+          { signal: context.signal },
+        ),
+      );
+      context.controls.append(...counts, ...executionButtons);
+    }
+
+    const pauseButton = makeButton("PAUSE", userPaused);
+    pauseButton.addEventListener(
+      "click",
+      () => {
+        userPaused = !userPaused;
+        pauseButton.textContent = userPaused ? "RESUME" : "PAUSE";
+        pauseButton.setAttribute("aria-pressed", String(userPaused));
+        if (mode === "simulation") particle()?.setUserPaused(userPaused);
+        else if (userPaused) active?.pause();
+        else if (running) active?.resume();
+      },
+      { signal: context.signal },
+    );
+    const resetButton = makeButton("RESET");
+    resetButton.addEventListener("click", () => active?.reset(), { signal: context.signal });
+    context.controls.append(pauseButton, resetButton);
+  };
+
+  return {
+    async init(next) {
+      context = next;
+      context.stage.addEventListener(
+        "pointermove",
+        (event) => {
+          if (mode !== "simulation") return;
+          const bounds = context.stage.getBoundingClientRect();
+          attractor = [
+            ((event.clientX - bounds.left) / Math.max(bounds.width, 1)) * 2 - 1,
+            -(((event.clientY - bounds.top) / Math.max(bounds.height, 1)) * 2 - 1),
+          ];
+          particle()?.setAttractor(attractor[0], attractor[1], strength);
+        },
+        { signal: context.signal },
+      );
+      renderControls();
+      await setup();
+    },
+    resize() {
+      try {
+        active?.resize();
+      } catch (error) {
+        const reason = error instanceof Error ? error.message : "Renderer resize failed.";
+        if (mode === "simulation") useParticleFallback(reason, ++generation);
+        else void setupVisibility(reason);
+      }
+    },
+    pause() {
+      running = false;
+      active?.pause();
+    },
+    resume() {
+      running = true;
+      if (!userPaused) active?.resume();
+    },
+    dispose() {
+      generation += 1;
+      active?.dispose();
+      active = undefined;
+    },
+  };
+}
+
+export function createSimulationDemo(): DemoController {
   let context: DemoContext;
   let active: ParticleRenderer | undefined;
   let requestedCount: number = PARTICLE_COUNTS[0];

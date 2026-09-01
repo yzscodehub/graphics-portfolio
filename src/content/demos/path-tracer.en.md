@@ -44,12 +44,19 @@ metrics: []
 metricSource:
   kind: runtime
   description: The panel reports accumulated SPP and animation-frame status; it does not publish a fixed GPU timing number.
+currentLimit: The Canvas path is a visual approximation whose samples are not GPU measurements; MIS, ReSTIR, and more than four bounces remain out of scope.
 fallbackImage: /media/demos/path-tracer-poster.svg
 relatedProjects:
   - webgpu-compute-lab
 relatedArticles:
   - webgpu-particles-path-tracing
   - bvh-progressive-path-tracing
+assetIds:
+  - cornell-scene
+modes:
+  - progressive
+referenceScene: cornell
+sourceUrl: https://github.com/yzscodehub/graphics-portfolio/blob/main/src/demos/path-tracer.ts
 draft: false
 ---
 

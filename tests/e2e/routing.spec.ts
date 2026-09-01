@@ -7,6 +7,7 @@ const routes = [
   ["", "zh"],
   ["work/", "zh"],
   ["demos/", "zh"],
+  ["demos/clustered-lighting/", "zh"],
   ["writing/", "zh"],
   ["writing/modules/rendering/", "zh"],
   ["lab/", "zh"],
@@ -14,10 +15,13 @@ const routes = [
   ["en/", "en"],
   ["en/work/", "en"],
   ["en/demos/", "en"],
+  ["en/demos/clustered-lighting/", "en"],
   ["en/writing/", "en"],
   ["en/writing/modules/rendering/", "en"],
   ["en/lab/", "en"],
   ["en/about/", "en"],
+  ["credits/", "zh"],
+  ["en/credits/", "en"],
 ] as const;
 
 function generatedRoutes(directory = path.resolve("dist"), prefix = ""): string[] {
@@ -59,7 +63,7 @@ for (const [route, expectedLanguage] of routes) {
 test("every generated content route responds successfully", async ({ page }) => {
   test.setTimeout(90_000);
   const generated = generatedRoutes().sort();
-  expect(generated).toHaveLength(58);
+  expect(generated).toHaveLength(64);
 
   for (const route of generated) {
     const response = await page.goto(route);
@@ -110,14 +114,19 @@ test("project case studies expose architecture, runtime, environment, and reprod
   ]) {
     await page.goto(`work/${slug}/`);
     const evidence = page.locator(".project-evidence");
-    await expect(evidence.locator("figure img")).toHaveCount(2);
-    expect(
-      await evidence
-        .locator("figure img")
-        .evaluateAll((images) =>
-          images.every((image) => (image as HTMLImageElement).naturalWidth > 0),
-        ),
-    ).toBe(true);
+    const evidenceImages = evidence.locator("figure img");
+    await expect(evidenceImages).toHaveCount(2);
+    await evidence.scrollIntoViewIfNeeded();
+    await expect
+      .poll(async () =>
+        evidenceImages.evaluateAll(async (images) => {
+          await Promise.all(
+            images.map((image) => (image as HTMLImageElement).decode().catch(() => undefined)),
+          );
+          return images.every((image) => (image as HTMLImageElement).naturalWidth > 0);
+        }),
+      )
+      .toBe(true);
     await expect(evidence.getByRole("heading", { name: "个人贡献" })).toBeVisible();
     await expect(evidence.getByRole("heading", { name: "测试环境" })).toBeVisible();
     await expect(evidence.getByRole("heading", { name: "复现方法" })).toBeVisible();
@@ -154,11 +163,47 @@ test("interactive Demo keeps a stable stage and hides its fallback", async ({ pa
   expect(heights.second).toBeCloseTo(heights.first, 0);
 });
 
+test("standalone mode keeps only the focused Demo runtime surface", async ({ page }) => {
+  await page.goto("demos/render-graph/?standalone=1#demo-runtime");
+  await expect(page.locator("html")).toHaveClass(/demo-standalone/);
+  await expect(page.locator(".site-header")).toBeHidden();
+  await expect(page.locator(".page-hero")).toBeHidden();
+  await expect(page.locator("[data-demo-detail-secondary]").first()).toBeHidden();
+  await expect(page.locator("#demo-runtime")).toBeVisible();
+});
+
+test("Demo evidence separates the reference target, implementation limit, and fallback", async ({
+  page,
+}) => {
+  await page.goto("demos/material-lighting/");
+  const evidence = page.locator(".demo-evidence-panel");
+  await expect(evidence.getByText("REFERENCE TARGET", { exact: true })).toBeVisible();
+  await expect(evidence.getByText("MEASURED ON", { exact: true })).toHaveCount(0);
+  await expect(
+    evidence.locator("dt", { hasText: "CURRENT LIMIT" }).locator("..").locator("dd"),
+  ).toContainText("GPU");
+
+  await page.goto("demos/clustered-lighting/");
+  await expect(
+    page.locator(".demo-evidence-panel dt", { hasText: "ASSETS" }).locator("..").locator("dd"),
+  ).toContainText("PREVIEW PLACEHOLDER");
+});
+
+test("the legacy gpu-particles URL exposes the upgraded GPU-driven study", async ({ page }) => {
+  const response = await page.goto("demos/gpu-particles/");
+  expect(response?.status()).toBe(200);
+  await expect(page.getByRole("heading", { level: 1 })).toContainText(
+    "GPU-Driven Visibility & Compute",
+  );
+  await expect(page.locator(".demo-evidence-panel")).toContainText("simulation / visibility");
+});
+
 test("Frame Inspector keeps one visible output surface on a narrow desktop", async ({ page }) => {
   await page.setViewportSize({ width: 500, height: 800 });
   await page.goto("demos/frame-inspector/");
   const shell = page.locator("[data-demo-shell]");
 
+  await shell.scrollIntoViewIfNeeded();
   await expect(shell).toHaveAttribute("data-demo-state", /^(?:running|fallback)$/);
   const runtimeState = await shell.getAttribute("data-demo-state");
   await expect(shell.locator("[data-demo-state]")).toHaveText(
@@ -167,7 +212,7 @@ test("Frame Inspector keeps one visible output surface on a narrow desktop", asy
   if (runtimeState === "fallback") {
     await expect(shell.locator("[data-demo-metrics]")).toContainText("Canvas fallback");
   }
-  await expect(shell.locator("[data-demo-controls] button")).toHaveCount(9);
+  await expect(shell.locator("[data-demo-controls] button")).toHaveCount(13);
   await expect(shell.locator("canvas:visible")).toHaveCount(1);
   await expect(shell.locator("[data-demo-fallback]")).toHaveCSS("display", "none");
 });

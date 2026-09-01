@@ -2,12 +2,13 @@ import { clearElement, createMetricReporter, drawStageBackdrop, makeButton } fro
 import type { DemoContext, DemoController } from "./core/types";
 import { CanvasFallbackSurface } from "./reference-frame/fallback-surface";
 import { ReferenceFrameRenderer } from "./reference-frame/renderer";
-import type { AaTechnique, ShadowTechnique } from "./reference-frame/types";
+import type { AaTechnique, ReferenceView, ShadowTechnique } from "./reference-frame/types";
 
 interface ShadowAaRenderer {
   resize(width: number, height: number): void;
   setShadow(mode: ShadowTechnique): void;
   setAa(mode: AaTechnique): void;
+  setView(view: ReferenceView): void;
   reset(): void;
   pause(): void;
   resume(): void;
@@ -19,6 +20,7 @@ export function createDemo(): DemoController {
   let active: ShadowAaRenderer | undefined;
   let shadow: ShadowTechnique = "pcf";
   let aa: AaTechnique = "taa";
+  let view: ReferenceView = "final";
   let width = 1;
   let height = 1;
   let running = false;
@@ -29,6 +31,12 @@ export function createDemo(): DemoController {
       `${shadow.toUpperCase()} shadow filtering · ${aa.toUpperCase()} anti-aliasing · shared reference frame`,
       "success",
     );
+    if (view === "history-reject" && active instanceof CanvasShadowAaFallback === false) {
+      context.setStatus(
+        "HISTORY REJECT is a live Temporal Resolve attachment: white means rejected history, black means accepted history.",
+        "success",
+      );
+    }
     if (active instanceof CanvasShadowAaFallback) {
       context.setStatus(
         `Canvas fallback | ${shadow.toUpperCase()} shadow approximation | ${aa.toUpperCase()} temporal illustration`,
@@ -45,6 +53,7 @@ export function createDemo(): DemoController {
     try {
       fallback = new CanvasShadowAaFallback(context, shadow, aa);
       fallback.resize(width, height);
+      fallback.setView(view);
       active = fallback;
       if (running) fallback.resume();
       context.setRuntimeState?.("fallback");
@@ -64,7 +73,7 @@ export function createDemo(): DemoController {
     let renderer: ReferenceFrameRenderer | undefined;
     try {
       renderer = await ReferenceFrameRenderer.create(context, {
-        view: "final",
+        view,
         shadow,
         aa,
         onDeviceLost: (message) => {
@@ -78,6 +87,7 @@ export function createDemo(): DemoController {
         return;
       }
       renderer.resize(width, height);
+      renderer.setView(view);
       if (currentGeneration !== generation) {
         renderer.dispose();
         return;
@@ -134,6 +144,24 @@ export function createDemo(): DemoController {
           { signal: context.signal },
         ),
       );
+      const views: ReferenceView[] = ["final", "history-reject"];
+      const viewButtons = views.map((candidate) =>
+        makeButton(candidate === "final" ? "VIEW FINAL" : "VIEW REJECT MASK", candidate === view),
+      );
+      viewButtons.forEach((button, index) =>
+        button.addEventListener(
+          "click",
+          () => {
+            view = views[index];
+            viewButtons.forEach((entry) =>
+              entry.setAttribute("aria-pressed", String(entry === button)),
+            );
+            active?.setView(view);
+            status();
+          },
+          { signal: context.signal },
+        ),
+      );
       const resetButton = makeButton("RESET HISTORY");
       resetButton.addEventListener(
         "click",
@@ -143,7 +171,7 @@ export function createDemo(): DemoController {
         },
         { signal: context.signal },
       );
-      context.controls.append(...shadowButtons, ...aaButtons, resetButton);
+      context.controls.append(...shadowButtons, ...aaButtons, ...viewButtons, resetButton);
       await setup();
     },
     resize(nextWidth, nextHeight) {
@@ -183,6 +211,7 @@ class CanvasShadowAaFallback implements ShadowAaRenderer {
   private running = false;
   private raf = 0;
   private previousOffset = 0;
+  private view: ReferenceView = "final";
   private startedAt = performance.now();
   private readonly report: ReturnType<typeof createMetricReporter>;
 
@@ -209,6 +238,10 @@ class CanvasShadowAaFallback implements ShadowAaRenderer {
   setAa(mode: AaTechnique): void {
     this.aa = mode;
     this.previousOffset = 0;
+  }
+
+  setView(view: ReferenceView): void {
+    this.view = view;
   }
 
   reset(): void {
@@ -292,7 +325,7 @@ class CanvasShadowAaFallback implements ShadowAaRenderer {
     );
     this.report({
       backend: "Canvas fallback",
-      status: `${this.shadow.toUpperCase()} / ${this.aa.toUpperCase()}`,
+      status: `${this.shadow.toUpperCase()} / ${this.aa.toUpperCase()} / ${this.view === "history-reject" ? "REJECT ILLUSTRATION" : "FINAL"}`,
     });
     this.raf = requestAnimationFrame(this.draw);
   };

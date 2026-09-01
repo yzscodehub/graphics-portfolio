@@ -46,7 +46,7 @@ export interface DemoResourceScope {
 
 export interface DemoDefinition {
   slug: string;
-  maturity: "completed";
+  maturity: "in-progress" | "completed";
   evidence: EvidenceLevel;
   backend: DemoBackend;
   backends: DemoBackend[];
@@ -57,6 +57,10 @@ export interface DemoDefinition {
   relatedProjects: string[];
   relatedArticles: string[];
   metricSources: MetricSource[];
+  assetIds: string[];
+  modes: string[];
+  sourceUrl: string;
+  referenceScene?: "calibration-rig" | "research-courtyard" | "cornell";
 }
 
 export interface DemoMetrics {

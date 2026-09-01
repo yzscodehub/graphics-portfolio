@@ -3,6 +3,18 @@ import { buildMedianBvh, encodeBvhNodes, encodeTriangles } from "./bvh";
 import { createCornellScene, encodeMaterials } from "./scene";
 import { PATH_COMPUTE_WGSL, PATH_DISPLAY_WGSL } from "./shaders";
 
+export interface PathTracerEvidence {
+  samples: number;
+  triangles: number;
+  bvhNodes: number;
+  estimatedMonteCarloError: number;
+}
+
+export function estimatedMonteCarloError(samples: number): number {
+  if (!Number.isInteger(samples) || samples < 0) throw new Error("samples must be non-negative");
+  return 1 / Math.sqrt(Math.max(1, samples));
+}
+
 export class WebGpuPathTracer {
   private constructor(
     private readonly shell: DemoContext,
@@ -17,6 +29,8 @@ export class WebGpuPathTracer {
     private readonly materialBuffer: GPUBuffer,
     private readonly uniformBuffer: GPUBuffer,
     private readonly sampler: GPUSampler,
+    private readonly triangleCount: number,
+    private readonly bvhNodeCount: number,
   ) {}
 
   private accumulations: [GPUTexture, GPUTexture] | undefined;
@@ -32,6 +46,7 @@ export class WebGpuPathTracer {
   private disposed = false;
   private raf = 0;
   private cameraRevision = 0;
+  private evidenceSink: ((evidence: PathTracerEvidence) => void) | undefined;
 
   static async create(
     shell: DemoContext,
@@ -131,6 +146,8 @@ export class WebGpuPathTracer {
         materialBuffer,
         uniformBuffer,
         sampler,
+        bvh.triangles.length,
+        bvh.nodes.length,
       );
       renderer.bounces = bounces;
       await withValidationScope(device, "Path tracer initial targets", () => {
@@ -158,6 +175,11 @@ export class WebGpuPathTracer {
 
   get sampleCount(): number {
     return this.samples;
+  }
+
+  setEvidenceSink(sink: (evidence: PathTracerEvidence) => void): void {
+    this.evidenceSink = sink;
+    this.reportEvidence();
   }
 
   resize(width: number, height: number): void {
@@ -260,6 +282,7 @@ export class WebGpuPathTracer {
     this.samples = 0;
     this.readIndex = 0;
     this.cameraRevision += 1;
+    this.reportEvidence();
   }
 
   pause(): void {
@@ -324,8 +347,18 @@ export class WebGpuPathTracer {
       samples: this.samples,
       metricSource: "animation-frame",
     });
+    this.reportEvidence();
     this.schedule();
   };
+
+  private reportEvidence(): void {
+    this.evidenceSink?.({
+      samples: this.samples,
+      triangles: this.triangleCount,
+      bvhNodes: this.bvhNodeCount,
+      estimatedMonteCarloError: estimatedMonteCarloError(this.samples),
+    });
+  }
 
   private watchDeviceLoss(onDeviceLost: (message: string) => void): void {
     void this.device.lost.then((info) => {

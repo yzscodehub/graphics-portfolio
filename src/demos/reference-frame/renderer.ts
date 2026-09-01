@@ -1,6 +1,8 @@
 import type { DemoContext } from "../core/types";
+import { referenceFramePass } from "./manifest";
 import { taaJitter, shouldResetHistory, type HistoryState } from "./math";
 import {
+  CLUSTER_LIGHT_COUNT_WGSL,
   DISPLAY_WGSL,
   GBUFFER_WGSL,
   LIGHTING_WGSL,
@@ -12,6 +14,8 @@ import {
   attachmentInfo,
   type AttachmentInfo,
   type AaTechnique,
+  type ReferenceHistogram,
+  type ReferencePixelProbe,
   type ReferenceView,
   type ShadowTechnique,
 } from "./types";
@@ -27,6 +31,8 @@ interface ReferenceTextures {
   ssao: GPUTexture;
   history: [GPUTexture, GPUTexture];
   historyDepth: [GPUTexture, GPUTexture];
+  historyReject: GPUTexture;
+  clusterLightCount: GPUTexture;
 }
 
 interface ReferencePipelines {
@@ -34,8 +40,78 @@ interface ReferencePipelines {
   gbuffer: GPURenderPipeline;
   lighting: GPURenderPipeline;
   ssao: GPURenderPipeline;
+  clusterLightCount: GPURenderPipeline;
   resolve: GPURenderPipeline;
   display: GPURenderPipeline;
+}
+
+interface InspectableAttachment {
+  texture: GPUTexture;
+  format: GPUTextureFormat;
+  bytesPerPixel: number;
+  interpretation: string;
+}
+
+function alignTo256(value: number): number {
+  return Math.ceil(value / 256) * 256;
+}
+
+export function decodeReferenceFloat16(bits: number): number {
+  const sign = (bits & 0x8000) === 0 ? 1 : -1;
+  const exponent = (bits >> 10) & 0x1f;
+  const fraction = bits & 0x03ff;
+  if (exponent === 0) return sign * Math.pow(2, -14) * (fraction / 1024);
+  if (exponent === 31) return fraction === 0 ? sign * Infinity : Number.NaN;
+  return sign * Math.pow(2, exponent - 15) * (1 + fraction / 1024);
+}
+
+export function decodeAttachmentPixel(
+  format: GPUTextureFormat,
+  bytes: Uint8Array,
+  offset: number,
+): number[] {
+  const view = new DataView(bytes.buffer, bytes.byteOffset + offset);
+  if (format === "r8unorm") return [bytes[offset] / 255];
+  if (format === "rgba8unorm") {
+    return [
+      bytes[offset] / 255,
+      bytes[offset + 1] / 255,
+      bytes[offset + 2] / 255,
+      bytes[offset + 3] / 255,
+    ];
+  }
+  if (format === "r32float") return [view.getFloat32(0, true)];
+  if (format === "rg16float") {
+    return [
+      decodeReferenceFloat16(view.getUint16(0, true)),
+      decodeReferenceFloat16(view.getUint16(2, true)),
+    ];
+  }
+  if (format === "rgba16float") {
+    return [0, 2, 4, 6].map((byteOffset) =>
+      decodeReferenceFloat16(view.getUint16(byteOffset, true)),
+    );
+  }
+  return [];
+}
+
+function histogramValue(view: ReferenceView, values: number[]): number {
+  const luma =
+    values.length >= 3
+      ? values[0] * 0.2126 + values[1] * 0.7152 + values[2] * 0.0722
+      : values[0] || 0;
+  if (view === "lighting" || view === "history")
+    return Math.min(1, Math.log2(1 + Math.max(0, luma)) / 4);
+  if (view === "velocity") return Math.min(1, Math.hypot(values[0] || 0, values[1] || 0) * 8);
+  return Math.min(1, Math.max(0, luma));
+}
+
+function histogramInterpretation(view: ReferenceView): string {
+  if (view === "lighting" || view === "history") return "64 bins of log2(1 + linear HDR luminance)";
+  if (view === "velocity") return "64 bins of UV velocity magnitude scaled by 8";
+  if (view === "cluster-light-count")
+    return "64 bins of Reference Frame local proxy count normalized by 8";
+  return "64 bins of attachment value or RGB luminance";
 }
 
 export interface ReferenceFrameOptions {
@@ -57,6 +133,8 @@ const viewIndex: Record<ReferenceView, number> = {
   lighting: 5,
   ssao: 6,
   history: 7,
+  "history-reject": 8,
+  "cluster-light-count": 9,
 };
 
 const shadowIndex: Record<ShadowTechnique, number> = { hard: 0, pcf: 1, pcss: 2 };
@@ -161,6 +239,10 @@ export class ReferenceFrameRenderer {
       const gbufferModule = module("ReferenceFrame/GBuffer", GBUFFER_WGSL);
       const lightingModule = module("ReferenceFrame/Lighting", LIGHTING_WGSL);
       const ssaoModule = module("ReferenceFrame/SSAO", SSAO_WGSL);
+      const clusterLightCountModule = module(
+        "ReferenceFrame/ClusterLightCount",
+        CLUSTER_LIGHT_COUNT_WGSL,
+      );
       const resolveModule = module("ReferenceFrame/Resolve", RESOLVE_WGSL);
       const displayModule = module("ReferenceFrame/Display", DISPLAY_WGSL);
       await Promise.all([
@@ -168,6 +250,7 @@ export class ReferenceFrameRenderer {
         assertValidShaderModule(gbufferModule, "ReferenceFrame/GBuffer"),
         assertValidShaderModule(lightingModule, "ReferenceFrame/Lighting"),
         assertValidShaderModule(ssaoModule, "ReferenceFrame/SSAO"),
+        assertValidShaderModule(clusterLightCountModule, "ReferenceFrame/ClusterLightCount"),
         assertValidShaderModule(resolveModule, "ReferenceFrame/Resolve"),
         assertValidShaderModule(displayModule, "ReferenceFrame/Display"),
       ]);
@@ -220,6 +303,17 @@ export class ReferenceFrameRenderer {
           fragment: { module: ssaoModule, entryPoint: "fs", targets: [{ format: "r8unorm" }] },
           primitive: fullscreenPrimitive,
         }),
+        clusterLightCount: await createValidatedRenderPipeline(createdDevice, {
+          label: "ReferenceFrame/ClusterLightCountPipeline",
+          layout: "auto",
+          vertex: { module: clusterLightCountModule, entryPoint: "vs" },
+          fragment: {
+            module: clusterLightCountModule,
+            entryPoint: "fs",
+            targets: [{ format: "r8unorm" }],
+          },
+          primitive: fullscreenPrimitive,
+        }),
         resolve: await createValidatedRenderPipeline(createdDevice, {
           label: "ReferenceFrame/ResolvePipeline",
           layout: "auto",
@@ -227,7 +321,7 @@ export class ReferenceFrameRenderer {
           fragment: {
             module: resolveModule,
             entryPoint: "fs",
-            targets: [{ format: "rgba16float" }, { format: "r32float" }],
+            targets: [{ format: "rgba16float" }, { format: "r32float" }, { format: "r8unorm" }],
           },
           primitive: fullscreenPrimitive,
         }),
@@ -304,6 +398,7 @@ export class ReferenceFrameRenderer {
   }
 
   get historyStatus(): string {
+    if (this.options.aa !== "taa") return "not applicable / TAA disabled";
     return this.historyValid
       ? `valid / Temporal Resolve frame ${Math.max(0, this.frameIndex - 1)}`
       : "warming / no reusable history";
@@ -312,6 +407,41 @@ export class ReferenceFrameRenderer {
   getAttachmentInfo(view: ReferenceView): AttachmentInfo {
     const info = attachmentInfo(view);
     return view === "final" ? { ...info, format: this.canvasFormat } : info;
+  }
+
+  async probe(view: ReferenceView, u: number, v: number): Promise<ReferencePixelProbe | undefined> {
+    const attachment = this.inspectableAttachment(view);
+    if (!attachment) return undefined;
+    const x = Math.min(this.width - 1, Math.max(0, Math.floor(u * this.width)));
+    const y = Math.min(this.height - 1, Math.max(0, Math.floor(v * this.height)));
+    const bytes = await this.readAttachmentBytes(attachment, x, y, 1, 1);
+    return {
+      view,
+      x,
+      y,
+      values: decodeAttachmentPixel(attachment.format, bytes, 0),
+      interpretation: attachment.interpretation,
+    };
+  }
+
+  async histogram(view: ReferenceView): Promise<ReferenceHistogram | undefined> {
+    const attachment = this.inspectableAttachment(view);
+    if (!attachment) return undefined;
+    const bytes = await this.readAttachmentBytes(attachment, 0, 0, this.width, this.height);
+    const rowBytes = alignTo256(this.width * attachment.bytesPerPixel);
+    const bins = Array.from({ length: 64 }, () => 0);
+    const stride = Math.max(1, Math.floor(Math.sqrt((this.width * this.height) / 16_384)));
+    let samples = 0;
+    for (let y = 0; y < this.height; y += stride) {
+      for (let x = 0; x < this.width; x += stride) {
+        const offset = y * rowBytes + x * attachment.bytesPerPixel;
+        const values = decodeAttachmentPixel(attachment.format, bytes, offset);
+        const bin = Math.min(63, Math.max(0, Math.floor(histogramValue(view, values) * 64)));
+        bins[bin] += 1;
+        samples += 1;
+      }
+    }
+    return { view, bins, samples, interpretation: histogramInterpretation(view) };
   }
 
   resize(width: number, height: number): void {
@@ -405,13 +535,14 @@ export class ReferenceFrameRenderer {
     });
     this.encodeShadow(encoder);
     this.encodeGBuffer(encoder);
+    this.encodeClusterLightCount(encoder);
     this.encodeLighting(encoder);
     this.encodeSsao(encoder);
     this.encodeResolve(encoder, this.historyReadIndex, writeIndex);
     this.encodeDisplay(encoder, writeIndex);
     this.device.queue.submit([encoder.finish()]);
     this.historyReadIndex = writeIndex;
-    this.historyValid = true;
+    this.historyValid = this.options.aa === "taa";
     this.previousTime = time;
     this.previousJitter = jitter;
     this.frameIndex += 1;
@@ -438,7 +569,10 @@ export class ReferenceFrameRenderer {
   };
 
   private createTextures(): ReferenceTextures {
-    const sampledAttachment = GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING;
+    const sampledAttachment =
+      GPUTextureUsage.RENDER_ATTACHMENT |
+      GPUTextureUsage.TEXTURE_BINDING |
+      GPUTextureUsage.COPY_SRC;
     const created: GPUTexture[] = [];
     const create = (
       label: string,
@@ -467,6 +601,7 @@ export class ReferenceFrameRenderer {
         shadowDepth: create("ReferenceFrame/ShadowDepth", "r32float", SHADOW_SIZE, SHADOW_SIZE),
         lighting: create("ReferenceFrame/Lighting", "rgba16float"),
         ssao: create("ReferenceFrame/SSAO", "r8unorm"),
+        clusterLightCount: create("ReferenceFrame/ClusterLightCount", "r8unorm"),
         history: [
           create("ReferenceFrame/HistoryA", "rgba16float"),
           create("ReferenceFrame/HistoryB", "rgba16float"),
@@ -475,6 +610,7 @@ export class ReferenceFrameRenderer {
           create("ReferenceFrame/HistoryDepthA", "r32float"),
           create("ReferenceFrame/HistoryDepthB", "r32float"),
         ],
+        historyReject: create("ReferenceFrame/HistoryReject", "r8unorm"),
       };
     } catch (error) {
       created.forEach((texture) => texture.destroy());
@@ -523,7 +659,7 @@ export class ReferenceFrameRenderer {
   private encodeShadow(encoder: GPUCommandEncoder): void {
     const textures = this.textures!;
     const pass = encoder.beginRenderPass({
-      label: "ReferenceFrame/ShadowMapPass",
+      label: referenceFramePass("shadow-map").rendererLabel,
       colorAttachments: [
         {
           view: textures.shadowDepth.createView(),
@@ -548,7 +684,7 @@ export class ReferenceFrameRenderer {
   private encodeGBuffer(encoder: GPUCommandEncoder): void {
     const textures = this.textures!;
     const pass = encoder.beginRenderPass({
-      label: "ReferenceFrame/GBufferPass",
+      label: referenceFramePass("gbuffer").rendererLabel,
       colorAttachments: [
         this.colorAttachment(textures.albedoMetalness, [0, 0, 0, 0]),
         this.colorAttachment(textures.normalRoughness, [0.5, 0.5, 1, 1]),
@@ -577,7 +713,7 @@ export class ReferenceFrameRenderer {
   private encodeLighting(encoder: GPUCommandEncoder): void {
     const textures = this.textures!;
     const pass = encoder.beginRenderPass({
-      label: "ReferenceFrame/LightingPass",
+      label: referenceFramePass("lighting").rendererLabel,
       colorAttachments: [this.colorAttachment(textures.lighting, [0.01, 0.02, 0.025, 1])],
     });
     pass.setPipeline(this.pipelines.lighting);
@@ -598,10 +734,31 @@ export class ReferenceFrameRenderer {
     pass.end();
   }
 
+  private encodeClusterLightCount(encoder: GPUCommandEncoder): void {
+    const textures = this.textures!;
+    const pass = encoder.beginRenderPass({
+      label: referenceFramePass("cluster-light-count").rendererLabel,
+      colorAttachments: [this.colorAttachment(textures.clusterLightCount, [0, 0, 0, 1])],
+    });
+    pass.setPipeline(this.pipelines.clusterLightCount);
+    pass.setBindGroup(
+      0,
+      this.device.createBindGroup({
+        layout: this.pipelines.clusterLightCount.getBindGroupLayout(0),
+        entries: [
+          { binding: 0, resource: { buffer: this.uniformBuffer } },
+          { binding: 1, resource: textures.linearDepth.createView() },
+        ],
+      }),
+    );
+    pass.draw(3);
+    pass.end();
+  }
+
   private encodeSsao(encoder: GPUCommandEncoder): void {
     const textures = this.textures!;
     const pass = encoder.beginRenderPass({
-      label: "ReferenceFrame/SSAOPass",
+      label: referenceFramePass("ssao").rendererLabel,
       colorAttachments: [this.colorAttachment(textures.ssao, [1, 0, 0, 1])],
     });
     pass.setPipeline(this.pipelines.ssao);
@@ -622,10 +779,11 @@ export class ReferenceFrameRenderer {
   private encodeResolve(encoder: GPUCommandEncoder, readIndex: number, writeIndex: number): void {
     const textures = this.textures!;
     const pass = encoder.beginRenderPass({
-      label: "ReferenceFrame/ResolvePass",
+      label: referenceFramePass("temporal-resolve").rendererLabel,
       colorAttachments: [
         this.colorAttachment(textures.history[writeIndex], [0, 0, 0, 1]),
         this.colorAttachment(textures.historyDepth[writeIndex], [1, 0, 0, 0]),
+        this.colorAttachment(textures.historyReject, [1, 0, 0, 0]),
       ],
     });
     pass.setPipeline(this.pipelines.resolve);
@@ -650,7 +808,7 @@ export class ReferenceFrameRenderer {
 
   private encodeDisplay(encoder: GPUCommandEncoder, resolvedIndex: number): void {
     const pass = encoder.beginRenderPass({
-      label: "ReferenceFrame/DisplayPass",
+      label: referenceFramePass("display").rendererLabel,
       colorAttachments: [
         {
           view: this.canvasContext.getCurrentTexture().createView(),
@@ -688,8 +846,86 @@ export class ReferenceFrameRenderer {
         { binding: 6, resource: textures.history[resolvedIndex].createView() },
         { binding: 7, resource: this.linearSampler },
         { binding: 8, resource: { buffer: this.uniformBuffer } },
+        { binding: 9, resource: textures.historyReject.createView() },
+        { binding: 10, resource: textures.clusterLightCount.createView() },
       ],
     });
+  }
+
+  private inspectableAttachment(view: ReferenceView): InspectableAttachment | undefined {
+    const textures = this.textures;
+    if (!textures || view === "final") return undefined;
+    const direct = (
+      texture: GPUTexture,
+      format: GPUTextureFormat,
+      bytesPerPixel: number,
+      interpretation: string,
+    ): InspectableAttachment => ({ texture, format, bytesPerPixel, interpretation });
+    switch (view) {
+      case "albedo":
+        return direct(textures.albedoMetalness, "rgba8unorm", 4, "RGB albedo; A metalness");
+      case "normal":
+        return direct(
+          textures.normalRoughness,
+          "rgba16float",
+          8,
+          "XYZ encoded normal; A roughness",
+        );
+      case "depth":
+        return direct(textures.linearDepth, "r32float", 4, "linear depth normalized by 12");
+      case "velocity":
+        return direct(textures.velocity, "rg16float", 4, "screen UV delta");
+      case "lighting":
+        return direct(textures.lighting, "rgba16float", 8, "linear HDR lighting");
+      case "ssao":
+        return direct(textures.ssao, "r8unorm", 1, "occlusion factor");
+      case "history":
+        return direct(
+          textures.history[this.historyReadIndex],
+          "rgba16float",
+          8,
+          "latest linear HDR Temporal Resolve",
+        );
+      case "history-reject":
+        return direct(textures.historyReject, "r8unorm", 1, "1 rejected; 0 accepted history");
+      case "cluster-light-count":
+        return direct(
+          textures.clusterLightCount,
+          "r8unorm",
+          1,
+          "Reference Frame local proxy count normalized by 8; not an imported Clustered Lighting texture",
+        );
+    }
+  }
+
+  private async readAttachmentBytes(
+    attachment: InspectableAttachment,
+    x: number,
+    y: number,
+    width: number,
+    height: number,
+  ): Promise<Uint8Array> {
+    const bytesPerRow = alignTo256(width * attachment.bytesPerPixel);
+    const buffer = this.device.createBuffer({
+      label: "ReferenceFrame/InspectorReadback",
+      size: bytesPerRow * height,
+      usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ,
+    });
+    try {
+      const encoder = this.device.createCommandEncoder({ label: "ReferenceFrame/InspectorCopy" });
+      encoder.copyTextureToBuffer(
+        { texture: attachment.texture, origin: { x, y, z: 0 } },
+        { buffer, bytesPerRow, rowsPerImage: height },
+        { width, height, depthOrArrayLayers: 1 },
+      );
+      this.device.queue.submit([encoder.finish()]);
+      await buffer.mapAsync(GPUMapMode.READ);
+      const bytes = new Uint8Array(buffer.getMappedRange().slice(0));
+      buffer.unmap();
+      return bytes;
+    } finally {
+      buffer.destroy();
+    }
   }
 
   private colorAttachment(

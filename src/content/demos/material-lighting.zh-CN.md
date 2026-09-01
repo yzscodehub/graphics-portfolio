@@ -52,11 +52,19 @@ metrics: []
 metricSource:
   kind: runtime
   description: 面板报告当前后端和 requestAnimationFrame 节奏，不发布跨设备固定 GPU 耗时。
+currentLimit: 帧节奏只用于 CPU 与 RAF 可观测性，不是可移植的 GPU 基准；不支持的 WebGPU 特性可能回退到 WebGL2 或明确标注的 Canvas。
 fallbackImage: /media/demos/material-lighting-poster.svg
 relatedProjects:
   - real-time-rendering-lab
 relatedArticles:
   - material-lighting-color-pipeline
+assetIds:
+  - calibration-rig
+modes:
+  - pbr-calibration
+  - debug-view
+referenceScene: calibration-rig
+sourceUrl: https://github.com/yzscodehub/graphics-portfolio/blob/main/src/demos/material-lighting.ts
 draft: false
 ---
 

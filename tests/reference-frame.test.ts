@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { halton, shouldResetHistory, taaJitter } from "../src/demos/reference-frame/math";
+import { decodeReferenceFloat16 } from "../src/demos/reference-frame/renderer";
+import { CLUSTER_LIGHT_COUNT_WGSL } from "../src/demos/reference-frame/shaders";
 import { REFERENCE_ATTACHMENTS } from "../src/demos/reference-frame/types";
 
 describe("reference frame invariants", () => {
@@ -21,7 +23,7 @@ describe("reference frame invariants", () => {
   });
 
   it("publishes the real attachment formats and last writers", () => {
-    expect(REFERENCE_ATTACHMENTS).toHaveLength(8);
+    expect(REFERENCE_ATTACHMENTS).toHaveLength(10);
     expect(REFERENCE_ATTACHMENTS.map((entry) => entry.format)).toEqual(
       expect.arrayContaining(["rgba8unorm", "rgba16float", "rg16float", "r32float", "r8unorm"]),
     );
@@ -40,5 +42,27 @@ describe("reference frame invariants", () => {
       lastWriter: "Temporal Resolve",
     });
     expect(history?.range).toContain("latest Temporal Resolve");
+  });
+
+  it("publishes and decodes the real Temporal Resolve reject mask", () => {
+    const reject = REFERENCE_ATTACHMENTS.find((entry) => entry.view === "history-reject");
+    expect(reject).toMatchObject({
+      format: "r8unorm",
+      lastWriter: "Temporal Resolve / Reject Mask",
+    });
+    expect(reject?.range).toContain("UV bounds reject");
+    expect(decodeReferenceFloat16(0x3c00)).toBe(1);
+    expect(decodeReferenceFloat16(0xc000)).toBe(-2);
+  });
+
+  it("publishes the Reference Frame-local Cluster Light Count attachment", () => {
+    const count = REFERENCE_ATTACHMENTS.find((entry) => entry.view === "cluster-light-count");
+    expect(count).toMatchObject({
+      format: "r8unorm",
+      lastWriter: "ReferenceFrame / Local Cluster Count",
+    });
+    expect(count?.range).toContain("[0,8]");
+    expect(CLUSTER_LIGHT_COUNT_WGSL).toContain("linearDepthTexture");
+    expect(CLUSTER_LIGHT_COUNT_WGSL).toContain("return count / 8.0");
   });
 });

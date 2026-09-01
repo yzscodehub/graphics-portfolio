@@ -101,8 +101,8 @@ const demos = defineCollection({
       renderer: z.string().min(1).optional(),
       backend: demoBackend,
       capabilities: z.array(demoCapability).default([]),
-      /** All currently published Demo implementations are complete studies. */
-      maturity: z.literal("completed").optional(),
+      /** Preview may expose an honest in-progress study; Release requires completed. */
+      maturity: z.enum(["in-progress", "completed"]).optional(),
       /** `verified` means behavior is covered; `measured` has a stated measurement source. */
       evidence: z.enum(["verified", "measured"]).optional(),
       /** Structured replacement for the legacy primary `backend` field. */
@@ -126,8 +126,13 @@ const demos = defineCollection({
         .default([]),
       /** Accept the existing prose field and normalize it to a structured source. */
       metricSource: z.union([z.string().min(1), demoMetricSource]).optional(),
+      /** One concise, locale-specific statement of the implementation boundary. */
+      currentLimit: z.string().min(12),
       relatedProjects: z.array(z.string()).min(1),
       relatedArticles: z.array(z.string()).default([]),
+      assetIds: z.array(z.string().min(1)).default([]),
+      modes: z.array(z.string().min(1)).default([]),
+      referenceScene: z.enum(["calibration-rig", "research-courtyard", "cornell"]).optional(),
       sourceUrl: z.url().optional(),
     })
     .loose()
@@ -146,7 +151,7 @@ const demos = defineCollection({
 
       return {
         ...entry,
-        maturity: entry.maturity ?? "completed",
+        maturity: entry.maturity ?? (entry.status === "completed" ? "completed" : "in-progress"),
         evidence: entry.evidence ?? (hasMeasuredEvidence ? "measured" : "verified"),
         backends:
           entry.backends && entry.backends.length > 0

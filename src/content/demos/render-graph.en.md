@@ -23,18 +23,20 @@ fallback:
   kind: none
   description: The compiler and SVG inspector do not require a GPU fallback.
 controls:
-  - Depth Prepass
+  - Shadow Map
   - G-Buffer
+  - Cluster Light Count
+  - Deferred Lighting
   - SSAO
-  - Lighting
   - Temporal Resolve
-  - Present
-  - Debug Overlay
+  - Display
+  - Diagnostic Debug Overlay
   - Select a pass with click, Tab, Enter, or Space
 metrics: []
 metricSource:
   kind: runtime
   description: Compile time is measured with a CPU wall-clock timer; the inspector does not claim GPU execution time.
+currentLimit: Compile time is CPU wall-clock data and the transition plan is backend metadata, not a captured hardware GPU timeline.
 fallbackImage: /media/demos/render-graph-poster.svg
 relatedProjects:
   - engine-systems-explorer
@@ -42,12 +44,16 @@ relatedArticles:
   - render-graph-lifetime
   - rhi-abstraction-boundaries
   - frame-inspector-observability
+assetIds: []
+modes:
+  - compiler
+sourceUrl: https://github.com/yzscodehub/graphics-portfolio/blob/main/src/demos/render-graph.ts
 draft: false
 ---
 
 ## What runs
 
-The Demo compiles a declaration-driven graph in TypeScript and renders the resulting schedule as accessible SVG. Pass nodes expose keyboard and pointer selection, while the inspector reports dependencies, resource versions, lifetimes, alias slots, and logical usage transitions.
+The Demo derives its primary preset from the executable Reference Frame pass/resource manifest, compiles that declaration-driven graph in TypeScript, and renders the resulting schedule as accessible SVG. Pass nodes expose keyboard and pointer selection, while the inspector reports dependencies, resource versions, lifetimes, alias slots, and logical usage transitions. Only Diagnostic Debug Overlay is synthetic, deliberately unconsumed, and retained to make Pass Culling observable.
 
 ## Compiler stages
 

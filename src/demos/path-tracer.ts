@@ -6,12 +6,17 @@ import {
   resizeCanvas,
 } from "./core/canvas";
 import type { DemoContext, DemoController } from "./core/types";
-import { WebGpuPathTracer } from "./path-tracer/renderer";
+import {
+  estimatedMonteCarloError,
+  WebGpuPathTracer,
+  type PathTracerEvidence,
+} from "./path-tracer/renderer";
 
 interface PathRenderer {
   resize(width: number, height: number): void;
   setBounces(bounces: number): void;
   setUserPaused(paused: boolean): void;
+  setEvidenceSink?(sink: (evidence: PathTracerEvidence) => void): void;
   reset(): void;
   pause(): void;
   resume(): void;
@@ -73,6 +78,7 @@ export function createDemo(): DemoController {
   let width = 1;
   let height = 1;
   let generation = 0;
+  let evidenceSink: ((evidence: PathTracerEvidence) => void) | undefined;
 
   const useFallback = (reason: string, expectedGeneration: number) => {
     if (generation !== expectedGeneration) return;
@@ -80,6 +86,7 @@ export function createDemo(): DemoController {
     const fallback = new CanvasPathFallback(context, bounces);
     fallback.resize(width, height);
     fallback.setUserPaused(userPaused);
+    if (evidenceSink) fallback.setEvidenceSink?.(evidenceSink);
     active = fallback;
     if (running) fallback.resume();
     context.setRuntimeState?.("fallback");
@@ -100,6 +107,7 @@ export function createDemo(): DemoController {
       }
       renderer.resize(width, height);
       renderer.setUserPaused(userPaused);
+      if (evidenceSink) renderer.setEvidenceSink(evidenceSink);
       active = renderer;
       if (running) renderer.resume();
       context.setRuntimeState?.("running");
@@ -162,7 +170,13 @@ export function createDemo(): DemoController {
         },
         { signal: context.signal },
       );
-      context.controls.append(...bounceButtons, pauseButton, resetButton);
+      const evidence = document.createElement("output");
+      evidence.className = "demo-inline-evidence";
+      evidence.setAttribute("aria-live", "off");
+      evidenceSink = (sample) => {
+        evidence.textContent = `SPP ${sample.samples} · BVH ${sample.bvhNodes} NODES / ${sample.triangles} TRIANGLES · 1/√N ${sample.estimatedMonteCarloError.toFixed(4)}`;
+      };
+      context.controls.append(...bounceButtons, pauseButton, resetButton, evidence);
       await setup();
     },
     resize(nextWidth, nextHeight) {
@@ -196,6 +210,7 @@ class CanvasPathFallback implements PathRenderer {
   private raf = 0;
   private samples = 0;
   private readonly report: ReturnType<typeof createMetricReporter>;
+  private evidenceSink: ((evidence: PathTracerEvidence) => void) | undefined;
 
   constructor(
     private readonly shell: DemoContext,
@@ -229,8 +244,14 @@ class CanvasPathFallback implements PathRenderer {
     this.schedule();
   }
 
+  setEvidenceSink(sink: (evidence: PathTracerEvidence) => void): void {
+    this.evidenceSink = sink;
+    this.reportEvidence();
+  }
+
   reset(): void {
     this.samples = 0;
+    this.reportEvidence();
   }
 
   pause(): void {
@@ -299,8 +320,18 @@ class CanvasPathFallback implements PathRenderer {
       samples: this.samples,
       metricSource: "animation-frame",
     });
+    this.reportEvidence();
     this.schedule();
   };
+
+  private reportEvidence(): void {
+    this.evidenceSink?.({
+      samples: this.samples,
+      triangles: 0,
+      bvhNodes: 0,
+      estimatedMonteCarloError: estimatedMonteCarloError(this.samples),
+    });
+  }
 
   private schedule(): void {
     if (!this.running || this.userPaused || this.raf) return;

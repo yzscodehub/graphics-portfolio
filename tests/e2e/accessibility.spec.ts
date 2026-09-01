@@ -14,7 +14,10 @@ const routes = [
   "en/",
   "en/writing/",
   "demos/material-lighting/",
+  "demos/clustered-lighting/",
   "demos/render-graph/",
+  "credits/",
+  "en/credits/",
   "demos/frame-inspector/",
   "demos/neural-denoising/",
 ];
