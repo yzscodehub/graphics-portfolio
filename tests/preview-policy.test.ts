@@ -115,6 +115,34 @@ describe("preview privacy policy", () => {
           },
         }),
       );
+      const acceptance = JSON.stringify({
+        version: 1,
+        status: "pending",
+        target: {
+          os: "Windows 11",
+          adapterClass: "NVIDIA RTX 4070 class",
+        },
+        demos: [
+          "material-lighting",
+          "clustered-lighting",
+          "shadow-aa",
+          "render-graph",
+          "frame-inspector",
+          "gpu-particles",
+          "path-tracer",
+          "neural-denoising",
+        ].map((slug) => ({ slug, status: "pending" })),
+      });
+      mkdirSync(path.join(fixtureRoot, "public", "evidence"), { recursive: true });
+      mkdirSync(path.join(fixtureRoot, "dist", "evidence"), { recursive: true });
+      writeFileSync(
+        path.join(fixtureRoot, "public", "evidence", "rendering-v2-acceptance.json"),
+        acceptance,
+      );
+      writeFileSync(
+        path.join(fixtureRoot, "dist", "evidence", "rendering-v2-acceptance.json"),
+        acceptance,
+      );
       writeFileSync(path.join(fixtureRoot, "dist", "robots.txt"), "User-agent: *\nDisallow: /\n");
       writeFileSync(
         path.join(fixtureRoot, "dist", "index.html"),

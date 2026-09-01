@@ -40,10 +40,12 @@ featureSlugs:
   - webgl2-fallback
 demoSlugs:
   - material-lighting
+  - clustered-lighting
   - shadow-aa
   - frame-inspector
 articleSlugs:
   - material-lighting-color-pipeline
+  - clustered-deferred-lighting
   - shadow-temporal-aa
   - frame-inspector-observability
 evidence: verified

@@ -45,6 +45,7 @@ demoSlugs:
 articleSlugs:
   - compute-geometry-performance
   - webgpu-particles-path-tracing
+  - gpu-driven-visibility-indirect
   - bvh-progressive-path-tracing
 evidence: measured
 backends:

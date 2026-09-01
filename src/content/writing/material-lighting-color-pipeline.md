@@ -26,6 +26,7 @@ relatedDemos:
   - material-lighting
 relatedArticles:
   - shadow-temporal-aa
+  - clustered-deferred-lighting
 englishTitle: "From PBR Inputs to Display Pixels: Materials, IBL, and the Color Pipeline"
 englishDescription: A calibration-driven breakdown of material parameters, direct and image-based lighting, exposure, tone mapping, and debug views.
 publishedAt: 2026-08-31

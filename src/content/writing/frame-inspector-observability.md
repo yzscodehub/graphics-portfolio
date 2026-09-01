@@ -26,10 +26,12 @@ relatedProjects:
 relatedDemos:
   - frame-inspector
   - render-graph
+  - clustered-lighting
   - shadow-aa
 relatedArticles:
   - render-graph-lifetime
   - shadow-temporal-aa
+  - clustered-deferred-lighting
 englishTitle: "Frame Inspector: GBuffer Attachments, Velocity, and Frame-Level Observability"
 englishDescription: Treat formats, ranges, last writers, frame indices, and real attachments as first-class rendering evidence rather than decorative debug views.
 publishedAt: 2026-08-31
@@ -59,18 +61,20 @@ Reference Scene
 
 ## 先建立 Attachment Contract
 
-每个调试视图都应有结构化描述，而不是只给一张彩色图片。当前 Reference Frame 发布八个附件：
+每个调试视图都应有结构化描述，而不是只给一张彩色图片。当前 Reference Frame 发布十个附件：
 
-| 视图               | 格式                    | 约定范围                                    | Last writer        |
-| ------------------ | ----------------------- | ------------------------------------------- | ------------------ |
-| Final              | preferred Canvas format | display-referred                            | Display / Tone Map |
-| Albedo + Metalness | `rgba8unorm`            | RGB `[0,1]`，A 为 metalness                 | GBuffer            |
-| Normal + Roughness | `rgba16float`           | world normal 编码到 `[0,1]`，A 为 roughness | GBuffer            |
-| Linear Depth       | `r32float`              | view distance / 12                          | GBuffer            |
-| Velocity           | `rg16float`             | screen UV delta                             | GBuffer            |
-| HDR Lighting       | `rgba16float`           | linear HDR                                  | Deferred Lighting  |
-| SSAO               | `r8unorm`               | occlusion `[0,1]`                           | SSAO               |
-| TAA History        | `rgba16float`           | latest resolved linear HDR                  | Temporal Resolve   |
+| 视图                | 格式                    | 约定范围                                                       | Last writer                          |
+| ------------------- | ----------------------- | -------------------------------------------------------------- | ------------------------------------ |
+| Final               | preferred Canvas format | display-referred                                               | Display / Tone Map                   |
+| Albedo + Metalness  | `rgba8unorm`            | RGB `[0,1]`，A 为 metalness                                    | GBuffer                              |
+| Normal + Roughness  | `rgba16float`           | world normal 编码到 `[0,1]`，A 为 roughness                    | GBuffer                              |
+| Linear Depth        | `r32float`              | view distance / 12                                             | GBuffer                              |
+| Velocity            | `rg16float`             | screen UV delta                                                | GBuffer                              |
+| HDR Lighting        | `rgba16float`           | linear HDR                                                     | Deferred Lighting                    |
+| SSAO                | `r8unorm`               | occlusion `[0,1]`                                              | SSAO                                 |
+| TAA History         | `rgba16float`           | latest resolved linear HDR                                     | Temporal Resolve                     |
+| History Reject      | `r8unorm`               | 1 = no history / UV bounds reject / depth reject; 0 = accepted | Temporal Resolve / Reject Mask       |
+| Cluster Light Count | `r8unorm`               | normalized `[0,1]` = local proxy light count `[0,8]` / 8       | ReferenceFrame / Local Cluster Count |
 
 这个表比缩略图更重要。它让 UI、Shader、测试和文章引用同一契约，也能在格式或 Pass 重构后暴露不一致。
 
@@ -109,11 +113,19 @@ Freeze 不应只停止 UI 标签更新，同时让底层 GPU 继续写同一附�
 
 当前 Demo 采用停止时间推进的教学范围语义。冻结后切换视图，看到的是同一 frame index 的不同附件。生产工具若需要比较跨帧差异，应显式建立 snapshot 和资源预算。
 
+## Pixel Probe 与 64-bin Histogram
+
+当前 Inspector 已实现两项低频的真实 GPU readback。Pixel Probe 对点击位置的非 Final attachment 执行显式 texture-to-buffer copy，并按 attachment 的实际格式解码；Histogram 64 对完整 attachment 做低频 copy，再对采样像素分桶。HDR Lighting 与 TAA History 使用对数线性 HDR 亮度，Velocity 使用缩放后的 UV 幅值，其他 attachment 使用原值或 RGB luminance。
+
+这两个工具不对 Final 或 Canvas fallback 伪造结果。Final 是浏览器显示 surface，Canvas atlas 不是 GPU attachment；两者都没有与 Reference Frame source texture 等价的可读来源。
+
 ## Last writer 如何连接 Render Graph
 
 附件名称告诉我们“是什么”，last writer 告诉我们“从哪里来”。当 HDR Lighting 全黑时，可直接定位 Deferred Lighting；当 History 不更新时，定位 Temporal Resolve；当 Roughness 条带不对，定位 GBuffer。
 
 在完整 Render Graph 中，last writer 应来自编译结果而不是手写字符串：每次资源写入创建版本，版本记录 producer，Inspector 选择附件时显示对应 Pass、生命周期和 usage。当前项目分别实现了 RenderGraphCore 与 Reference Frame，公开标签已经按同一命名约定对齐，但还没有把 GPU 资源句柄直接绑定到通用图编译器。这是明确的下一步，而不是已经完成的集成声明。
+
+Cluster Heatmap 也遵守同一真实性边界：它仍只由独立的 Clustered / Deferred Lighting renderer 生成。Frame Inspector 的 Reference Frame 没有共享该 renderer 的 GPU device、texture 或 frame state。当前新增的 Cluster Light Count 是另一条明确的数据路径：Reference Frame 在 G-Buffer 后使用同一相机和 depth contract，把局部视锥量化为 8×5×8 Cluster，统计八个解析代理光源的相交数量并写入自身的 `r8unorm` texture。Pixel Probe 和 Histogram 64 读取该 texture；它不应被描述为独立 Clustered renderer 的输出。
 
 ## Fallback 必须诚实
 
@@ -133,19 +145,21 @@ Freeze 不应只停止 UI 标签更新，同时让底层 GPU 继续写同一附�
 
 ## 可复现实验
 
-1. 打开 Frame Inspector，记录八个附件的格式、范围和 last writer；
+1. 打开 Frame Inspector，记录十个附件的格式、范围和 last writer，并在 Cluster Light Count 上确认归一化计数解释；
 2. Freeze 后逐个切换，确认 frame index 不变；
 3. 在 Normal 视图检查方向编码，在右侧条带检查 Roughness；
 4. 移动相机，观察 Velocity 方向，再回到静止状态；
-5. 切换 TAA 并 Reset，比较 HDR Lighting、History 和 Final；
-6. 修改窗口尺寸，确认 History 失效并重建；
-7. 在无 WebGPU 环境验证独立 Canvas fallback，原 WebGPU Canvas 被隐藏并在释放后恢复。
+5. 切换 TAA 并 Reset，比较 HDR Lighting、History、History Reject 和 Final；
+6. 在非 Final attachment 上启用 Pixel Probe，记录格式解码后的数值；
+7. 运行 Histogram 64，确认其报告采样数与分桶解释；
+8. 修改窗口尺寸，确认 History 失效并重建；
+9. 在无 WebGPU 环境验证独立 Canvas fallback，原 WebGPU Canvas 被隐藏并在释放后恢复。
 
 这些步骤不要求读取 GPU 到 CPU 的 sentinel 值。当前版本也没有把某个像素 readback 描述成已完成证据；若未来加入，应记录像素坐标、格式转换、提交序号和容差。
 
 ## 当前边界
 
-Inspector 尚未提供像素探针、直方图、GPU capture 导出、跨帧 diff、通用 Render Graph 资源枚举或远程调试。Final 的实际格式来自运行时 `getPreferredCanvasFormat()`，而不是跨平台写死为 `bgra8unorm`。它证明的是更基础的能力：真实附件可被选择，格式与来源可见，History 不冒充 Final，packed channel 不被隐藏，fallback 不冒充 GPU 捕获。
+Inspector 尚未提供 GPU capture 导出、跨帧 diff、通用 Render Graph 资源枚举或远程调试。Final 的实际格式来自运行时 `getPreferredCanvasFormat()`，而不是跨平台写死为 `bgra8unorm`。它证明的是更基础的能力：真实附件可被选择，格式与来源可见，History 不冒充 Final，History Reject 可被检查，packed channel 不被隐藏，fallback 不冒充 GPU 捕获。
 
 ## 参考资料
 

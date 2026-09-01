@@ -28,6 +28,7 @@ relatedDemos:
 relatedArticles:
   - material-lighting-color-pipeline
   - frame-inspector-observability
+  - clustered-deferred-lighting
 englishTitle: "From Shadow Maps to TAA: Depth, Velocity, and History Reprojection"
 englishDescription: A shared-reference-frame study of shadow filtering, FXAA, temporal reprojection, depth rejection, neighborhood clamping, and history invalidation.
 publishedAt: 2026-08-31
@@ -39,7 +40,7 @@ draft: false
 
 阴影解决“光源能否看到表面”，抗锯齿解决“像素采样能否稳定重建边缘”。它们并不是同一种算法，但都高度依赖深度、投影和采样位置。如果分别制作两个互不相干的场景，很难判断画面抖动来自 Shadow Map、几何边缘还是历史重投影。
 
-当前 Shadow & AA Demo 因此复用同一个 Reference Frame：固定相机与程序化几何生成 GBuffer、线性深度、Velocity、HDR Lighting、SSAO、History 和 Final。阴影与 AA 只是选择不同 Pass 分支，Frame Inspector 则读取同一批真实附件。
+当前 Shadow & AA Demo 因此复用同一个 Reference Frame：固定相机与程序化几何生成 GBuffer、线性深度、Velocity、HDR Lighting、SSAO、History、History Reject 和 Final。阴影与 AA 只是选择不同 Pass 分支，Frame Inspector 则读取同一批真实附件。
 
 ```text
 Light-space depth ───────────────┐
@@ -115,6 +116,12 @@ let uvValid = all(previousUV >= vec2f(0.0)) && all(previousUV < vec2f(1.0));
 
 Depth Rejection 解决明显的 disocclusion，Neighborhood Clamp 限制历史把旧颜色拖入新表面。两者都不是万能修复：透明物体、反射、高频材质和非刚体动画还需要更丰富的响应策略。
 
+## History Reject Mask 的可观察性
+
+当前 Reference Frame 的 Temporal Resolve 真实写入一个 `r8unorm` History Reject Mask。其语义固定为：白色（1）表示没有可复用历史、重投影 UV 越界或 current/history depth 不一致；黑色（0）表示本像素接受了经过 neighborhood clamp 的历史颜色。它不是根据 Final 画面反推的热图，也不是 Canvas fallback 的近似图。
+
+Shadow & AA 页面通过 `VIEW REJECT MASK` 显示这个 attachment。排查拖影时，应把它与 Velocity、Linear Depth 和 History 一起看：运动边界或 disocclusion 出现白色是预期保护行为；静止区域长期白色则说明 history validity、velocity 或 depth convention 仍有问题。Canvas 回退只保留标记明确的 illustration，不声称拥有 GPU reject attachment。
+
 ## 什么时候必须重置 History
 
 历史不是永久资源，它只对创建它的状态签名有效。当前实现会在以下变化后重置：
@@ -142,7 +149,7 @@ WebGPU device lost 不会尝试复用旧资源或自动宣称已经重建。当�
 | 边缘过软       | 历史权重、Neighborhood Clamp、FXAA 叠加    |
 | 切换模式后残影 | 状态变化没有 invalidation                  |
 
-Frame Inspector 应同时查看 Velocity、Linear Depth、HDR Lighting 和 History。只看 Final 会把四类问题压成同一种“画面不稳定”。
+Frame Inspector 应同时查看 Velocity、Linear Depth、HDR Lighting、History 和 History Reject。只看 Final 会把四类问题压成同一种“画面不稳定”。
 
 ## 可复现实验
 
