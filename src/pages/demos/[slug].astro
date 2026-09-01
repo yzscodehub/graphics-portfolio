@@ -7,8 +7,9 @@ import DemoEvidencePanel from "../../components/DemoEvidencePanel.astro";
 import RelatedWriting from "../../components/RelatedWriting.astro";
 import { profile } from "../../data/profile";
 import { renderingAssetManifest } from "../../data/rendering-assets";
+import { sourceRef } from "../../data/site";
 import { demoRegistry } from "../../demos/core/registry";
-import { withBase } from "../../lib/urls";
+import { withBase, withSourceRef } from "../../lib/urls";
 export async function getStaticPaths() {
   const allEntries = (await getCollection("demos")) as CollectionEntry<"demos">[];
   const entries = allEntries.filter((entry) => entry.data.locale === "zh-CN" && !entry.data.draft);
@@ -67,7 +68,7 @@ const standaloneHref = `${withBase(`/demos/${entry.data.routeSlug}/`)}?standalon
         backends={backendLabel}
         modes={definition.modes}
         assetIds={assetLabels}
-        sourceUrl={definition.sourceUrl}
+        sourceUrl={withSourceRef(definition.sourceUrl, sourceRef)}
         standaloneHref={standaloneHref}
         currentLimit={entry.data.currentLimit}
       />

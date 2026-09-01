@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   resolveSiteFeatures,
+  resolveSourceRef,
   resolveSiteStage,
   supportedSiteStages,
 } from "../src/data/site-stage.mjs";
@@ -32,5 +33,12 @@ describe("site stage resolution", () => {
   it("rejects unknown stage names", () => {
     expect(supportedSiteStages).toEqual(["preview", "release"]);
     expect(() => resolveSiteStage("production")).toThrow(/SITE_STAGE/);
+  });
+
+  it("uses branch-aware source refs without accepting path traversal", () => {
+    expect(resolveSourceRef(undefined, "preview")).toBe("feature/rendering-demo-v2");
+    expect(resolveSourceRef(undefined, "release")).toBe("main");
+    expect(resolveSourceRef("refs/tags/v1.2.3", "release")).toBe("v1.2.3");
+    expect(() => resolveSourceRef("../main", "preview")).toThrow(/SOURCE_REF/);
   });
 });

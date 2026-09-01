@@ -20,7 +20,8 @@
         10,
         6
       ],
-      "usedBy": [
+      "usedBy": [],
+      "plannedFor": [
         "clustered-lighting",
         "gpu-particles",
         "shadow-aa",

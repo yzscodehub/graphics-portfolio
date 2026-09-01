@@ -398,8 +398,23 @@ export function validateRenderingAssets(root = projectRoot) {
       add(violations, "rendering-asset-hash", asset.path, "SHA-256 mismatch");
     if (asset.bytes !== statSync(file).size)
       add(violations, "rendering-asset-size", asset.path, "byte size mismatch");
-    if (!Array.isArray(asset.usedBy) || asset.usedBy.length === 0)
-      add(violations, "rendering-asset-usage", asset.path, "at least one Demo is required");
+    const placeholderAsset = String(asset.role ?? "").includes("placeholder");
+    if (
+      !Array.isArray(asset.usedBy) ||
+      (placeholderAsset
+        ? asset.usedBy.length !== 0 ||
+          !Array.isArray(asset.plannedFor) ||
+          asset.plannedFor.length === 0
+        : asset.usedBy.length === 0)
+    )
+      add(
+        violations,
+        "rendering-asset-usage",
+        asset.path,
+        placeholderAsset
+          ? "placeholder assets require plannedFor and must not claim runtime use"
+          : "at least one runtime Demo is required",
+      );
     if (asset.id === "research-courtyard") {
       if (asset.bytes > manifest.budget.courtyardGeometryBytes)
         add(violations, "rendering-courtyard-budget", asset.path, "geometry pack exceeds budget");

@@ -57,7 +57,13 @@ const rows = [
     <a class="button button-primary" href={standaloneHref}>
       {isEn ? "RUN STANDALONE" : "独立运行"}
     </a>
-    <a class="button button-secondary" href={sourceUrl} target="_blank" rel="noreferrer">
+    <a
+      class="button button-secondary"
+      href={sourceUrl}
+      target="_blank"
+      rel="noreferrer"
+      data-demo-source-link
+    >
       {isEn ? "VIEW SOURCE" : "查看源码"}
     </a>
   </div>

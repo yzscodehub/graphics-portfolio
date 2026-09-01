@@ -4,7 +4,7 @@ export const demoRegistry: Record<string, DemoLoader> = {
   "material-lighting": {
     definition: {
       slug: "material-lighting",
-      maturity: "completed",
+      maturity: "in-progress",
       evidence: "verified",
       backend: "three-webgpu",
       backends: ["three-webgpu", "three-webgl", "canvas-2d"],
@@ -29,7 +29,7 @@ export const demoRegistry: Record<string, DemoLoader> = {
   "clustered-lighting": {
     definition: {
       slug: "clustered-lighting",
-      maturity: "completed",
+      maturity: "in-progress",
       evidence: "measured",
       backend: "raw-webgpu",
       backends: ["raw-webgpu", "canvas-2d"],
@@ -39,7 +39,7 @@ export const demoRegistry: Record<string, DemoLoader> = {
       relatedProjects: ["real-time-rendering-lab"],
       relatedArticles: ["clustered-deferred-lighting", "frame-inspector-observability"],
       metricSources: ["gpu-timestamp-query", "cpu-wall-clock"],
-      assetIds: ["research-courtyard"],
+      assetIds: ["clustered-courtyard-proxy"],
       modes: ["naive", "deferred", "clustered"],
       sourceUrl:
         "https://github.com/yzscodehub/graphics-portfolio/blob/main/src/demos/clustered-lighting.ts",
@@ -74,7 +74,7 @@ export const demoRegistry: Record<string, DemoLoader> = {
   "gpu-particles": {
     definition: {
       slug: "gpu-particles",
-      maturity: "completed",
+      maturity: "in-progress",
       evidence: "measured",
       backend: "raw-webgpu",
       backends: ["raw-webgpu", "canvas-2d"],
@@ -88,18 +88,18 @@ export const demoRegistry: Record<string, DemoLoader> = {
         "gpu-driven-visibility-indirect",
       ],
       metricSources: ["gpu-timestamp-query", "animation-frame"],
-      assetIds: ["research-courtyard"],
+      assetIds: ["visibility-instance-field"],
       modes: ["simulation", "visibility"],
       sourceUrl:
         "https://github.com/yzscodehub/graphics-portfolio/blob/main/src/demos/gpu-particles.ts",
-      referenceScene: "research-courtyard",
+      referenceScene: "visibility-instance-field",
     },
     load: () => import("../gpu-particles"),
   },
   "shadow-aa": {
     definition: {
       slug: "shadow-aa",
-      maturity: "completed",
+      maturity: "in-progress",
       evidence: "verified",
       backend: "raw-webgpu",
       backends: ["raw-webgpu", "canvas-2d"],
@@ -109,18 +109,18 @@ export const demoRegistry: Record<string, DemoLoader> = {
       relatedProjects: ["real-time-rendering-lab"],
       relatedArticles: ["shadow-temporal-aa", "frame-inspector-observability"],
       metricSources: ["animation-frame", "unavailable"],
-      assetIds: ["research-courtyard"],
+      assetIds: ["reference-frame-procedural"],
       modes: ["shadow", "temporal"],
       sourceUrl:
         "https://github.com/yzscodehub/graphics-portfolio/blob/main/src/demos/shadow-aa.ts",
-      referenceScene: "research-courtyard",
+      referenceScene: "reference-frame-procedural",
     },
     load: () => import("../shadow-aa"),
   },
   "path-tracer": {
     definition: {
       slug: "path-tracer",
-      maturity: "completed",
+      maturity: "in-progress",
       evidence: "verified",
       backend: "raw-webgpu",
       backends: ["raw-webgpu", "canvas-2d"],
@@ -141,7 +141,7 @@ export const demoRegistry: Record<string, DemoLoader> = {
   "frame-inspector": {
     definition: {
       slug: "frame-inspector",
-      maturity: "completed",
+      maturity: "in-progress",
       evidence: "verified",
       backend: "raw-webgpu",
       backends: ["raw-webgpu", "canvas-2d"],
@@ -157,11 +157,11 @@ export const demoRegistry: Record<string, DemoLoader> = {
         "clustered-deferred-lighting",
       ],
       metricSources: ["unavailable"],
-      assetIds: ["research-courtyard"],
+      assetIds: ["reference-frame-procedural"],
       modes: ["attachments", "probe"],
       sourceUrl:
         "https://github.com/yzscodehub/graphics-portfolio/blob/main/src/demos/frame-inspector.ts",
-      referenceScene: "research-courtyard",
+      referenceScene: "reference-frame-procedural",
     },
     load: () => import("../frame-inspector"),
   },

@@ -1,7 +1,7 @@
 import type { Locale, LocalizedText } from "./profile";
-import { resolveSiteFeatures } from "./site-stage.mjs";
+import { resolveSiteFeatures, resolveSourceRef } from "./site-stage.mjs";
 
-export { resolveSiteFeatures } from "./site-stage.mjs";
+export { resolveSiteFeatures, resolveSourceRef } from "./site-stage.mjs";
 export type SiteFeatures = ReturnType<typeof resolveSiteFeatures>;
 
 /**
@@ -9,6 +9,7 @@ export type SiteFeatures = ReturnType<typeof resolveSiteFeatures>;
  * UI, static metadata, validation, and deployment consume this same object.
  */
 export const features = resolveSiteFeatures();
+export const sourceRef = resolveSourceRef();
 
 export const site = {
   name: "Graphics Workbench",
@@ -47,6 +48,7 @@ export const site = {
     },
   ],
   socialLinks: ["github"] as const,
+  sourceRef,
   features,
 } as const;
 

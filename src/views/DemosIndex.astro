@@ -34,6 +34,11 @@ const allEntries = (await getCollection("demos")) as CollectionEntry<"demos">[];
 const entries = allEntries.filter((entry) => entry.data.locale === locale && !entry.data.draft);
 const slugOf = (entry: (typeof entries)[number]) => entry.data.routeSlug;
 const categories = ["all", "rendering", "engine", "gpu", "machine-learning"];
+const completedCount = entries.filter((entry) => entry.data.maturity === "completed").length;
+const inProgressCount = entries.length - completedCount;
+const maturitySummary = isEn
+  ? `${completedCount} completed / ${inProgressCount} in progress. Every Demo names its backend, requirements, evidence source, and current implementation limit.`
+  : `${completedCount} 项已完成 / ${inProgressCount} 项进行中。每项 Demo 都明确后端、要求、证据来源与当前实现边界。`;
 
 function presentationData(entry: (typeof entries)[number]): DemoPresentationData {
   return entry.data as typeof entry.data & DemoPresentationData;
@@ -78,9 +83,7 @@ function fallbackText(data: DemoPresentationData): string {
   <PageHero
     eyebrow="DEMOS / RUNTIME"
     title={isEn ? "Evidence you can inspect." : "可以检查的技术证据。"}
-    description={isEn
-      ? "Seven studies are completed; Neural Denoising remains in progress until the Guided model clears the same-split quality gate. Every Demo names its backend, requirements, and evidence source."
-      : "七项研究已完成；Neural Denoising 在 Guided 模型通过同一数据划分的质量门禁前保持进行中。每项 Demo 都明确后端、要求与证据来源。"}
+    description={maturitySummary}
   />
   <section class="section">
     <div class="section-inner">

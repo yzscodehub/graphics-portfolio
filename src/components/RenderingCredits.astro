@@ -87,8 +87,20 @@ const sourceKind = {
             </div>
             <div>
               <>
-                <dt>{isEn ? "Used by" : "关联 Demo"}</dt>
-                <dd>{asset.usedBy.join(" / ")}</dd>
+                <dt>
+                  {asset.role.includes("placeholder")
+                    ? isEn
+                      ? "Planned for"
+                      : "计划用于"
+                    : isEn
+                      ? "Used by"
+                      : "关联 Demo"}
+                </dt>
+                <dd>
+                  {(asset.role.includes("placeholder") ? asset.plannedFor : asset.usedBy)?.join(
+                    " / ",
+                  )}
+                </dd>
               </>
             </div>
           </dl>

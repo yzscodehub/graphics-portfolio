@@ -32,4 +32,17 @@ export function resolveSiteFeatures(input = process.env.SITE_STAGE) {
   });
 }
 
+export function resolveSourceRef(
+  input = process.env.SOURCE_REF,
+  stageInput = process.env.SITE_STAGE,
+) {
+  const fallback =
+    resolveSiteStage(stageInput) === "release" ? "main" : "feature/rendering-demo-v2";
+  const value = (input ?? fallback).trim();
+  if (!value || !/^[A-Za-z0-9._/-]+$/.test(value) || value.includes("..")) {
+    throw new Error(`SOURCE_REF is not a safe Git ref: ${input}`);
+  }
+  return value.replace(/^refs\/(?:heads|tags)\//, "");
+}
+
 export const supportedSiteStages = Object.freeze([...stages]);

@@ -19,9 +19,12 @@ import {
 } from "../scripts/assets/manifest.mjs";
 import { findFetchBlockers } from "../scripts/assets/fetch-sources.mjs";
 import {
+  renderClusteredCourtyardProxyContract,
   renderCalibrationRigContract,
   renderCornellSceneContract,
+  renderReferenceFrameProceduralContract,
   renderResearchCourtyardPlaceholderPack,
+  renderVisibilityInstanceFieldContract,
 } from "../scripts/assets/build-placeholder-pack.mjs";
 import { demoRegistry } from "../src/demos/core/registry";
 import {
@@ -38,12 +41,13 @@ describe("rendering asset pipeline", () => {
 
     const manifest = loadRenderingAssetManifest(projectRoot) as RenderingAssetManifest;
     const pack = manifest.assets.find((asset) => asset.id === "research-courtyard");
-    expect(manifest.assets).toHaveLength(5);
+    expect(manifest.assets).toHaveLength(8);
     expect(pack).toMatchObject({
       license: "self-authored",
       triangles: 14,
       lodTriangles: [14, 10, 6],
-      usedBy: ["clustered-lighting", "gpu-particles", "shadow-aa", "frame-inspector"],
+      usedBy: [],
+      plannedFor: ["clustered-lighting", "gpu-particles", "shadow-aa", "frame-inspector"],
     });
     expect(pack?.bytes).toBeLessThanOrEqual(manifest.budget.courtyardGeometryBytes);
     expect(renderingAssets.map((asset) => asset.id)).toEqual(
@@ -70,6 +74,33 @@ describe("rendering asset pipeline", () => {
         "utf8",
       ),
     ).toBe(renderCornellSceneContract());
+    expect(
+      readFileSync(
+        path.join(
+          projectRoot,
+          "public/assets/rendering/contracts/clustered-courtyard-proxy.contract.json",
+        ),
+        "utf8",
+      ),
+    ).toBe(renderClusteredCourtyardProxyContract());
+    expect(
+      readFileSync(
+        path.join(
+          projectRoot,
+          "public/assets/rendering/contracts/reference-frame-procedural.contract.json",
+        ),
+        "utf8",
+      ),
+    ).toBe(renderReferenceFrameProceduralContract());
+    expect(
+      readFileSync(
+        path.join(
+          projectRoot,
+          "public/assets/rendering/contracts/visibility-instance-field.contract.json",
+        ),
+        "utf8",
+      ),
+    ).toBe(renderVisibilityInstanceFieldContract());
   });
 
   it("resolves every Registry assetId to a real audited record", () => {
@@ -82,7 +113,9 @@ describe("rendering asset pipeline", () => {
     expect(registryAssetIds).toEqual(
       expect.arrayContaining([
         "calibration-rig",
-        "research-courtyard",
+        "clustered-courtyard-proxy",
+        "reference-frame-procedural",
+        "visibility-instance-field",
         "cornell-scene",
         "neural-heldout-v2",
       ]),
@@ -149,6 +182,8 @@ describe("rendering asset pipeline", () => {
       manifest.generatedBy = "reviewed-fixture-compiler";
       const courtyard = manifest.assets.find((asset) => asset.id === "research-courtyard")!;
       courtyard.role = "packed-scene";
+      courtyard.usedBy = ["clustered-lighting"];
+      delete courtyard.plannedFor;
       courtyard.outputSha256 = createHash("sha256").update(readFileSync(packPath)).digest("hex");
       courtyard.bytes = statSync(packPath).size;
       writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);

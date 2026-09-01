@@ -3,7 +3,7 @@ import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { execFileSync } from "node:child_process";
 import path from "node:path";
-import { resolveSiteFeatures } from "../src/data/site-stage.mjs";
+import { resolveSiteFeatures, resolveSourceRef } from "../src/data/site-stage.mjs";
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const sourceExtensions = new Set([".astro", ".css", ".html", ".json", ".md", ".mdx", ".ts"]);
@@ -237,6 +237,7 @@ export function validatePreviewArtifacts(root = projectRoot) {
   const violations = [];
   const outputRoot = path.join(root, "dist");
   const robots = path.join(outputRoot, "robots.txt");
+  const expectedSourceRef = resolveSourceRef(process.env.SOURCE_REF, "preview");
 
   validateReviewedModelArtifacts(root, violations);
 
@@ -354,6 +355,16 @@ export function validatePreviewArtifacts(root = projectRoot) {
     const html = readFileSync(htmlFile, "utf8");
     const relativePath = path.relative(root, htmlFile).replaceAll(path.sep, "/");
     const isNotFound = relativePath === "dist/404.html";
+    for (const sourceLink of html.matchAll(/<a\b[^>]*data-demo-source-link[^>]*>/gi)) {
+      const href = sourceLink[0].match(/href=["']([^"']+)["']/i)?.[1] ?? "";
+      if (!href.includes(`/blob/${expectedSourceRef}/src/demos/`))
+        violations.push({
+          code: "demo-source-ref",
+          file: relativePath,
+          line: 0,
+          value: `Demo source links must use build ref ${expectedSourceRef}`,
+        });
+    }
     if (!/<meta\s+name=["']robots["']\s+content=["']noindex,nofollow["']\s*\/?\s*>/i.test(html)) {
       violations.push({
         code: "missing-noindex",

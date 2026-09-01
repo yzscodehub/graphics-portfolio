@@ -132,7 +132,15 @@ const demos = defineCollection({
       relatedArticles: z.array(z.string()).default([]),
       assetIds: z.array(z.string().min(1)).default([]),
       modes: z.array(z.string().min(1)).default([]),
-      referenceScene: z.enum(["calibration-rig", "research-courtyard", "cornell"]).optional(),
+      referenceScene: z
+        .enum([
+          "calibration-rig",
+          "research-courtyard",
+          "reference-frame-procedural",
+          "visibility-instance-field",
+          "cornell",
+        ])
+        .optional(),
       sourceUrl: z.url().optional(),
     })
     .loose()

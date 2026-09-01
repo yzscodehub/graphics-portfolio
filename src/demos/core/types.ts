@@ -60,7 +60,12 @@ export interface DemoDefinition {
   assetIds: string[];
   modes: string[];
   sourceUrl: string;
-  referenceScene?: "calibration-rig" | "research-courtyard" | "cornell";
+  referenceScene?:
+    | "calibration-rig"
+    | "research-courtyard"
+    | "reference-frame-procedural"
+    | "visibility-instance-field"
+    | "cornell";
 }
 
 export interface DemoMetrics {

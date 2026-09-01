@@ -43,6 +43,7 @@ jobs:
         env:
           SITE_URL: https://${{ github.repository_owner }}.github.io
           SITE_STAGE: preview
+          SOURCE_REF: ${{ github.head_ref || github.ref_name }}
         run: pnpm run build:preview
 
       - name: Install Chromium

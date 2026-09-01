@@ -55,19 +55,19 @@ describe("demo registry", () => {
     });
   });
 
-  it("keeps the unreviewed Guided comparison in progress until it clears the release gate", () => {
+  it("keeps GPU-dependent studies in progress until their hardware and evidence gates clear", () => {
     const maturity = Object.fromEntries(
       Object.entries(demoRegistry).map(([slug, entry]) => [slug, entry.definition.maturity]),
     );
-    expect(maturity["neural-denoising"]).toBe("in-progress");
+    expect(maturity["render-graph"]).toBe("completed");
     expect(
       Object.entries(maturity)
-        .filter(([slug]) => slug !== "neural-denoising")
-        .every(([, value]) => value === "completed"),
+        .filter(([slug]) => slug !== "render-graph")
+        .every(([, value]) => value === "in-progress"),
     ).toBe(true);
   });
 
-  it("binds every Demo to explicit modes, source, and reviewed asset ids", () => {
+  it("binds every Demo to explicit modes, source, and auditable asset ids", () => {
     Object.values(demoRegistry).forEach(({ definition }) => {
       expect(definition.modes.length).toBeGreaterThan(0);
       expect(definition.sourceUrl).toMatch(

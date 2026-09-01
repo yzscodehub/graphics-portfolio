@@ -1,0 +1,21 @@
+{
+  "format": "graphics-portfolio-procedural-scene-contract",
+  "version": 1,
+  "assetId": "clustered-courtyard-proxy",
+  "generator": "src/demos/research-courtyard/scene.ts",
+  "coordinateSystem": "right-handed-y-up-meters",
+  "geometry": "self-authored analytical courtyard proxy",
+  "primitives": [
+    "floor",
+    "rear-wall",
+    "side-walls",
+    "plinth",
+    "signal-pillars",
+    "screen-bank"
+  ],
+  "runtimeConsumers": [
+    "clustered-lighting"
+  ],
+  "externalAssets": false,
+  "limitation": "This contract is not the reviewed Poly Haven packed Research Courtyard."
+}

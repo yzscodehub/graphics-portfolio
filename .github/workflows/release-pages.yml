@@ -24,6 +24,7 @@ jobs:
     env:
       SITE_URL: https://${{ github.repository_owner }}.github.io
       SITE_STAGE: release
+      SOURCE_REF: ${{ github.ref_name }}
     steps:
       - name: Check out source
         uses: actions/checkout@v5

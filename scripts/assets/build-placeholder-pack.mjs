@@ -16,6 +16,18 @@ export const cornellSceneContractPath = path.join(
   root,
   "public/assets/rendering/contracts/cornell-scene.contract.json",
 );
+export const clusteredCourtyardProxyContractPath = path.join(
+  root,
+  "public/assets/rendering/contracts/clustered-courtyard-proxy.contract.json",
+);
+export const referenceFrameProceduralContractPath = path.join(
+  root,
+  "public/assets/rendering/contracts/reference-frame-procedural.contract.json",
+);
+export const visibilityInstanceFieldContractPath = path.join(
+  root,
+  "public/assets/rendering/contracts/visibility-instance-field.contract.json",
+);
 export const researchCourtyardRuntimeManifestPath = path.join(
   root,
   "public/assets/rendering/manifests/research-courtyard.json",
@@ -144,12 +156,81 @@ export function createCornellSceneContract() {
   };
 }
 
+export function createClusteredCourtyardProxyContract() {
+  return {
+    format: "graphics-portfolio-procedural-scene-contract",
+    version: 1,
+    assetId: "clustered-courtyard-proxy",
+    generator: "src/demos/research-courtyard/scene.ts",
+    coordinateSystem: "right-handed-y-up-meters",
+    geometry: "self-authored analytical courtyard proxy",
+    primitives: ["floor", "rear-wall", "side-walls", "plinth", "signal-pillars", "screen-bank"],
+    runtimeConsumers: ["clustered-lighting"],
+    externalAssets: false,
+    limitation: "This contract is not the reviewed Poly Haven packed Research Courtyard.",
+  };
+}
+
+export function createReferenceFrameProceduralContract() {
+  return {
+    format: "graphics-portfolio-procedural-scene-contract",
+    version: 1,
+    assetId: "reference-frame-procedural",
+    generator: "src/demos/reference-frame/shaders.ts",
+    coordinateSystem: "right-handed-y-up-meters",
+    geometry: "analytical plane and two spheres evaluated in the G-Buffer shader",
+    runtimeConsumers: ["shadow-aa", "frame-inspector"],
+    attachments: [
+      "albedo-metalness",
+      "normal-roughness",
+      "linear-depth",
+      "velocity",
+      "lighting",
+      "ssao",
+      "history",
+      "history-reject",
+      "cluster-light-count",
+      "final",
+    ],
+    externalAssets: false,
+    limitation: "This contract is not the reviewed Poly Haven packed Research Courtyard.",
+  };
+}
+
+export function createVisibilityInstanceFieldContract() {
+  return {
+    format: "graphics-portfolio-procedural-scene-contract",
+    version: 1,
+    assetId: "visibility-instance-field",
+    generator: "src/demos/gpu-visibility.ts",
+    coordinateSystem: "right-handed-y-up-meters",
+    geometry: "deterministic procedural instance field",
+    instanceCounts: [10000, 50000, 100000],
+    attributes: ["position-radius", "color"],
+    runtimeConsumers: ["gpu-particles"],
+    externalAssets: false,
+    limitation: "This contract does not consume the reviewed Research Courtyard packed scene.",
+  };
+}
+
 export function renderCalibrationRigContract() {
   return `${JSON.stringify(createCalibrationRigContract(), null, 2)}\n`;
 }
 
 export function renderCornellSceneContract() {
   return `${JSON.stringify(createCornellSceneContract(), null, 2)}\n`;
+}
+
+export function renderClusteredCourtyardProxyContract() {
+  return `${JSON.stringify(createClusteredCourtyardProxyContract(), null, 2)}\n`;
+}
+
+export function renderReferenceFrameProceduralContract() {
+  return `${JSON.stringify(createReferenceFrameProceduralContract(), null, 2)}\n`;
+}
+
+export function renderVisibilityInstanceFieldContract() {
+  return `${JSON.stringify(createVisibilityInstanceFieldContract(), null, 2)}\n`;
 }
 
 function sha256(file) {
@@ -165,6 +246,9 @@ export function rebuildPlaceholderRenderingAssets() {
   rebuildResearchCourtyardPlaceholderPack();
   writeContract(calibrationRigContractPath, renderCalibrationRigContract());
   writeContract(cornellSceneContractPath, renderCornellSceneContract());
+  writeContract(clusteredCourtyardProxyContractPath, renderClusteredCourtyardProxyContract());
+  writeContract(referenceFrameProceduralContractPath, renderReferenceFrameProceduralContract());
+  writeContract(visibilityInstanceFieldContractPath, renderVisibilityInstanceFieldContract());
   const record = {
     id: "research-courtyard",
     kind: "scene",
@@ -178,7 +262,8 @@ export function rebuildPlaceholderRenderingAssets() {
     bytes: statSync(placeholderPackPath).size,
     triangles: 14,
     lodTriangles: [14, 10, 6],
-    usedBy: ["clustered-lighting", "gpu-particles", "shadow-aa", "frame-inspector"],
+    usedBy: [],
+    plannedFor: ["clustered-lighting", "gpu-particles", "shadow-aa", "frame-inspector"],
   };
   writeContract(
     researchCourtyardRuntimeManifestPath,

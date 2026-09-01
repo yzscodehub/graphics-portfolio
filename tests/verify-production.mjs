@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
-import { resolveSiteFeatures } from "../src/data/site-stage.mjs";
+import { resolveSiteFeatures, resolveSourceRef } from "../src/data/site-stage.mjs";
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const sourceExtensions = new Set([
@@ -567,6 +567,7 @@ export function validateReleaseArtifacts(root = projectRoot) {
   const mediaManifest = path.join(root, "public", "media", "assets-manifest.json");
   const ogManifest = path.join(root, "public", "og", "manifest.json");
   const manifestOgPaths = new Set();
+  const expectedSourceRef = resolveSourceRef(process.env.SOURCE_REF, "release");
   validateReviewedModelArtifacts(root, violations);
   violations.push(...validateRenderingReleaseReadiness(root));
   violations.push(...validateRenderingAcceptanceEvidence(root));
@@ -806,6 +807,16 @@ export function validateReleaseArtifacts(root = projectRoot) {
     const source = readFileSync(html, "utf8");
     const relative = path.relative(root, html).replaceAll(path.sep, "/");
     const isNotFound = relative === "dist/404.html";
+    for (const sourceLink of source.matchAll(/<a\b[^>]*data-demo-source-link[^>]*>/gi)) {
+      const href = sourceLink[0].match(/href=["']([^"']+)["']/i)?.[1] ?? "";
+      if (!href.includes(`/blob/${expectedSourceRef}/src/demos/`))
+        violations.push({
+          code: "demo-source-ref",
+          file: relative,
+          line: 0,
+          value: `Demo source links must use release ref ${expectedSourceRef}`,
+        });
+    }
     if (/media\/placeholders\//i.test(source))
       violations.push({
         code: "placeholder-media",

@@ -18,6 +18,7 @@ export interface RenderingAssetRecord {
   triangles?: number;
   lodTriangles?: number[];
   usedBy: string[];
+  plannedFor?: string[];
 }
 
 export interface RenderingAssetBudget {

@@ -38,12 +38,13 @@
       "bytes": 3501,
       "triangles": 14,
       "lodTriangles": [14, 10, 6],
-      "usedBy": ["clustered-lighting", "gpu-particles", "shadow-aa", "frame-inspector"]
+      "usedBy": [],
+      "plannedFor": ["clustered-lighting", "gpu-particles", "shadow-aa", "frame-inspector"]
     },
     {
       "id": "research-courtyard-procedural-fallback",
       "kind": "scene",
-      "role": "fallback-image",
+      "role": "preview-placeholder-fallback",
       "path": "public/assets/rendering/fallbacks/research-courtyard.svg",
       "sourceUrl": null,
       "authors": ["yzscodehub"],
@@ -51,7 +52,47 @@
       "sourceSha256": null,
       "outputSha256": "37486c77d8bdafc882ab390fe55390b2aba55c5fce6d2dc3320c9a7c81b31e9b",
       "bytes": 1691,
-      "usedBy": ["clustered-lighting", "shadow-aa", "frame-inspector"]
+      "usedBy": [],
+      "plannedFor": ["clustered-lighting", "shadow-aa", "frame-inspector"]
+    },
+    {
+      "id": "clustered-courtyard-proxy",
+      "kind": "scene",
+      "role": "procedural-scene-contract",
+      "path": "public/assets/rendering/contracts/clustered-courtyard-proxy.contract.json",
+      "sourceUrl": null,
+      "authors": ["yzscodehub"],
+      "license": "self-authored",
+      "sourceSha256": null,
+      "outputSha256": "d8972f8afee13510a446805d7a03bb634ff51908f77cc3d5a759eecbc0385b71",
+      "bytes": 582,
+      "usedBy": ["clustered-lighting"]
+    },
+    {
+      "id": "reference-frame-procedural",
+      "kind": "scene",
+      "role": "procedural-scene-contract",
+      "path": "public/assets/rendering/contracts/reference-frame-procedural.contract.json",
+      "sourceUrl": null,
+      "authors": ["yzscodehub"],
+      "license": "self-authored",
+      "sourceSha256": null,
+      "outputSha256": "2984ffe5985cca60df506ce1a3f03b841a71361b229dfdca616f7a6842fd2e8c",
+      "bytes": 708,
+      "usedBy": ["shadow-aa", "frame-inspector"]
+    },
+    {
+      "id": "visibility-instance-field",
+      "kind": "scene",
+      "role": "procedural-scene-contract",
+      "path": "public/assets/rendering/contracts/visibility-instance-field.contract.json",
+      "sourceUrl": null,
+      "authors": ["yzscodehub"],
+      "license": "self-authored",
+      "sourceSha256": null,
+      "outputSha256": "4ec7f34afe74d43ce3d591e314f8aa9a96ebdffd9ee03a5c736a849d48d83fe0",
+      "bytes": 564,
+      "usedBy": ["gpu-particles"]
     },
     {
       "id": "cornell-scene",
