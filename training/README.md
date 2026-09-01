@@ -156,3 +156,26 @@ manifest; browser code and release guards require that contract.
 - The browser demo must continue to use its explicit WebGPU, WASM, and
   precomputed-output fallback states whenever a reviewed model is absent or
   cannot execute.
+
+## Guided 9-channel candidate path
+
+The browser manifest v2 reserves a 9-channel input in this order:
+
+    noisy RGB (3) + albedo RGB (3) + remapped world normal XYZ (3)
+
+create_guided_candidate_assets.py creates only deterministic public guide
+artifacts and an explicitly unreviewed static candidate. It is not training,
+export, or evaluation evidence.
+
+When a reviewed guided run is available, prepare prepacked 9-channel arrays in
+the existing noisy directories and use the same train/validation split:
+
+    python training/train_denoiser.py --data-root D:/datasets/portfolio-procedural-v1-guided --input-channels 9 --output training/checkpoints/guided-denoiser.pt --patch-size 256 --features 16 --batch-size 4 --epochs 50 --learning-rate 0.0002 --seed 7
+
+Do not replace the v2 static candidate with an ONNX file until its exact model
+hash, held-out hashes, same-split L1/PSNR comparison, and PyTorch/ONNX parity
+have all been reviewed.
+
+The v2 manifest writer also requires the current static candidate path:
+
+    python training/write_model_manifest.py --rgb-model public/models/neural-denoiser.onnx --guided-static-candidate public/models/heldout/scene-0001-guided-static-candidate.f16 --heldout-manifest public/models/heldout/manifest.json --output public/models/neural-denoiser.manifest.json

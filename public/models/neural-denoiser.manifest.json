@@ -1,39 +1,79 @@
 {
-  "version": 1,
-  "model": {
-    "file": "neural-denoiser.onnx",
-    "bytes": 62986,
-    "sha256": "f42af8be960e17c61bb19d4b82268541d3773eae0e5c14092c6f8d83c68e8413",
-    "format": "onnx",
-    "opset": 17,
-    "input": {
-      "name": "noisy_rgb",
-      "dtype": "float32",
-      "shape": [
-        1,
-        3,
-        256,
-        256
-      ],
-      "layout": "NCHW",
-      "range": "[0,1]"
+  "version": 2,
+  "models": [
+    {
+      "file": "neural-denoiser.onnx",
+      "bytes": 62986,
+      "sha256": "f42af8be960e17c61bb19d4b82268541d3773eae0e5c14092c6f8d83c68e8413",
+      "id": "rgb",
+      "status": "reviewed",
+      "kind": "onnx",
+      "format": "onnx",
+      "opset": 17,
+      "input": {
+        "name": "noisy_rgb",
+        "dtype": "float32",
+        "shape": [
+          1,
+          3,
+          256,
+          256
+        ],
+        "layout": "NCHW",
+        "range": "[0,1]"
+      },
+      "output": {
+        "name": "denoised_rgb",
+        "dtype": "float32",
+        "shape": [
+          1,
+          3,
+          256,
+          256
+        ],
+        "layout": "NCHW",
+        "range": "[0,1]"
+      }
     },
-    "output": {
-      "name": "denoised_rgb",
-      "dtype": "float32",
-      "shape": [
-        1,
-        3,
-        256,
-        256
-      ],
-      "layout": "NCHW",
-      "range": "[0,1]"
+    {
+      "id": "guided",
+      "status": "candidate",
+      "kind": "static-candidate",
+      "input": {
+        "name": "noisy_albedo_world_normal",
+        "dtype": "float32",
+        "shape": [
+          1,
+          9,
+          256,
+          256
+        ],
+        "layout": "NCHW",
+        "range": "[0,1]"
+      },
+      "output": {
+        "name": "denoised_rgb",
+        "dtype": "float32",
+        "shape": [
+          1,
+          3,
+          256,
+          256
+        ],
+        "layout": "NCHW",
+        "range": "[0,1]"
+      },
+      "candidateOutput": {
+        "file": "heldout/scene-0001-guided-static-candidate.f16",
+        "bytes": 393216,
+        "sha256": "505ee92f7017c4637b66045f91d9892bc80951f8947fb5fb6adf9a257bd25dc3"
+      },
+      "reason": "No reviewed 9-channel checkpoint, parity record, or validation improvement exists yet."
     }
-  },
+  ],
   "heldoutManifest": {
     "file": "heldout/manifest.json",
-    "bytes": 863,
-    "sha256": "e2eaf18de564d90b1f6d5cda98578b0a360b3318e8466e6c4ca42c6d59a304cd"
+    "bytes": 1506,
+    "sha256": "8f235e3bdd0fdedff95d9a5b559149455cd2c4967c034d26beef348e439d3ffe"
   }
 }

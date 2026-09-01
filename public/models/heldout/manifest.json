@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 2,
   "renderer": "procedural-cornell-mc-v1",
   "split": "val",
   "stem": "scene-0001",
@@ -16,20 +16,39 @@
     256,
     256
   ],
-  "dtype": "float32-le",
+  "dtype": "float16-le",
   "noisySamplesPerPixel": 1,
   "referenceSamplesPerPixel": 64,
   "layout": "NCHW",
   "files": {
     "noisy": {
-      "file": "scene-0001-noisy.f32",
-      "bytes": 786432,
-      "sha256": "b5f1aea883521e37dd94af508115344a5d7cbb9f5ce1e886700128651272f7ed"
+      "file": "scene-0001-noisy.f16",
+      "bytes": 393216,
+      "sha256": "e3a6370652cd5e7b0357933771d64b355d7059f649da863c5338bd08a3b2aada"
     },
     "reference": {
-      "file": "scene-0001-reference.f32",
-      "bytes": 786432,
-      "sha256": "1de11c19d1a03467e74d35d9275a8134e012aa9ae2884a57f2aa8dbe008bd0c6"
+      "file": "scene-0001-reference.f16",
+      "bytes": 393216,
+      "sha256": "3df3411b9ee906ff34a1ad67819fb2d2ea3c55d0b4fd9a56d0c5d13cc520e0c3"
+    },
+    "albedo": {
+      "file": "scene-0001-albedo.f16",
+      "bytes": 393216,
+      "sha256": "cd42b15bdf7636d197043c2810c9f3c58165075435cdc30bb87e6322f34b4ab2"
+    },
+    "worldNormal": {
+      "file": "scene-0001-world-normal.f16",
+      "bytes": 393216,
+      "sha256": "06d93df5f2c031ecc2be5ace47a2677ffe6b4ccd88b3ddf817950a6506f565d6"
+    },
+    "guidedCandidate": {
+      "file": "scene-0001-guided-static-candidate.f16",
+      "bytes": 393216,
+      "sha256": "505ee92f7017c4637b66045f91d9892bc80951f8947fb5fb6adf9a257bd25dc3"
     }
+  },
+  "guidance": {
+    "albedoSpace": "linear-rgb",
+    "worldNormalEncoding": "xyz-remapped-[0,1]"
   }
 }

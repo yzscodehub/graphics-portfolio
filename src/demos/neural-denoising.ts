@@ -1,4 +1,9 @@
 /* eslint-disable @typescript-eslint/consistent-type-imports -- ONNX Runtime remains explicitly lazy and provider-specific. */
+import {
+  normalizeHeldoutManifest,
+  normalizeNeuralModelManifest,
+  type GuidedStaticCandidate,
+} from "./neural-v2-contract";
 import { clearElement, makeButton, resizeCanvas } from "./core/canvas";
 import type {
   DemoContext,
@@ -41,7 +46,7 @@ interface HeldoutManifest {
   stem: string;
   sceneSeed: number;
   shape: [1, 3, number, number];
-  dtype: "float32-le";
+  dtype: "float16-le";
   layout: "NCHW";
   noisySamplesPerPixel: number;
   referenceSamplesPerPixel: number;
@@ -61,12 +66,21 @@ export interface DenoisingFrames {
   size: number;
   reference: Float32Array;
   noisy: Float32Array;
+  albedo?: Float32Array;
+  worldNormal?: Float32Array;
 }
 
 export interface ImageMetrics {
   l1: number;
   mse: number;
   psnrDb: number;
+}
+
+interface GuidedCandidateRun {
+  kind: "candidate";
+  frames: DenoisingFrames;
+  denoised: Float32Array;
+  reason: string;
 }
 
 interface ReviewedRun {
@@ -165,17 +179,18 @@ export function createDemo(): DemoController {
   let height = 1;
   let mode: ViewMode = "noisy";
   let run: ReviewedRun | undefined;
+  let guidedCandidate: GuidedCandidateRun | undefined;
   const reviewedRunGate = new ExplicitRunGate();
   let disposed = false;
   let fallbackFrames = makeProceduralFallbackFrames(256);
   const staging = document.createElement("canvas");
 
-  const currentFrames = () => run?.frames ?? fallbackFrames;
+  const currentFrames = () => guidedCandidate?.frames ?? run?.frames ?? fallbackFrames;
   const currentPixels = () => {
     const frames = currentFrames();
     if (mode === "reference") return frames.reference;
     if (mode === "noisy") return frames.noisy;
-    const denoised = run?.denoised ?? boxFilter(frames);
+    const denoised = guidedCandidate?.denoised ?? run?.denoised ?? boxFilter(frames);
     if (mode === "denoised") return denoised;
     return absoluteError(denoised, frames.reference);
   };
@@ -234,6 +249,7 @@ export function createDemo(): DemoController {
         executeReviewedRun(context.signal, context.resources),
       );
       if (disposed) return;
+      guidedCandidate = undefined;
       run = result;
       mode = "denoised";
       context.setRuntimeState?.("running");
@@ -256,6 +272,48 @@ export function createDemo(): DemoController {
         metricSource: "unavailable",
       });
       button.textContent = "RETRY REVIEWED MODEL";
+    } finally {
+      if (!disposed) {
+        button.disabled = false;
+        draw();
+      }
+    }
+  };
+
+  const showGuidedCandidate = async (button: HTMLButtonElement) => {
+    if (reviewedRunGate.inFlight || disposed) return;
+    button.disabled = true;
+    button.textContent = "LOADING GUIDED CANDIDATE…";
+    context.setStatus(
+      "Loading hashed guidance artifacts. This candidate has not passed quality review.",
+    );
+    try {
+      const result = await reviewedRunGate.request(() => loadGuidedStaticCandidate(context.signal));
+      if (disposed) return;
+      run = undefined;
+      guidedCandidate = result;
+      mode = "denoised";
+      context.setRuntimeState?.("fallback");
+      context.setStatus(
+        "Guided candidate is a static, unreviewed contract artifact. " +
+          result.reason +
+          " It is not an ONNX model and no quality metric is claimed.",
+        "warning",
+      );
+      context.setMetrics({
+        backend: "Guided static candidate",
+        status: "unreviewed; metrics deliberately withheld",
+        metricSource: "unavailable",
+      });
+      button.textContent = "RELOAD GUIDED CANDIDATE";
+    } catch (error) {
+      if (disposed || context.signal.aborted) return;
+      context.setStatus(
+        (error instanceof Error ? error.message : "Guided candidate failed to load.") +
+          " The reviewed RGB path remains available.",
+        "warning",
+      );
+      button.textContent = "RETRY GUIDED CANDIDATE";
     } finally {
       if (!disposed) {
         button.disabled = false;
@@ -289,7 +347,11 @@ export function createDemo(): DemoController {
       runButton.addEventListener("click", () => void runReviewedModel(runButton), {
         signal: context.signal,
       });
-      context.controls.append(...viewButtons, runButton);
+      const candidateButton = makeButton("SHOW GUIDED CANDIDATE");
+      candidateButton.addEventListener("click", () => void showGuidedCandidate(candidateButton), {
+        signal: context.signal,
+      });
+      context.controls.append(...viewButtons, runButton, candidateButton);
       context.setStatus(
         "Static deterministic preview loaded. ONNX Runtime and held-out data download only after RUN REVIEWED MODEL.",
         "success",
@@ -323,63 +385,123 @@ export async function executeReviewedRun(
   signal: AbortSignal,
   resources?: DemoResourceScope,
 ): Promise<ReviewedRun> {
+  return executeReviewedRgbV2(signal, resources);
+}
+
+export async function loadGuidedStaticCandidate(signal: AbortSignal): Promise<GuidedCandidateRun> {
   const base = (import.meta.env.BASE_URL || "/").replace(/\/$/, "");
-  const modelRoot = `${base}/models`;
-  const modelManifest = await fetchJson<ModelManifest>(
-    `${modelRoot}/neural-denoiser.manifest.json`,
-    "Reviewed model manifest",
+  const modelRoot = base + "/models";
+  const rawModelManifest = await fetchJson<unknown>(
+    modelRoot + "/neural-denoiser.manifest.json",
+    "Neural model manifest",
     signal,
   );
-  validateModelManifest(modelManifest);
-  const manifestBuffer = await fetchVerifiedBytes(
-    `${modelRoot}/${modelManifest.heldoutManifest.file}`,
+  const modelManifest = normalizeNeuralModelManifest(rawModelManifest);
+  const candidate: GuidedStaticCandidate | undefined = modelManifest.guided;
+  if (!candidate || candidate.status !== "candidate")
+    throw new Error("Guided model is not an unreviewed static candidate.");
+  const heldoutBuffer = await fetchVerifiedBytes(
+    modelRoot + "/" + modelManifest.heldoutManifest.file,
     modelManifest.heldoutManifest,
     "Held-out manifest",
     signal,
   );
-  const manifest = parseJson<HeldoutManifest>(manifestBuffer, "Held-out manifest");
-  validateHeldoutManifest(manifest);
-  const heldoutRoot = `${modelRoot}/heldout`;
-  const [noisy, reference, modelBuffer] = await Promise.all([
-    fetchVerifiedFloat(`${heldoutRoot}/${manifest.files.noisy.file}`, manifest.files.noisy, signal),
-    fetchVerifiedFloat(
-      `${heldoutRoot}/${manifest.files.reference.file}`,
-      manifest.files.reference,
+  const heldout = normalizeHeldoutManifest(parseJson<unknown>(heldoutBuffer, "Held-out manifest"));
+  if (!heldout.files.albedo || !heldout.files.worldNormal || !heldout.files.guidedCandidate)
+    throw new Error(
+      "Guided candidate requires v2 albedo, world-normal, and static-output artifacts.",
+    );
+  if (candidate.candidateOutput.file !== "heldout/" + heldout.files.guidedCandidate.file)
+    throw new Error("Guided candidate output is not bound to the held-out candidate artifact.");
+  const heldoutRoot = modelRoot + "/heldout";
+  const [noisy, reference, albedo, worldNormal, denoised] = await Promise.all([
+    fetchVerifiedFloat16(heldoutRoot + "/" + heldout.files.noisy.file, heldout.files.noisy, signal),
+    fetchVerifiedFloat16(
+      heldoutRoot + "/" + heldout.files.reference.file,
+      heldout.files.reference,
       signal,
     ),
-    fetchVerifiedBytes(
-      `${modelRoot}/${modelManifest.model.file}`,
-      modelManifest.model,
-      "Reviewed ONNX model",
+    fetchVerifiedFloat16(
+      heldoutRoot + "/" + heldout.files.albedo.file,
+      heldout.files.albedo,
+      signal,
+    ),
+    fetchVerifiedFloat16(
+      heldoutRoot + "/" + heldout.files.worldNormal.file,
+      heldout.files.worldNormal,
+      signal,
+    ),
+    fetchVerifiedFloat16(
+      modelRoot + "/" + candidate.candidateOutput.file,
+      candidate.candidateOutput,
       signal,
     ),
   ]);
-  const frames: DenoisingFrames = { size: manifest.shape[2], noisy, reference };
-  const modelBytes = new Uint8Array(modelBuffer);
+  return {
+    kind: "candidate",
+    frames: { size: heldout.shape[2], noisy, reference, albedo, worldNormal },
+    denoised,
+    reason: candidate.reason,
+  };
+}
 
+async function executeReviewedRgbV2(
+  signal: AbortSignal,
+  resources?: DemoResourceScope,
+): Promise<ReviewedRun> {
+  const base = (import.meta.env.BASE_URL || "/").replace(/\/$/, "");
+  const modelRoot = base + "/models";
+  const rawModelManifest = await fetchJson<unknown>(
+    modelRoot + "/neural-denoiser.manifest.json",
+    "Neural model manifest",
+    signal,
+  );
+  const modelManifest = normalizeNeuralModelManifest(rawModelManifest);
+  const heldoutBuffer = await fetchVerifiedBytes(
+    modelRoot + "/" + modelManifest.heldoutManifest.file,
+    modelManifest.heldoutManifest,
+    "Held-out manifest",
+    signal,
+  );
+  const heldout = normalizeHeldoutManifest(parseJson<unknown>(heldoutBuffer, "Held-out manifest"));
+  const heldoutRoot = modelRoot + "/heldout";
+  const [noisy, reference, modelBuffer] = await Promise.all([
+    fetchVerifiedFloat16(heldoutRoot + "/" + heldout.files.noisy.file, heldout.files.noisy, signal),
+    fetchVerifiedFloat16(
+      heldoutRoot + "/" + heldout.files.reference.file,
+      heldout.files.reference,
+      signal,
+    ),
+    fetchVerifiedBytes(
+      modelRoot + "/" + modelManifest.rgb.file,
+      modelManifest.rgb,
+      "Reviewed RGB ONNX model",
+      signal,
+    ),
+  ]);
+  const frames: DenoisingFrames = { size: heldout.shape[2], noisy, reference };
+  const modelBytes = new Uint8Array(modelBuffer);
   const backends: Array<"webgpu" | "wasm"> = navigator.gpu ? ["webgpu", "wasm"] : ["wasm"];
   const failures: string[] = [];
   for (const requestedBackend of backends) {
     throwIfAborted(signal);
-    let attempt: Awaited<ReturnType<typeof createOnnxSession>> | undefined;
     let lease: SessionLease | undefined;
     try {
-      attempt = await createOnnxSession(modelBytes, requestedBackend);
+      const attempt = await createOnnxSession(modelBytes, requestedBackend);
       lease = new SessionLease(attempt.session);
       resources?.trackInferenceSession(lease);
-      validateSessionContract(attempt.session, modelManifest.model);
-      throwIfAborted(signal);
-      return await runOnnxSession(attempt, lease, frames, manifest.shape, signal);
+      validateSessionContract(attempt.session, modelManifest.rgb);
+      return await runOnnxSession(attempt, lease, frames, modelManifest.rgb.input.shape, signal);
     } catch (error) {
       throwIfAborted(signal);
       failures.push(
-        `${requestedBackend}: ${error instanceof Error ? error.message : "runtime failure"}`,
+        requestedBackend + ": " + (error instanceof Error ? error.message : "runtime failure"),
       );
     } finally {
       if (lease) await lease.release().catch(() => undefined);
     }
   }
-  throw new Error(`Reviewed inference failed on every backend (${failures.join("; ")}).`);
+  throw new Error("Reviewed RGB inference failed on every backend (" + failures.join("; ") + ").");
 }
 
 async function runOnnxSession(
@@ -502,7 +624,7 @@ export function validateHeldoutManifest(manifest: unknown): asserts manifest is 
     manifest.split !== "val" ||
     manifest.stem !== "scene-0001" ||
     manifest.sceneSeed !== 91_103 ||
-    manifest.dtype !== "float32-le" ||
+    manifest.dtype !== "float16-le" ||
     manifest.layout !== "NCHW" ||
     !isExactShape(manifest.shape) ||
     manifest.noisySamplesPerPixel !== 1 ||
@@ -513,20 +635,38 @@ export function validateHeldoutManifest(manifest: unknown): asserts manifest is 
     !isSha256(exportRecord.datasetManifestSha256) ||
     !isArtifactDescriptor(files.noisy) ||
     !isArtifactDescriptor(files.reference) ||
-    files.noisy.file !== "scene-0001-noisy.f32" ||
-    files.reference.file !== "scene-0001-reference.f32"
+    files.noisy.file !== "scene-0001-noisy.f16" ||
+    files.reference.file !== "scene-0001-reference.f16"
   )
     throw new Error("Held-out manifest contract is incompatible.");
 }
 
-async function fetchVerifiedFloat(
+export function decodeFloat16LittleEndian(buffer: ArrayBuffer): Float32Array {
+  if (buffer.byteLength === 0 || buffer.byteLength % 2 !== 0)
+    throw new Error("Float16 artifact byte length must be a non-zero multiple of two.");
+  const source = new DataView(buffer);
+  const result = new Float32Array(buffer.byteLength / 2);
+  for (let index = 0; index < result.length; index += 1) {
+    const bits = source.getUint16(index * 2, true);
+    const sign = bits & 0x8000 ? -1 : 1;
+    const exponent = (bits >>> 10) & 0x1f;
+    const mantissa = bits & 0x03ff;
+    if (exponent === 0) result[index] = sign * mantissa * 2 ** -24;
+    else if (exponent === 0x1f)
+      result[index] = mantissa === 0 ? sign * Number.POSITIVE_INFINITY : Number.NaN;
+    else result[index] = sign * (1 + mantissa / 1024) * 2 ** (exponent - 15);
+  }
+  return result;
+}
+
+async function fetchVerifiedFloat16(
   url: string,
   expected: ArtifactDescriptor,
   signal: AbortSignal,
 ): Promise<Float32Array> {
   const buffer = await fetchVerifiedBytes(url, expected, "Held-out asset", signal);
   if (!isLittleEndian()) throw new Error("Held-out float assets require a little-endian browser.");
-  return new Float32Array(buffer);
+  return decodeFloat16LittleEndian(buffer);
 }
 
 async function fetchVerifiedBytes(
