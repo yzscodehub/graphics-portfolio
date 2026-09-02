@@ -397,8 +397,11 @@ function normalizePrimitive(primitive, index, materialCount, instanceCount) {
     fail(`primitives[${index}].indirect.instanceCount does not match its state.`);
   if (instanceOffset + indirectInstanceCount > instanceCount)
     fail(`primitives[${index}].indirect range exceeds instance buffer.`);
-  const screenError = requireFinite(source.screenError ?? 0, `primitives[${index}].screenError`);
-  if (screenError < 0) fail(`primitives[${index}].screenError must not be negative.`);
+  const relativeError = requireFinite(
+    source.relativeError ?? 0,
+    `primitives[${index}].relativeError`,
+  );
+  if (relativeError < 0) fail(`primitives[${index}].relativeError must not be negative.`);
   return {
     meshIndex,
     lod,
@@ -407,7 +410,7 @@ function normalizePrimitive(primitive, index, materialCount, instanceCount) {
     materialIndex,
     vertices: normalizedVertices,
     indices: normalizedIndices,
-    screenError,
+    relativeError,
     instanceOffset,
     indirect: { instanceCount: indirectInstanceCount, firstInstance },
   };
@@ -478,8 +481,11 @@ export function validateResearchCourtyardInput(input) {
         lods[1].vertices.length < lods[2].vertices.length
       )
         fail(`mesh ${meshIndex} must use non-increasing LOD vertex counts.`);
-      if (lods[0].screenError >= lods[1].screenError || lods[1].screenError >= lods[2].screenError)
-        fail(`mesh ${meshIndex} must use strictly increasing screen errors.`);
+      if (
+        lods[0].relativeError >= lods[1].relativeError ||
+        lods[1].relativeError >= lods[2].relativeError
+      )
+        fail(`mesh ${meshIndex} must use strictly increasing relative errors.`);
     } else if (lodPolicy === "preserved") {
       if (
         lods.some((lod) => lod.state !== "draw") ||
@@ -487,7 +493,7 @@ export function validateResearchCourtyardInput(input) {
         lods[1].indices.length !== lods[2].indices.length ||
         lods[0].vertices.length !== lods[1].vertices.length ||
         lods[1].vertices.length !== lods[2].vertices.length ||
-        lods.some((lod) => lod.screenError !== 0)
+        lods.some((lod) => lod.relativeError !== 0)
       )
         fail(`mesh ${meshIndex} preserved LODs must retain identical geometry and zero error.`);
     } else if (
@@ -496,8 +502,8 @@ export function validateResearchCourtyardInput(input) {
       lods[2].state !== "culled" ||
       lods[0].indices.length < lods[1].indices.length ||
       lods[0].vertices.length < lods[1].vertices.length ||
-      lods[0].screenError > lods[1].screenError ||
-      lods[2].screenError < lods[1].screenError
+      lods[0].relativeError > lods[1].relativeError ||
+      lods[2].relativeError < lods[1].relativeError
     )
       fail(
         `mesh ${meshIndex} culled-at-lod2 requires draw/draw/culled with non-increasing geometry.`,
@@ -628,7 +634,7 @@ export function encodeResearchCourtyardBinary(input) {
         indexCount: primitive.indices.length,
         baseVertex: lodBaseVertex,
         vertexCount: primitive.vertices.length,
-        screenError: primitive.screenError,
+        relativeError: primitive.relativeError,
         indirectByteOffset: commandIndex * INDEXED_INDIRECT_STRIDE,
         instanceOffset: primitive.instanceOffset,
         instanceCount: primitive.indirect.instanceCount,

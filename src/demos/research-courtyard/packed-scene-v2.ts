@@ -45,7 +45,7 @@ export interface PackedSceneV2Lod {
   firstIndex: number;
   indexCount: number;
   vertexCount: number;
-  screenError: number;
+  relativeError: number;
   indirectByteOffset: number;
   instanceOffset: number;
   instanceCount: number;
@@ -321,7 +321,7 @@ function parseMeshes(value: unknown): PackedSceneV2Mesh[] {
         firstIndex: integer(item.firstIndex, `${lodPath}.firstIndex`),
         indexCount,
         vertexCount: integer(item.vertexCount, `${lodPath}.vertexCount`),
-        screenError: finite(item.screenError, `${lodPath}.screenError`, 0),
+        relativeError: finite(item.relativeError, `${lodPath}.relativeError`, 0),
         indirectByteOffset: integer(item.indirectByteOffset, `${lodPath}.indirectByteOffset`),
         instanceOffset: integer(item.instanceOffset, `${lodPath}.instanceOffset`),
         instanceCount: integer(item.instanceCount, `${lodPath}.instanceCount`),
@@ -345,8 +345,8 @@ function parseMeshes(value: unknown): PackedSceneV2Mesh[] {
         fail(`${path}.lods`, "must use real, strictly decreasing LOD index counts");
       if (lod0.vertexCount < lod1.vertexCount || lod1.vertexCount < lod2.vertexCount)
         fail(`${path}.lods`, "must have non-increasing vertex counts");
-      if (lod0.screenError >= lod1.screenError || lod1.screenError >= lod2.screenError)
-        fail(`${path}.lods`, "must have strictly increasing screen error");
+      if (lod0.relativeError >= lod1.relativeError || lod1.relativeError >= lod2.relativeError)
+        fail(`${path}.lods`, "must have strictly increasing relative error");
     } else if (lodPolicy === "preserved") {
       if (
         parsed.some((lod) => lod.state !== "draw") ||
@@ -354,7 +354,7 @@ function parseMeshes(value: unknown): PackedSceneV2Mesh[] {
         lod1.indexCount !== lod2.indexCount ||
         lod0.vertexCount !== lod1.vertexCount ||
         lod1.vertexCount !== lod2.vertexCount ||
-        parsed.some((lod) => lod.screenError !== 0)
+        parsed.some((lod) => lod.relativeError !== 0)
       )
         fail(`${path}.lods`, "preserved LODs must retain identical geometry and zero error");
     } else if (
@@ -363,8 +363,8 @@ function parseMeshes(value: unknown): PackedSceneV2Mesh[] {
       lod2.state !== "culled" ||
       lod0.indexCount < lod1.indexCount ||
       lod0.vertexCount < lod1.vertexCount ||
-      lod0.screenError > lod1.screenError ||
-      lod2.screenError < lod1.screenError
+      lod0.relativeError > lod1.relativeError ||
+      lod2.relativeError < lod1.relativeError
     )
       fail(`${path}.lods`, "culled-at-lod2 requires draw/draw/culled with non-increasing geometry");
     return { id, lodPolicy, lods: parsed };

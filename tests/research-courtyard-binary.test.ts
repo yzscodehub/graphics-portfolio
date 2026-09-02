@@ -84,7 +84,7 @@ function sourceScene() {
         meshIndex: 0,
         lod: 2,
         materialIndex: 0,
-        screenError: 4,
+        relativeError: 4,
         instanceOffset: 0,
         indirect: { instanceCount: 1, firstInstance: 0 },
         ...geometry(0.25, 0.25, 1),
@@ -93,7 +93,7 @@ function sourceScene() {
         meshIndex: 0,
         lod: 0,
         materialIndex: 0,
-        screenError: 0.25,
+        relativeError: 0.25,
         instanceOffset: 0,
         indirect: { instanceCount: 1, firstInstance: 0 },
         ...geometry(0.5, 1, 3),
@@ -102,7 +102,7 @@ function sourceScene() {
         meshIndex: 0,
         lod: 1,
         materialIndex: 0,
-        screenError: 1,
+        relativeError: 1,
         instanceOffset: 0,
         indirect: { instanceCount: 1, firstInstance: 0 },
         ...geometry(0.375, 0.5, 2),
@@ -247,7 +247,7 @@ describe("Research Courtyard deterministic binary encoder", () => {
             firstIndex: number;
             indexCount: number;
             vertexCount: number;
-            screenError: number;
+            relativeError: number;
             indirectByteOffset: number;
             instanceOffset: number;
             instanceCount: number;
@@ -263,7 +263,7 @@ describe("Research Courtyard deterministic binary encoder", () => {
           firstIndex: lod.firstIndex,
           indexCount: lod.indexCount,
           vertexCount: lod.vertexCount,
-          screenError: lod.screenError,
+          relativeError: lod.relativeError,
           indirectByteOffset: lod.indirectByteOffset,
           instanceOffset: lod.instanceOffset,
           instanceCount: lod.instanceCount,
