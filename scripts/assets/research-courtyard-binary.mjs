@@ -349,20 +349,30 @@ function normalizePrimitive(primitive, index, materialCount, instanceCount) {
   const source = requireRecord(primitive, `primitives[${index}]`);
   const meshIndex = requireUint(source.meshIndex, `primitives[${index}].meshIndex`);
   const lod = requireUint(source.lod, `primitives[${index}].lod`, 2);
+  const state = source.state ?? "draw";
+  if (state !== "draw" && state !== "culled")
+    fail(`primitives[${index}].state must be draw or culled.`);
   const lodPolicy = source.lodPolicy ?? "simplified";
-  if (lodPolicy !== "simplified" && lodPolicy !== "preserved")
-    fail(`primitives[${index}].lodPolicy must be simplified or preserved.`);
+  if (lodPolicy !== "simplified" && lodPolicy !== "preserved" && lodPolicy !== "culled-at-lod2")
+    fail(`primitives[${index}].lodPolicy must be simplified, preserved, or culled-at-lod2.`);
   const materialIndex = requireUint(source.materialIndex, `primitives[${index}].materialIndex`);
   if (materialIndex >= materialCount)
     fail(`primitives[${index}].materialIndex ${materialIndex} is out of range.`);
   const vertices = requireList(source.vertices, `primitives[${index}].vertices`);
-  if (vertices.length === 0) fail(`primitives[${index}].vertices must not be empty.`);
+  if (state === "draw" && vertices.length === 0)
+    fail(`primitives[${index}].vertices must not be empty when drawn.`);
+  if (state === "culled" && vertices.length !== 0)
+    fail(`primitives[${index}].vertices must be empty when culled.`);
   const normalizedVertices = vertices.map((vertex, vertexIndex) =>
     normalizeVertex(vertex, `primitives[${index}].vertices[${vertexIndex}]`),
   );
   const indices = requireList(source.indices, `primitives[${index}].indices`);
-  if (indices.length === 0 || indices.length % 3 !== 0)
-    fail(`primitives[${index}].indices must be a non-empty triangle list.`);
+  if (
+    indices.length % 3 !== 0 ||
+    (state === "draw" && indices.length === 0) ||
+    (state === "culled" && indices.length !== 0)
+  )
+    fail(`primitives[${index}].indices must match draw/culled state and remain triangle aligned.`);
   const normalizedIndices = indices.map((value, indexIndex) => {
     const result = requireUint(value, `primitives[${index}].indices[${indexIndex}]`);
     if (result >= normalizedVertices.length)
@@ -379,28 +389,33 @@ function normalizePrimitive(primitive, index, materialCount, instanceCount) {
     `primitives[${index}].indirect.firstInstance`,
   );
   if (firstInstance !== 0) fail(`primitives[${index}].indirect.firstInstance must be zero.`);
-  if (firstInstance + indirectInstanceCount > instanceCount)
+  const instanceOffset = requireUint(source.instanceOffset, `primitives[${index}].instanceOffset`);
+  if (
+    (state === "draw" && indirectInstanceCount === 0) ||
+    (state === "culled" && indirectInstanceCount !== 0)
+  )
+    fail(`primitives[${index}].indirect.instanceCount does not match its state.`);
+  if (instanceOffset + indirectInstanceCount > instanceCount)
     fail(`primitives[${index}].indirect range exceeds instance buffer.`);
   const screenError = requireFinite(source.screenError ?? 0, `primitives[${index}].screenError`);
   if (screenError < 0) fail(`primitives[${index}].screenError must not be negative.`);
   return {
     meshIndex,
     lod,
+    state,
     lodPolicy,
     materialIndex,
     vertices: normalizedVertices,
     indices: normalizedIndices,
     screenError,
+    instanceOffset,
     indirect: { instanceCount: indirectInstanceCount, firstInstance },
   };
 }
 
 export function validateResearchCourtyardInput(input) {
   const source = requireRecord(input, "input");
-  const textureCount =
-    source.textureCount === undefined
-      ? undefined
-      : requireUint(source.textureCount, "textureCount");
+  const textureCount = requireUint(source.textureCount, "textureCount");
   const materialsSource = requireList(source.materials, "materials");
   if (materialsSource.length === 0) fail("materials must not be empty.");
   const materials = materialsSource.map((material, index) =>
@@ -432,7 +447,27 @@ export function validateResearchCourtyardInput(input) {
     const policies = new Set(lods.map((lod) => lod.lodPolicy));
     if (policies.size !== 1) fail(`mesh ${meshIndex} must keep one LOD policy.`);
     const lodPolicy = lods[0].lodPolicy;
+    const instanceIndices = instances
+      .map((instance, instanceIndex) => ({ instance, instanceIndex }))
+      .filter(({ instance }) => instance.meshIndex === meshIndex)
+      .map(({ instanceIndex }) => instanceIndex);
+    if (instanceIndices.length === 0)
+      fail(`mesh ${meshIndex} must be referenced by at least one instance.`);
+    const instanceOffset = instanceIndices[0];
+    if (instanceIndices.some((instanceIndex, offset) => instanceIndex !== instanceOffset + offset))
+      fail(`mesh ${meshIndex} instances must occupy one contiguous span.`);
+    for (const lod of lods) {
+      if (lod.instanceOffset !== instanceOffset)
+        fail(`mesh ${meshIndex} LOD instanceOffset must match its global span.`);
+      if (
+        (lod.state === "draw" && lod.indirect.instanceCount !== instanceIndices.length) ||
+        (lod.state === "culled" && lod.indirect.instanceCount !== 0)
+      )
+        fail(`mesh ${meshIndex} LOD instanceCount must match its state and mesh span.`);
+    }
     if (lodPolicy === "simplified") {
+      if (lods.some((lod) => lod.state !== "draw"))
+        fail(`mesh ${meshIndex} simplified LODs must all be drawn.`);
       if (
         lods[0].indices.length <= lods[1].indices.length ||
         lods[1].indices.length <= lods[2].indices.length
@@ -445,17 +480,31 @@ export function validateResearchCourtyardInput(input) {
         fail(`mesh ${meshIndex} must use non-increasing LOD vertex counts.`);
       if (lods[0].screenError >= lods[1].screenError || lods[1].screenError >= lods[2].screenError)
         fail(`mesh ${meshIndex} must use strictly increasing screen errors.`);
+    } else if (lodPolicy === "preserved") {
+      if (
+        lods.some((lod) => lod.state !== "draw") ||
+        lods[0].indices.length !== lods[1].indices.length ||
+        lods[1].indices.length !== lods[2].indices.length ||
+        lods[0].vertices.length !== lods[1].vertices.length ||
+        lods[1].vertices.length !== lods[2].vertices.length ||
+        lods.some((lod) => lod.screenError !== 0)
+      )
+        fail(`mesh ${meshIndex} preserved LODs must retain identical geometry and zero error.`);
     } else if (
-      lods[0].indices.length !== lods[1].indices.length ||
-      lods[1].indices.length !== lods[2].indices.length ||
-      lods[0].vertices.length !== lods[1].vertices.length ||
-      lods[1].vertices.length !== lods[2].vertices.length ||
-      lods.some((lod) => lod.screenError !== 0)
+      lods[0].state !== "draw" ||
+      lods[1].state !== "draw" ||
+      lods[2].state !== "culled" ||
+      lods[0].indices.length < lods[1].indices.length ||
+      lods[0].vertices.length < lods[1].vertices.length ||
+      lods[0].screenError > lods[1].screenError ||
+      lods[2].screenError < lods[1].screenError
     )
-      fail(`mesh ${meshIndex} preserved LODs must retain identical geometry and zero error.`);
+      fail(
+        `mesh ${meshIndex} culled-at-lod2 requires draw/draw/culled with non-increasing geometry.`,
+      );
     if (new Set(lods.map((lod) => lod.materialIndex)).size !== 1)
       fail(`mesh ${meshIndex} must keep one material across all LODs.`);
-    meshes.push({ meshIndex, lodPolicy, lods });
+    meshes.push({ meshIndex, lodPolicy, instanceOffset, lods });
   }
   return { textureCount, materials, instances, meshes };
 }
@@ -507,6 +556,7 @@ export function buildResearchCourtyardBinaryMetadata({ buffers, meshes }) {
     meshes: meshes.map((mesh) => ({
       meshIndex: mesh.meshIndex,
       lodPolicy: mesh.lodPolicy,
+      instanceOffset: mesh.instanceOffset,
       lods: mesh.lods.map((lod) => ({ ...lod })),
     })),
   };
@@ -572,13 +622,15 @@ export function encodeResearchCourtyardBinary(input) {
       });
       const metadata = {
         lod: primitive.lod,
+        state: primitive.state,
         materialIndex: primitive.materialIndex,
         firstIndex: lodFirstIndex,
         indexCount: primitive.indices.length,
         baseVertex: lodBaseVertex,
         vertexCount: primitive.vertices.length,
         screenError: primitive.screenError,
-        indirectOffset: commandIndex * INDEXED_INDIRECT_STRIDE,
+        indirectByteOffset: commandIndex * INDEXED_INDIRECT_STRIDE,
+        instanceOffset: primitive.instanceOffset,
         instanceCount: primitive.indirect.instanceCount,
         firstInstance: primitive.indirect.firstInstance,
       };
@@ -678,6 +730,8 @@ export function validateResearchCourtyardPackedBuffers(encoded) {
     const lods = requireList(mesh.lods, "metadata mesh lods");
     if (lods.length !== 3) fail("every metadata mesh must contain three LOD records.");
     for (const lod of lods) {
+      if (lod.state !== "draw" && lod.state !== "culled")
+        fail("metadata LOD state must be draw or culled.");
       const firstIndex = requireUint(lod.firstIndex, "metadata firstIndex");
       const indexCount = requireUint(lod.indexCount, "metadata indexCount");
       const vertexCount = requireUint(lod.vertexCount, "metadata vertexCount");
@@ -690,6 +744,8 @@ export function validateResearchCourtyardPackedBuffers(encoded) {
         if (indexView.getUint32((firstIndex + index) * INDEX_STRIDE, true) >= vertexCount)
           fail("local index exceeds its LOD vertex range.");
       const commandOffset = commandIndex * INDEXED_INDIRECT_STRIDE;
+      if (lod.indirectByteOffset !== commandOffset)
+        fail("metadata indirectByteOffset does not match deterministic command order.");
       if (
         indirectView.getUint32(commandOffset + 0, true) !== indexCount ||
         indirectView.getUint32(commandOffset + 8, true) !== firstIndex ||
@@ -699,8 +755,16 @@ export function validateResearchCourtyardPackedBuffers(encoded) {
       const firstInstance = indirectView.getUint32(commandOffset + 16, true);
       const instanceCount = indirectView.getUint32(commandOffset + 4, true);
       if (firstInstance !== 0) fail("indirect firstInstance must remain zero.");
-      if (firstInstance + instanceCount > instanceResult.count)
-        fail("indirect instance range exceeds instance buffer.");
+      const instanceOffset = requireUint(lod.instanceOffset, "metadata instanceOffset");
+      if (instanceCount !== lod.instanceCount)
+        fail("indirect instanceCount does not match LOD metadata.");
+      if (instanceOffset + instanceCount > instanceResult.count)
+        fail("logical instance range exceeds instance buffer.");
+      if (
+        (lod.state === "draw" && (indexCount === 0 || vertexCount === 0 || instanceCount === 0)) ||
+        (lod.state === "culled" && (indexCount !== 0 || vertexCount !== 0 || instanceCount !== 0))
+      )
+        fail("LOD state does not match encoded geometry and instance counts.");
       commandIndex += 1;
     }
   }

@@ -22,25 +22,37 @@ function pack(fence = false): Record<string, unknown> {
       lodPolicy: "simplified",
       lods: [
         {
+          state: "draw",
           baseVertex: 0,
           firstIndex: 0,
           indexCount: 12,
           vertexCount: 8,
           screenError: 0,
+          indirectByteOffset: 0,
+          instanceOffset: 0,
+          instanceCount: 1,
         },
         {
+          state: "draw",
           baseVertex: 8,
           firstIndex: 12,
           indexCount: 6,
           vertexCount: 6,
           screenError: 1,
+          indirectByteOffset: 32,
+          instanceOffset: 0,
+          instanceCount: 1,
         },
         {
+          state: "draw",
           baseVertex: 14,
           firstIndex: 18,
           indexCount: 3,
           vertexCount: 3,
           screenError: 2,
+          indirectByteOffset: 64,
+          instanceOffset: 0,
+          instanceCount: 1,
         },
       ],
     },
@@ -77,25 +89,37 @@ function pack(fence = false): Record<string, unknown> {
       lodPolicy: "simplified",
       lods: [
         {
+          state: "draw",
           baseVertex: 17,
           firstIndex: 21,
           indexCount: 12,
           vertexCount: 8,
           screenError: 0,
+          indirectByteOffset: 96,
+          instanceOffset: 1,
+          instanceCount: 1,
         },
         {
+          state: "draw",
           baseVertex: 25,
           firstIndex: 33,
           indexCount: 6,
           vertexCount: 6,
           screenError: 1,
+          indirectByteOffset: 128,
+          instanceOffset: 1,
+          instanceCount: 1,
         },
         {
+          state: "draw",
           baseVertex: 31,
           firstIndex: 39,
           indexCount: 3,
           vertexCount: 3,
           screenError: 2,
+          indirectByteOffset: 160,
+          instanceOffset: 1,
+          instanceCount: 1,
         },
       ],
     });
@@ -202,17 +226,43 @@ describe("Research Courtyard Pack v2", () => {
     const mesh = (preserved.meshes as Array<Record<string, unknown>>)[0];
     mesh.lodPolicy = "preserved";
     mesh.lods = [0, 1, 2].map((lod) => ({
+      state: "draw",
       baseVertex: lod * 3,
       firstIndex: lod * 3,
       indexCount: 3,
       vertexCount: 3,
       screenError: 0,
+      indirectByteOffset: lod * 32,
+      instanceOffset: 0,
+      instanceCount: 1,
     }));
     const transport = preserved.transport as Record<string, unknown>;
     (transport.vertices as Record<string, unknown>).bytes = 9 * 32;
     (transport.indices as Record<string, unknown>).bytes = 9 * 4;
     expect(parsePackedSceneV2(preserved).meshes[0]).toMatchObject({
       lodPolicy: "preserved",
+    });
+  });
+
+  it("represents a recipe-dropped drawable as a zero-count LOD2 command", () => {
+    const culled = pack();
+    const mesh = (culled.meshes as Array<Record<string, unknown>>)[0];
+    mesh.lodPolicy = "culled-at-lod2";
+    const lod2 = (mesh.lods as Array<Record<string, unknown>>)[2];
+    Object.assign(lod2, {
+      state: "culled",
+      baseVertex: 14,
+      firstIndex: 18,
+      indexCount: 0,
+      vertexCount: 0,
+      instanceCount: 0,
+    });
+    const transport = culled.transport as Record<string, unknown>;
+    (transport.vertices as Record<string, unknown>).bytes = 14 * 32;
+    (transport.indices as Record<string, unknown>).bytes = 18 * 4;
+    expect(parsePackedSceneV2(culled).meshes[0]).toMatchObject({
+      lodPolicy: "culled-at-lod2",
+      lods: [{ state: "draw" }, { state: "draw" }, { state: "culled" }],
     });
   });
 

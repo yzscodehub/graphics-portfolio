@@ -40,16 +40,20 @@ export interface PackedSceneV2Texture {
 }
 
 export interface PackedSceneV2Lod {
+  state: "draw" | "culled";
   baseVertex: number;
   firstIndex: number;
   indexCount: number;
   vertexCount: number;
   screenError: number;
+  indirectByteOffset: number;
+  instanceOffset: number;
+  instanceCount: number;
 }
 
 export interface PackedSceneV2Mesh {
   id: string;
-  lodPolicy: "simplified" | "preserved";
+  lodPolicy: "simplified" | "preserved" | "culled-at-lod2";
   lods: readonly [PackedSceneV2Lod, PackedSceneV2Lod, PackedSceneV2Lod];
 }
 
@@ -89,7 +93,7 @@ export interface PackedSceneV2Transport {
 export interface PackedSceneV2 {
   format: typeof PACKED_SCENE_V2_FORMAT;
   version: typeof PACKED_SCENE_V2_VERSION;
-  placeholder: boolean;
+  placeholder: false;
   coordinateSystem: typeof PACKED_SCENE_V2_COORDINATE_SYSTEM;
   indexFormat: "uint32";
   meshes: readonly PackedSceneV2Mesh[];
@@ -299,39 +303,70 @@ function parseMeshes(value: unknown): PackedSceneV2Mesh[] {
     if (ids.has(id)) fail(`${path}.id`, "must be unique");
     ids.add(id);
     const lodPolicy = text(source.lodPolicy, `${path}.lodPolicy`);
-    if (lodPolicy !== "simplified" && lodPolicy !== "preserved")
-      fail(`${path}.lodPolicy`, "must be simplified or preserved");
+    if (lodPolicy !== "simplified" && lodPolicy !== "preserved" && lodPolicy !== "culled-at-lod2")
+      fail(`${path}.lodPolicy`, "must be simplified, preserved, or culled-at-lod2");
     const entries = list(source.lods, `${path}.lods`);
     if (entries.length !== 3) fail(`${path}.lods`, "must contain LOD0, LOD1, and LOD2");
     const parsed = entries.map((lod, lodIndex) => {
       const lodPath = `${path}.lods[${lodIndex}]`;
       const item = object(lod, lodPath);
-      const indexCount = integer(item.indexCount, `${lodPath}.indexCount`, 3);
+      const state = text(item.state, `${lodPath}.state`);
+      if (state !== "draw" && state !== "culled")
+        fail(`${lodPath}.state`, "must be draw or culled");
+      const indexCount = integer(item.indexCount, `${lodPath}.indexCount`);
       if (indexCount % 3 !== 0) fail(`${lodPath}.indexCount`, "must be triangle aligned");
-      return {
+      const parsedLod: PackedSceneV2Lod = {
+        state,
         baseVertex: integer(item.baseVertex, `${lodPath}.baseVertex`),
         firstIndex: integer(item.firstIndex, `${lodPath}.firstIndex`),
         indexCount,
-        vertexCount: integer(item.vertexCount, `${lodPath}.vertexCount`, 3),
+        vertexCount: integer(item.vertexCount, `${lodPath}.vertexCount`),
         screenError: finite(item.screenError, `${lodPath}.screenError`, 0),
+        indirectByteOffset: integer(item.indirectByteOffset, `${lodPath}.indirectByteOffset`),
+        instanceOffset: integer(item.instanceOffset, `${lodPath}.instanceOffset`),
+        instanceCount: integer(item.instanceCount, `${lodPath}.instanceCount`),
       };
+      if (state === "draw") {
+        if (parsedLod.indexCount < 3 || parsedLod.vertexCount < 3 || parsedLod.instanceCount < 1)
+          fail(lodPath, "draw LODs require geometry and at least one instance");
+      } else if (
+        parsedLod.indexCount !== 0 ||
+        parsedLod.vertexCount !== 0 ||
+        parsedLod.instanceCount !== 0
+      )
+        fail(lodPath, "culled LODs must have zero geometry and instance count");
+      return parsedLod;
     }) as [PackedSceneV2Lod, PackedSceneV2Lod, PackedSceneV2Lod];
     const [lod0, lod1, lod2] = parsed;
     if (lodPolicy === "simplified") {
+      if (parsed.some((lod) => lod.state !== "draw"))
+        fail(`${path}.lods`, "simplified LODs must all be draw states");
       if (lod0.indexCount <= lod1.indexCount || lod1.indexCount <= lod2.indexCount)
         fail(`${path}.lods`, "must use real, strictly decreasing LOD index counts");
       if (lod0.vertexCount < lod1.vertexCount || lod1.vertexCount < lod2.vertexCount)
         fail(`${path}.lods`, "must have non-increasing vertex counts");
       if (lod0.screenError >= lod1.screenError || lod1.screenError >= lod2.screenError)
         fail(`${path}.lods`, "must have strictly increasing screen error");
+    } else if (lodPolicy === "preserved") {
+      if (
+        parsed.some((lod) => lod.state !== "draw") ||
+        lod0.indexCount !== lod1.indexCount ||
+        lod1.indexCount !== lod2.indexCount ||
+        lod0.vertexCount !== lod1.vertexCount ||
+        lod1.vertexCount !== lod2.vertexCount ||
+        parsed.some((lod) => lod.screenError !== 0)
+      )
+        fail(`${path}.lods`, "preserved LODs must retain identical geometry and zero error");
     } else if (
-      lod0.indexCount !== lod1.indexCount ||
-      lod1.indexCount !== lod2.indexCount ||
-      lod0.vertexCount !== lod1.vertexCount ||
-      lod1.vertexCount !== lod2.vertexCount ||
-      parsed.some((lod) => lod.screenError !== 0)
+      lod0.state !== "draw" ||
+      lod1.state !== "draw" ||
+      lod2.state !== "culled" ||
+      lod0.indexCount < lod1.indexCount ||
+      lod0.vertexCount < lod1.vertexCount ||
+      lod0.screenError > lod1.screenError ||
+      lod2.screenError < lod1.screenError
     )
-      fail(`${path}.lods`, "preserved LODs must retain identical geometry and zero error");
+      fail(`${path}.lods`, "culled-at-lod2 requires draw/draw/culled with non-increasing geometry");
     return { id, lodPolicy, lods: parsed };
   });
 }
@@ -467,29 +502,65 @@ function validatePack(
     pack.meshes.length * 3
   )
     fail("transport.indirect.bytes", "must contain exactly three commands per mesh");
-  pack.meshes.forEach((mesh, meshIndex) =>
+  pack.meshes.forEach((mesh, meshIndex) => {
+    const instanceIndices = pack.instances
+      .map((instance, instanceIndex) => ({ instance, instanceIndex }))
+      .filter(({ instance }) => instance.meshIndex === meshIndex)
+      .map(({ instanceIndex }) => instanceIndex);
+    if (instanceIndices.length === 0)
+      fail(`meshes[${meshIndex}]`, "must be referenced by at least one instance");
+    const instanceOffset = instanceIndices[0];
+    if (instanceIndices.some((instanceIndex, offset) => instanceIndex !== instanceOffset + offset))
+      fail(`meshes[${meshIndex}]`, "instances must occupy one contiguous mesh-local span");
     mesh.lods.forEach((lod, lodIndex) => {
       const path = `meshes[${meshIndex}].lods[${lodIndex}]`;
+      if (
+        lod.indirectByteOffset !==
+        (meshIndex * 3 + lodIndex) * PACKED_SCENE_V2_INDEXED_INDIRECT_STRIDE_BYTES
+      )
+        fail(
+          `${path}.indirectByteOffset`,
+          "must identify the mesh/LOD command in deterministic order",
+        );
+      if (lod.instanceOffset !== instanceOffset)
+        fail(
+          `${path}.instanceOffset`,
+          "must identify the mesh-local span in the global instance buffer",
+        );
+      if (
+        (lod.state === "draw" && lod.instanceCount !== instanceIndices.length) ||
+        (lod.state === "culled" && lod.instanceCount !== 0)
+      )
+        fail(
+          `${path}.instanceCount`,
+          "must cover the complete mesh span when drawn and zero it when culled",
+        );
+      if (lod.instanceOffset + lod.instanceCount > pack.instances.length)
+        fail(`${path}.instanceOffset`, "instance span exceeds the instance buffer");
       if (lod.baseVertex + lod.vertexCount > vertexCapacity)
         fail(`${path}.baseVertex`, "exceeds vertex buffer");
       if (lod.firstIndex + lod.indexCount > indexCapacity)
         fail(`${path}.firstIndex`, "exceeds index buffer");
-    }),
-  );
+    });
+  });
   const vertexRanges = pack.meshes
     .flatMap((mesh) =>
-      mesh.lods.map((lod) => ({
-        start: lod.baseVertex,
-        end: lod.baseVertex + lod.vertexCount,
-      })),
+      mesh.lods
+        .filter((lod) => lod.state === "draw")
+        .map((lod) => ({
+          start: lod.baseVertex,
+          end: lod.baseVertex + lod.vertexCount,
+        })),
     )
     .sort((left, right) => left.start - right.start);
   const indexRanges = pack.meshes
     .flatMap((mesh) =>
-      mesh.lods.map((lod) => ({
-        start: lod.firstIndex,
-        end: lod.firstIndex + lod.indexCount,
-      })),
+      mesh.lods
+        .filter((lod) => lod.state === "draw")
+        .map((lod) => ({
+          start: lod.firstIndex,
+          end: lod.firstIndex + lod.indexCount,
+        })),
     )
     .sort((left, right) => left.start - right.start);
   const requireExactCoverage = (
@@ -529,7 +600,8 @@ export function parsePackedSceneV2(value: unknown): PackedSceneV2 {
     fail("version", `must equal ${PACKED_SCENE_V2_VERSION}`);
   if (text(source.coordinateSystem, "coordinateSystem") !== PACKED_SCENE_V2_COORDINATE_SYSTEM)
     fail("coordinateSystem", `must equal ${PACKED_SCENE_V2_COORDINATE_SYSTEM}`);
-  if (typeof source.placeholder !== "boolean") fail("placeholder", "must be boolean");
+  if (source.placeholder !== false)
+    fail("placeholder", "reviewed Pack v2 must not be a placeholder");
   if (text(source.indexFormat, "indexFormat") !== "uint32") fail("indexFormat", "must be uint32");
   exactLayout(
     source.vertexLayout,
@@ -569,7 +641,7 @@ export function parsePackedSceneV2(value: unknown): PackedSceneV2 {
   const pack: PackedSceneV2 = {
     format: PACKED_SCENE_V2_FORMAT,
     version: PACKED_SCENE_V2_VERSION,
-    placeholder: source.placeholder,
+    placeholder: false,
     coordinateSystem: PACKED_SCENE_V2_COORDINATE_SYSTEM,
     indexFormat: "uint32",
     meshes: parsedMeshes,

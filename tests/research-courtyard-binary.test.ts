@@ -14,6 +14,13 @@ import {
   unpackTangentSnorm16x4,
   validateResearchCourtyardPackedBuffers,
 } from "../scripts/assets/research-courtyard-binary.mjs";
+import {
+  PACKED_SCENE_V2_INDEXED_INDIRECT_LAYOUT,
+  PACKED_SCENE_V2_INSTANCE_LAYOUT,
+  PACKED_SCENE_V2_MATERIAL_LAYOUT,
+  PACKED_SCENE_V2_VERTEX_LAYOUT,
+  parsePackedSceneV2,
+} from "../src/demos/research-courtyard/packed-scene-v2";
 
 const identity = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0];
 
@@ -78,6 +85,7 @@ function sourceScene() {
         lod: 2,
         materialIndex: 0,
         screenError: 4,
+        instanceOffset: 0,
         indirect: { instanceCount: 1, firstInstance: 0 },
         ...geometry(0.25, 0.25, 1),
       },
@@ -86,6 +94,7 @@ function sourceScene() {
         lod: 0,
         materialIndex: 0,
         screenError: 0.25,
+        instanceOffset: 0,
         indirect: { instanceCount: 1, firstInstance: 0 },
         ...geometry(0.5, 1, 3),
       },
@@ -94,6 +103,7 @@ function sourceScene() {
         lod: 1,
         materialIndex: 0,
         screenError: 1,
+        instanceOffset: 0,
         indirect: { instanceCount: 1, firstInstance: 0 },
         ...geometry(0.375, 0.5, 2),
       },
@@ -173,7 +183,9 @@ describe("Research Courtyard deterministic binary encoder", () => {
     });
     const lods = encoded.metadata.meshes[0].lods;
     expect(lods.map((lod: { lod: number }) => lod.lod)).toEqual([0, 1, 2]);
-    expect(lods.map((lod: { indirectOffset: number }) => lod.indirectOffset)).toEqual([0, 32, 64]);
+    expect(lods.map((lod: { indirectByteOffset: number }) => lod.indirectByteOffset)).toEqual([
+      0, 32, 64,
+    ]);
     expect(validateResearchCourtyardPackedBuffers(encoded)).toMatchObject({
       vertices: 9,
       indices: 18,
@@ -191,6 +203,164 @@ describe("Research Courtyard deterministic binary encoder", () => {
       expect(new Uint8Array(left.buffers[name])).toEqual(new Uint8Array(right.buffers[name]));
     }
     expect(left.metadata).toEqual(right.metadata);
+  });
+
+  it("encodes an explicit zero-count LOD2 cull without indirect-first-instance", () => {
+    const scene = sourceScene();
+    for (const primitive of scene.primitives)
+      Object.assign(primitive, {
+        lodPolicy: "culled-at-lod2",
+        state: "draw",
+      });
+    const lod2 = scene.primitives.find((primitive) => primitive.lod === 2);
+    if (!lod2) throw new Error("Expected fixture LOD2.");
+    Object.assign(lod2, {
+      state: "culled",
+      vertices: [],
+      indices: [],
+      indirect: { instanceCount: 0, firstInstance: 0 },
+    });
+    const encoded = encodeResearchCourtyardBinary(scene);
+    expect(encoded.metadata.meshes[0].lods[2]).toMatchObject({
+      state: "culled",
+      indexCount: 0,
+      vertexCount: 0,
+      instanceOffset: 0,
+      instanceCount: 0,
+      indirectByteOffset: 64,
+    });
+    const command = new DataView(encoded.buffers.indirect, 64, 32);
+    expect(command.getUint32(0, true)).toBe(0);
+    expect(command.getUint32(4, true)).toBe(0);
+    expect(command.getUint32(16, true)).toBe(0);
+  });
+
+  it("feeds encoder metadata directly into the strict Pack v2 parser", () => {
+    const encoded = encodeResearchCourtyardBinary(sourceScene());
+    const meshes = encoded.metadata.meshes.map(
+      (
+        mesh: {
+          lodPolicy: string;
+          lods: Array<{
+            state: string;
+            baseVertex: number;
+            firstIndex: number;
+            indexCount: number;
+            vertexCount: number;
+            screenError: number;
+            indirectByteOffset: number;
+            instanceOffset: number;
+            instanceCount: number;
+          }>;
+        },
+        index: number,
+      ) => ({
+        id: `mesh-${index}`,
+        lodPolicy: mesh.lodPolicy,
+        lods: mesh.lods.map((lod) => ({
+          state: lod.state,
+          baseVertex: lod.baseVertex,
+          firstIndex: lod.firstIndex,
+          indexCount: lod.indexCount,
+          vertexCount: lod.vertexCount,
+          screenError: lod.screenError,
+          indirectByteOffset: lod.indirectByteOffset,
+          instanceOffset: lod.instanceOffset,
+          instanceCount: lod.instanceCount,
+        })),
+      }),
+    );
+    const parsed = parsePackedSceneV2({
+      format: "graphics-portfolio-packed-scene",
+      version: 2,
+      placeholder: false,
+      coordinateSystem: "right-handed-y-up-meters",
+      indexFormat: "uint32",
+      vertexLayout: { strideBytes: 32, attributes: PACKED_SCENE_V2_VERTEX_LAYOUT },
+      materialLayout: {
+        strideBytes: 64,
+        attributes: PACKED_SCENE_V2_MATERIAL_LAYOUT,
+      },
+      instanceLayout: {
+        strideBytes: 128,
+        attributes: PACKED_SCENE_V2_INSTANCE_LAYOUT,
+      },
+      indirectCommandLayout: {
+        strideBytes: 32,
+        attributes: PACKED_SCENE_V2_INDEXED_INDIRECT_LAYOUT,
+      },
+      meshes,
+      materials: [
+        {
+          id: "fixture-mask",
+          role: "fence",
+          alphaMode: "MASK",
+          doubleSided: true,
+          baseColor: [0.8, 0.5, 0.2, 1],
+          emissive: [0, 0, 0],
+          metallic: 0.3,
+          roughness: 0.7,
+          alphaCutoff: 0.5,
+          normalScale: 1,
+          textureIndices: { baseColor: 0, normal: 1, orm: 2 },
+          flags: 3,
+        },
+      ],
+      instances: [
+        {
+          currentTransform: identity,
+          previousTransform: identity,
+          materialIndex: 0,
+          meshIndex: 0,
+          flags: 7,
+          worldSphere: [0, 0, 0, 2],
+        },
+      ],
+      renderPasses: { deferredOpaque: [], alphaMaskForward: [0] },
+      transport: {
+        vertices: {
+          uri: "courtyard/vertices.bin",
+          bytes: encoded.buffers.vertices.byteLength,
+        },
+        indices: {
+          uri: "courtyard/indices.bin",
+          bytes: encoded.buffers.indices.byteLength,
+        },
+        materials: {
+          uri: "courtyard/materials.bin",
+          bytes: encoded.buffers.materials.byteLength,
+        },
+        instances: {
+          uri: "courtyard/instances.bin",
+          bytes: encoded.buffers.instances.byteLength,
+        },
+        indirect: {
+          uri: "courtyard/indirect.bin",
+          bytes: encoded.buffers.indirect.byteLength,
+        },
+        textures: [
+          {
+            id: "base",
+            colorSpace: "srgb",
+            ktx2: "textures/base.ktx2",
+            webp: "textures/base.webp",
+          },
+          {
+            id: "normal",
+            colorSpace: "linear",
+            ktx2: "textures/normal.ktx2",
+            webp: "textures/normal.webp",
+          },
+          {
+            id: "orm",
+            colorSpace: "linear",
+            ktx2: "textures/orm.ktx2",
+            webp: "textures/orm.webp",
+          },
+        ],
+      },
+    });
+    expect(parsed.meshes[0].lods.map((lod) => lod.indirectByteOffset)).toEqual([0, 32, 64]);
   });
 
   it.each([
