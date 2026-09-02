@@ -24,7 +24,7 @@ test("uses the E2E server launched for this run", async ({ request }) => {
     summary: {
       rendering: {
         assetStatus: "preview-placeholder",
-        sourceLockStage: "metadata-locked",
+        sourceLockStage: "sources-reviewed",
       },
       acceptance: { status: "pending", hasReviewedRun: false },
       neural: { version: 2, guidedStatus: "candidate" },

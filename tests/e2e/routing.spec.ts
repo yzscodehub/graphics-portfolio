@@ -210,7 +210,7 @@ test("Demo evidence exposes implementation and pending hardware acceptance", asy
   ).toContainText("clustered-courtyard-proxy");
   await expect(
     page.locator(".demo-evidence-panel dt", { hasText: "ASSET STATE" }).locator("..").locator("dd"),
-  ).toContainText("preview-placeholder / metadata-locked");
+  ).toContainText("preview-placeholder / sources-reviewed");
 });
 
 test("the legacy gpu-particles URL exposes the upgraded GPU-driven study", async ({ page }) => {

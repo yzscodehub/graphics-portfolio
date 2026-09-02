@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "reviewId": "20260901-research-courtyard-v3b",
+  "sourceSetSha256": "db58e17d1190d4b4059e9b8af07cb4dc78edbc534b26bcf092e60a1461324aeb",
+  "reviewer": "yzscodehub",
+  "reviewedAt": "2026-09-02T04:52:22.926Z",
+  "packet": {
+    "path": ".cache/rendering-quarantine/20260901-research-courtyard-v3b/review-packet/machine.json",
+    "sha256": "5fca67eedd8da676ca0d78e9026ac499a0980982c4439501b90b37192a0cd59f"
+  }
+}

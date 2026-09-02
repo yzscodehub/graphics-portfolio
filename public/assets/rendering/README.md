@@ -4,6 +4,8 @@ This directory is intentionally small and auditable. The current Preview still s
 
 `sources.lock.json` is the v3 source-set lock for six meshes, four material sets, and one 1K Courtyard HDRI. It records official Poly Haven URLs, authors, CC0 licensing, API metadata, file sizes, MD5 values, exact selections, and a stable `sourceSetSha256`. Mutable machine state such as `downloaded` is deliberately not part of the lock.
 
+The current tracked state is `sources-reviewed`, bound to the human evidence descriptor for `20260901-research-courtyard-v3b`. It is not `integrated`: the public Preview must continue to identify and render the procedural placeholder until the processed scene and runtime manifests pass their separate gates.
+
 The source state is fail-closed:
 
 - `metadata-locked`: official metadata is fixed, but every source SHA-256 remains null.

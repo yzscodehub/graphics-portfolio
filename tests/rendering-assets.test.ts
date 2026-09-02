@@ -160,11 +160,17 @@ describe("rendering asset pipeline", () => {
     });
   });
 
-  it("records the six meshes, four materials, and HDRI as CC0 planned sources without claiming they ship", () => {
+  it("records the human-reviewed CC0 source set without claiming it is integrated or public", () => {
     const sourceLock = loadRenderingSourceLock(projectRoot) as RenderingSourceLock;
     expect(sourceLock.version).toBe(3);
-    expect(sourceLock.policy.stage).toBe("metadata-locked");
+    expect(sourceLock.policy.stage).toBe("sources-reviewed");
     expect(sourceLock.sourceSetSha256).toMatch(/^[a-f0-9]{64}$/);
+    expect(sourceLock.review).toMatchObject({
+      reviewId: "20260901-research-courtyard-v3b",
+      reviewer: "yzscodehub",
+      evidencePath: "public/assets/rendering/reviews/20260901-research-courtyard-v3b.json",
+    });
+    expect(sourceLock).not.toHaveProperty("integration");
     expect(sourceLock.policy).not.toHaveProperty("downloaded");
     expect(sourceLock).not.toHaveProperty("defaults");
     expect(sourceLock.sources).toHaveLength(11);
@@ -176,7 +182,7 @@ describe("rendering asset pipeline", () => {
         source.sourceUrl.startsWith("https://polyhaven.com/a/"),
       ),
     ).toBe(true);
-    expect(plannedRenderingSources.every((source) => source.status === "metadata-locked")).toBe(
+    expect(plannedRenderingSources.every((source) => source.status === "sources-reviewed")).toBe(
       true,
     );
     expect(
@@ -194,16 +200,14 @@ describe("rendering asset pipeline", () => {
         source.files.every(
           (file) =>
             file.directUrl.startsWith("https://dl.polyhaven.org/file/") &&
-            file.sha256 === null &&
-            file.status === "metadata-locked" &&
+            /^[a-f0-9]{64}$/.test(file.sha256 ?? "") &&
+            file.status === "reviewed" &&
             file.cachePath.startsWith(`.cache/rendering-sources/${source.id}/`),
         ),
       ),
     ).toBe(true);
-    expect(findFetchBlockers(sourceLock)).toHaveLength(selectedFileCount + 1);
-    expect(findReviewedRebuildBlockers(sourceLock, { toolchainIssues: [] })).toHaveLength(
-      selectedFileCount + 1,
-    );
+    expect(findFetchBlockers(sourceLock)).toEqual([]);
+    expect(findReviewedRebuildBlockers(sourceLock, { toolchainIssues: [] })).toEqual([]);
     expect(
       findReviewedRebuildBlockers(sourceLock, {
         toolchainIssues: reviewedToolchain.map(

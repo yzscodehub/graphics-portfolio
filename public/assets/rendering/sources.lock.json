@@ -2,7 +2,7 @@
   "version": 3,
   "policy": {
     "license": "CC0",
-    "stage": "metadata-locked",
+    "stage": "sources-reviewed",
     "rawCache": ".cache/rendering-sources",
     "disallowedExtensions": [".zip", ".blend", ".exr", ".psd", ".tif", ".tiff"]
   },
@@ -33,8 +33,8 @@
           "directUrl": "https://dl.polyhaven.org/file/ph-assets/Models/gltf/1k/concrete_road_barrier/concrete_road_barrier_1k.gltf",
           "bytes": 2868,
           "md5": "6d6feaf068f434e8dc163a1a9d983f4a",
-          "sha256": null,
-          "status": "metadata-locked",
+          "sha256": "c371e87d303fff3f0c9fbe88520f7837514364e5c66aac3244e115ffa673d061",
+          "status": "reviewed",
           "cachePath": ".cache/rendering-sources/concrete-road-barrier/concrete_road_barrier_1k.gltf"
         },
         {
@@ -43,8 +43,8 @@
           "directUrl": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/concrete_road_barrier/concrete_road_barrier_nor_gl_1k.jpg",
           "bytes": 961760,
           "md5": "5cc77a0a52de7f3e6c7405b5bfedfc6f",
-          "sha256": null,
-          "status": "metadata-locked",
+          "sha256": "c1072f51ff5c3d7158f0fbb0aa26e82b816b745b9f03639c4816832af2b37c52",
+          "status": "reviewed",
           "cachePath": ".cache/rendering-sources/concrete-road-barrier/textures/concrete_road_barrier_nor_gl_1k.jpg"
         },
         {
@@ -53,8 +53,8 @@
           "directUrl": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/concrete_road_barrier/concrete_road_barrier_arm_1k.jpg",
           "bytes": 619502,
           "md5": "a289412cc7fe2c265f0975b31d8edda1",
-          "sha256": null,
-          "status": "metadata-locked",
+          "sha256": "b940847648012f2db8c24b16e07ad1e39b3bd33ea493203364deca209606e4b4",
+          "status": "reviewed",
           "cachePath": ".cache/rendering-sources/concrete-road-barrier/textures/concrete_road_barrier_arm_1k.jpg"
         },
         {
@@ -63,8 +63,8 @@
           "directUrl": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/concrete_road_barrier/concrete_road_barrier_diff_1k.jpg",
           "bytes": 792641,
           "md5": "0fc11541996e1ddbdb1875dff35bc1c9",
-          "sha256": null,
-          "status": "metadata-locked",
+          "sha256": "88b2d79829ffec7b11ac4d9c8554328f30b665d2c17f634197fde4f1ca8696fe",
+          "status": "reviewed",
           "cachePath": ".cache/rendering-sources/concrete-road-barrier/textures/concrete_road_barrier_diff_1k.jpg"
         },
         {
@@ -73,8 +73,8 @@
           "directUrl": "https://dl.polyhaven.org/file/ph-assets/Models/gltf/8k/concrete_road_barrier/concrete_road_barrier.bin",
           "bytes": 1374016,
           "md5": "f256cb4d2bd9e5623b062502605dfcf2",
-          "sha256": null,
-          "status": "metadata-locked",
+          "sha256": "64a4f9bc6e4af64d714a252c3c13428c430a60569deba3d52ca6b7dd3aa70d8c",
+          "status": "reviewed",
           "cachePath": ".cache/rendering-sources/concrete-road-barrier/concrete_road_barrier.bin"
         }
       ],
@@ -105,8 +105,8 @@
           "directUrl": "https://dl.polyhaven.org/file/ph-assets/Models/gltf/1k/fire_hydrant/fire_hydrant_1k.gltf",
           "bytes": 20926,
           "md5": "85c3205fe0cdb2b23390ee1205d035c3",
-          "sha256": null,
-          "status": "metadata-locked",
+          "sha256": "aaca81b2904e6e5f1fb10a854c7b9a921232624387d1f8757b5c6bdaedcd9eb0",
+          "status": "reviewed",
           "cachePath": ".cache/rendering-sources/fire-hydrant/fire_hydrant_1k.gltf"
         },
         {
@@ -115,8 +115,8 @@
           "directUrl": "https://dl.polyhaven.org/file/ph-assets/Models/gltf/8k/fire_hydrant/fire_hydrant.bin",
           "bytes": 1928772,
           "md5": "636cd237cd1c9a793e3fc3edbf7f6a15",
-          "sha256": null,
-          "status": "metadata-locked",
+          "sha256": "a3c7ed023bc4aff190902764326e7f83ae1a108f6bac2a1b637c38a8e03eb516",
+          "status": "reviewed",
           "cachePath": ".cache/rendering-sources/fire-hydrant/fire_hydrant.bin"
         },
         {
@@ -125,8 +125,8 @@
           "directUrl": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/fire_hydrant/fire_hydrant_nor_gl_1k.jpg",
           "bytes": 490552,
           "md5": "62f1bb906fddb58f26bf8b2513b972bc",
-          "sha256": null,
-          "status": "metadata-locked",
+          "sha256": "f6786775276c7b48f0582fdd7c43984b63b15b7a8e0ea0e2f2af8cdab98c06d7",
+          "status": "reviewed",
           "cachePath": ".cache/rendering-sources/fire-hydrant/textures/fire_hydrant_nor_gl_1k.jpg"
         },
         {
@@ -135,8 +135,8 @@
           "directUrl": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/fire_hydrant/fire_hydrant_aged_diff_1k.jpg",
           "bytes": 629331,
           "md5": "7a01bfe1ec2235c3ae280544b258d16c",
-          "sha256": null,
-          "status": "metadata-locked",
+          "sha256": "3198cabcaf5107e59109bd07dfe8e4c87b3f0533173d10fafdaf86f8024a291e",
+          "status": "reviewed",
           "cachePath": ".cache/rendering-sources/fire-hydrant/textures/fire_hydrant_aged_diff_1k.jpg"
         },
         {
@@ -145,8 +145,8 @@
           "directUrl": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/fire_hydrant/fire_hydrant_aged_arm_1k.jpg",
           "bytes": 665642,
           "md5": "4d593fa44c621a98079ed7c6261af8be",
-          "sha256": null,
-          "status": "metadata-locked",
+          "sha256": "9c46b014735a4e8df5a80e4c030ddb321c9aeaa715ad4ea3eb60e6f0909c9d0a",
+          "status": "reviewed",
           "cachePath": ".cache/rendering-sources/fire-hydrant/textures/fire_hydrant_aged_arm_1k.jpg"
         },
         {
@@ -155,8 +155,8 @@
           "directUrl": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/fire_hydrant/fire_hydrant_aged_nor_gl_1k.jpg",
           "bytes": 543768,
           "md5": "59aa175275e7e15709c586e144b4474c",
-          "sha256": null,
-          "status": "metadata-locked",
+          "sha256": "6fadc78fd5d696bf594ff021aaf93a0c6aced761830f9aa6971c51b17c869c35",
+          "status": "reviewed",
           "cachePath": ".cache/rendering-sources/fire-hydrant/textures/fire_hydrant_aged_nor_gl_1k.jpg"
         },
         {
@@ -165,8 +165,8 @@
           "directUrl": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/fire_hydrant/fire_hydrant_diff_1k.jpg",
           "bytes": 570746,
           "md5": "ecd42c8726c77692c8ff2d5a236896b2",
-          "sha256": null,
-          "status": "metadata-locked",
+          "sha256": "a3d0b8b6fcd8a39c8d5067f8ef95e3290053131887398f89baf57c1f8d24ab45",
+          "status": "reviewed",
           "cachePath": ".cache/rendering-sources/fire-hydrant/textures/fire_hydrant_diff_1k.jpg"
         },
         {
@@ -175,8 +175,8 @@
           "directUrl": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/fire_hydrant/fire_hydrant_arm_1k.jpg",
           "bytes": 671743,
           "md5": "22a64a6b558956476a5e1140a510704f",
-          "sha256": null,
-          "status": "metadata-locked",
+          "sha256": "d15bf8fc6389ae48a1060a38057c2093469e62f585c8033d300b80af81d40f9d",
+          "status": "reviewed",
           "cachePath": ".cache/rendering-sources/fire-hydrant/textures/fire_hydrant_arm_1k.jpg"
         }
       ],
@@ -207,8 +207,8 @@
           "directUrl": "https://dl.polyhaven.org/file/ph-assets/Models/gltf/1k/plastic_crate_02/plastic_crate_02_1k.gltf",
           "bytes": 2947,
           "md5": "ab133a1d655e004fa2f22f039e24efbe",
-          "sha256": null,
-          "status": "metadata-locked",
+          "sha256": "531f7ba7d4b501759b04fb704db1948bcaab34d8342e71e3f5877d9f0340dba7",
+          "status": "reviewed",
           "cachePath": ".cache/rendering-sources/plastic-crate-02/plastic_crate_02_1k.gltf"
         },
         {
@@ -217,8 +217,8 @@
           "directUrl": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/plastic_crate_02/plastic_crate_02_nor_gl_1k.jpg",
           "bytes": 558561,
           "md5": "3fd1bb590ead064e6b7cf6eb3cd46fa6",
-          "sha256": null,
-          "status": "metadata-locked",
+          "sha256": "492b4cb03b043fb30a21b5de1cdf91dfbcd9bb7d080957af69a333d622050f30",
+          "status": "reviewed",
           "cachePath": ".cache/rendering-sources/plastic-crate-02/textures/plastic_crate_02_nor_gl_1k.jpg"
         },
         {
@@ -227,8 +227,8 @@
           "directUrl": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/plastic_crate_02/plastic_crate_02_diff_1k.jpg",
           "bytes": 492862,
           "md5": "55ddafcf50ffebdb2806e6b863e9b254",
-          "sha256": null,
-          "status": "metadata-locked",
+          "sha256": "f153478d5f44f39ab27a967850caac27b35ee8f04185d0d4eaf7ad501742fb15",
+          "status": "reviewed",
           "cachePath": ".cache/rendering-sources/plastic-crate-02/textures/plastic_crate_02_diff_1k.jpg"
         },
         {
@@ -237,8 +237,8 @@
           "directUrl": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/plastic_crate_02/plastic_crate_02_arm_1k.jpg",
           "bytes": 597561,
           "md5": "032b8738359d2423f7bf8dd0aa6f3e5b",
-          "sha256": null,
-          "status": "metadata-locked",
+          "sha256": "f0c667358c7afd46be37b40c30435b63ae3dba8432b45c507f3298fc6f163418",
+          "status": "reviewed",
           "cachePath": ".cache/rendering-sources/plastic-crate-02/textures/plastic_crate_02_arm_1k.jpg"
         },
         {
@@ -247,8 +247,8 @@
           "directUrl": "https://dl.polyhaven.org/file/ph-assets/Models/gltf/4k/plastic_crate_02/plastic_crate_02.bin",
           "bytes": 186848,
           "md5": "a91c131589eae7242c162782cff0290a",
-          "sha256": null,
-          "status": "metadata-locked",
+          "sha256": "f51696aa04643b5c1948da88be8ce1d4e92596ae4908b0132cd690f8fb8e0b63",
+          "status": "reviewed",
           "cachePath": ".cache/rendering-sources/plastic-crate-02/plastic_crate_02.bin"
         }
       ],
@@ -279,8 +279,8 @@
           "directUrl": "https://dl.polyhaven.org/file/ph-assets/Models/gltf/1k/street_lamp_02/street_lamp_02_1k.gltf",
           "bytes": 6429,
           "md5": "94023fbd7e6392d9276d91ca36c00144",
-          "sha256": null,
-          "status": "metadata-locked",
+          "sha256": "3a8a42486c5dc4538a8b44aeeef502c64a1c9d0d42fa5610e37886c355337ff8",
+          "status": "reviewed",
           "cachePath": ".cache/rendering-sources/street-lamp-02/street_lamp_02_1k.gltf"
         },
         {
@@ -289,8 +289,8 @@
           "directUrl": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/street_lamp_02/street_lamp_02_diff_1k.jpg",
           "bytes": 303714,
           "md5": "381097a4c700b86b1c8f7e0d115b1a0a",
-          "sha256": null,
-          "status": "metadata-locked",
+          "sha256": "19882567313dd43fef60f9fa41a4c55f81a957f9fee539e931fc36a32e386b6c",
+          "status": "reviewed",
           "cachePath": ".cache/rendering-sources/street-lamp-02/textures/street_lamp_02_diff_1k.jpg"
         },
         {
@@ -299,8 +299,8 @@
           "directUrl": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/street_lamp_02/street_lamp_02_arm_1k.jpg",
           "bytes": 657710,
           "md5": "d4d49b0153762ebe5ccde8e87af87dd5",
-          "sha256": null,
-          "status": "metadata-locked",
+          "sha256": "a1e2d654e7d5d48a1fdfbf720840192d171df54e5ea5f055145d0472d617eede",
+          "status": "reviewed",
           "cachePath": ".cache/rendering-sources/street-lamp-02/textures/street_lamp_02_arm_1k.jpg"
         },
         {
@@ -309,8 +309,8 @@
           "directUrl": "https://dl.polyhaven.org/file/ph-assets/Models/gltf/8k/street_lamp_02/street_lamp_02.bin",
           "bytes": 530092,
           "md5": "5c89269a65d65cdb33d018012f003ef7",
-          "sha256": null,
-          "status": "metadata-locked",
+          "sha256": "e544c04855dcf728ff2724f691f6784690b8ba3ac323a9a332e56b271ffe1d7c",
+          "status": "reviewed",
           "cachePath": ".cache/rendering-sources/street-lamp-02/street_lamp_02.bin"
         },
         {
@@ -319,8 +319,8 @@
           "directUrl": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/street_lamp_02/street_lamp_02_nor_gl_1k.jpg",
           "bytes": 372301,
           "md5": "39389c9a5c2c467ea559ac3ad3a03218",
-          "sha256": null,
-          "status": "metadata-locked",
+          "sha256": "fdd9fb26ca853020ed156fdd84e90ce3f9a68bf94edf71c0ffe72add67e316c6",
+          "status": "reviewed",
           "cachePath": ".cache/rendering-sources/street-lamp-02/textures/street_lamp_02_nor_gl_1k.jpg"
         }
       ],
@@ -351,8 +351,8 @@
           "directUrl": "https://dl.polyhaven.org/file/ph-assets/Models/gltf/1k/modular_chainlink_fence/modular_chainlink_fence_1k.gltf",
           "bytes": 41838,
           "md5": "8c8f0c91cf48ba68fb32178bcbd6351a",
-          "sha256": null,
-          "status": "metadata-locked",
+          "sha256": "4204f151f809b4abd41ea0b18b1b6a5d9c23e6bcc0b6a81e44d03690f26604e9",
+          "status": "reviewed",
           "cachePath": ".cache/rendering-sources/modular-chainlink-fence/modular_chainlink_fence_1k.gltf"
         },
         {
@@ -361,8 +361,8 @@
           "directUrl": "https://dl.polyhaven.org/file/ph-assets/Models/gltf/8k/modular_chainlink_fence/modular_chainlink_fence.bin",
           "bytes": 3168016,
           "md5": "953d32ee509142cf2ceb1e6b278b2430",
-          "sha256": null,
-          "status": "metadata-locked",
+          "sha256": "be9ea1817089fd35b0927a8271358f6abd2ec80b306a085de435613d936fcb9a",
+          "status": "reviewed",
           "cachePath": ".cache/rendering-sources/modular-chainlink-fence/modular_chainlink_fence.bin"
         },
         {
@@ -371,8 +371,8 @@
           "directUrl": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/modular_chainlink_fence/modular_chainlink_fence_posts_nor_gl_1k.jpg",
           "bytes": 505743,
           "md5": "e6b2e0015cef4bb58487f889efae88bf",
-          "sha256": null,
-          "status": "metadata-locked",
+          "sha256": "b43b8214c90a55bb84222d2a27430b31080d68dc14879632b86dbd316cb5f060",
+          "status": "reviewed",
           "cachePath": ".cache/rendering-sources/modular-chainlink-fence/textures/modular_chainlink_fence_posts_nor_gl_1k.jpg"
         },
         {
@@ -381,8 +381,8 @@
           "directUrl": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/modular_chainlink_fence/modular_chainlink_fence_wire_arm_1k.jpg",
           "bytes": 694743,
           "md5": "0a53847d3ba9891c9a90c637151684e4",
-          "sha256": null,
-          "status": "metadata-locked",
+          "sha256": "88af8364890b0645cd730eca11b30e6cd1c7578ad3aa1f012bb84915b9be5a03",
+          "status": "reviewed",
           "cachePath": ".cache/rendering-sources/modular-chainlink-fence/textures/modular_chainlink_fence_wire_arm_1k.jpg"
         },
         {
@@ -391,8 +391,8 @@
           "directUrl": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/modular_chainlink_fence/modular_chainlink_fence_wire_nor_gl_1k.jpg",
           "bytes": 664165,
           "md5": "bd794c542c0843354e0838ff4e05788b",
-          "sha256": null,
-          "status": "metadata-locked",
+          "sha256": "5cbf280f80e948de2422f0bb2fe2223a3b6f8e6fc75f54b00cd8d3e070938230",
+          "status": "reviewed",
           "cachePath": ".cache/rendering-sources/modular-chainlink-fence/textures/modular_chainlink_fence_wire_nor_gl_1k.jpg"
         },
         {
@@ -401,8 +401,8 @@
           "directUrl": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/modular_chainlink_fence/modular_chainlink_fence_wire_diff_1k.jpg",
           "bytes": 670536,
           "md5": "fa424a20c04764d770826c865635b84c",
-          "sha256": null,
-          "status": "metadata-locked",
+          "sha256": "79253847a00b67a616148d753df8f4e44ba4615f848b82310426618b5a8dd79b",
+          "status": "reviewed",
           "cachePath": ".cache/rendering-sources/modular-chainlink-fence/textures/modular_chainlink_fence_wire_diff_1k.jpg"
         },
         {
@@ -411,8 +411,8 @@
           "directUrl": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/modular_chainlink_fence/modular_chainlink_fence_posts_arm_1k.jpg",
           "bytes": 839858,
           "md5": "839c6fce0c0583e8205b8f9281e853f8",
-          "sha256": null,
-          "status": "metadata-locked",
+          "sha256": "1694ecc2746ddaa93951ea5d2f2b830f544adf929f7ac9fae855f8b8fdfbad50",
+          "status": "reviewed",
           "cachePath": ".cache/rendering-sources/modular-chainlink-fence/textures/modular_chainlink_fence_posts_arm_1k.jpg"
         },
         {
@@ -421,8 +421,8 @@
           "directUrl": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/modular_chainlink_fence/modular_chainlink_fence_posts_diff_1k.jpg",
           "bytes": 707116,
           "md5": "f36646ffbf9f952747c3d4535b30c24a",
-          "sha256": null,
-          "status": "metadata-locked",
+          "sha256": "ec273fedef04fbcac26460b996beeeceeff3f91c1bea73ed2c6db1d0fdb30b73",
+          "status": "reviewed",
           "cachePath": ".cache/rendering-sources/modular-chainlink-fence/textures/modular_chainlink_fence_posts_diff_1k.jpg"
         }
       ],
@@ -453,8 +453,8 @@
           "directUrl": "https://dl.polyhaven.org/file/ph-assets/Models/gltf/1k/concrete_cat_statue/concrete_cat_statue_1k.gltf",
           "bytes": 2853,
           "md5": "18b2270606be6fdca04c2f876274e673",
-          "sha256": null,
-          "status": "metadata-locked",
+          "sha256": "898110387c632808e6c6ffe818f48eaf32fcf1c8817de939bef428abb659e813",
+          "status": "reviewed",
           "cachePath": ".cache/rendering-sources/concrete-cat-statue/concrete_cat_statue_1k.gltf"
         },
         {
@@ -463,8 +463,8 @@
           "directUrl": "https://dl.polyhaven.org/file/ph-assets/Models/gltf/8k/concrete_cat_statue/concrete_cat_statue.bin",
           "bytes": 291316,
           "md5": "100da2074e7461c81898146f0da2a821",
-          "sha256": null,
-          "status": "metadata-locked",
+          "sha256": "489d9c3b5d8c3b8a606865f7fef002ac8535f883393696b448c1bd78a5a6a612",
+          "status": "reviewed",
           "cachePath": ".cache/rendering-sources/concrete-cat-statue/concrete_cat_statue.bin"
         },
         {
@@ -473,8 +473,8 @@
           "directUrl": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/concrete_cat_statue/concrete_cat_statue_arm_1k.jpg",
           "bytes": 796684,
           "md5": "94cc77ffa6977477ab1873277efe92cb",
-          "sha256": null,
-          "status": "metadata-locked",
+          "sha256": "8bac8a2c6fce9ef94cebd6152f456d06ef1585b892726725abb0cfdf262776c9",
+          "status": "reviewed",
           "cachePath": ".cache/rendering-sources/concrete-cat-statue/textures/concrete_cat_statue_arm_1k.jpg"
         },
         {
@@ -483,8 +483,8 @@
           "directUrl": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/concrete_cat_statue/concrete_cat_statue_nor_gl_1k.jpg",
           "bytes": 1121259,
           "md5": "7f87b8c08f651b7d90e9b9273420c811",
-          "sha256": null,
-          "status": "metadata-locked",
+          "sha256": "3bfa762ca05a501c1d1ecfd29cc485fb0a87c4caaed6081a9635564518463fca",
+          "status": "reviewed",
           "cachePath": ".cache/rendering-sources/concrete-cat-statue/textures/concrete_cat_statue_nor_gl_1k.jpg"
         },
         {
@@ -493,8 +493,8 @@
           "directUrl": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/concrete_cat_statue/concrete_cat_statue_diff_1k.jpg",
           "bytes": 886225,
           "md5": "dbff9567dc512d338c2857fb03709d01",
-          "sha256": null,
-          "status": "metadata-locked",
+          "sha256": "9577cdf54627a9ff0a430a1c998791afc863fefcdaf742650097c3e69f68ea3b",
+          "status": "reviewed",
           "cachePath": ".cache/rendering-sources/concrete-cat-statue/textures/concrete_cat_statue_diff_1k.jpg"
         }
       ],
@@ -525,8 +525,8 @@
           "directUrl": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/concrete_floor_worn_001/concrete_floor_worn_001_diff_1k.jpg",
           "bytes": 118806,
           "md5": "e35597cca586150b1ab2aa9a331a39c5",
-          "sha256": null,
-          "status": "metadata-locked",
+          "sha256": "6e40c0fc908f4d66431836f5abe203f3a4eb064e88824378a91a46a26e2f464c",
+          "status": "reviewed",
           "cachePath": ".cache/rendering-sources/concrete-floor-worn-001/concrete_floor_worn_001_diff_1k.jpg"
         },
         {
@@ -535,8 +535,8 @@
           "directUrl": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/concrete_floor_worn_001/concrete_floor_worn_001_nor_gl_1k.jpg",
           "bytes": 110906,
           "md5": "9de6626758f8793b71182b892c110827",
-          "sha256": null,
-          "status": "metadata-locked",
+          "sha256": "523bd94a1be5dd2f11c2ae2b7d7c77445cf5bd9e41604db515a7c8364dcba067",
+          "status": "reviewed",
           "cachePath": ".cache/rendering-sources/concrete-floor-worn-001/concrete_floor_worn_001_nor_gl_1k.jpg"
         },
         {
@@ -545,8 +545,8 @@
           "directUrl": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/concrete_floor_worn_001/concrete_floor_worn_001_rough_1k.jpg",
           "bytes": 181942,
           "md5": "b158eae73029ac6a849481274a0e1b35",
-          "sha256": null,
-          "status": "metadata-locked",
+          "sha256": "069efe4ca018e0ef61fd8cc9964395ba8272284ae239da68d7f87988e2e9f488",
+          "status": "reviewed",
           "cachePath": ".cache/rendering-sources/concrete-floor-worn-001/concrete_floor_worn_001_rough_1k.jpg"
         }
       ],
@@ -577,8 +577,8 @@
           "directUrl": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/concrete_wall_007/concrete_wall_007_diff_1k.jpg",
           "bytes": 654485,
           "md5": "f8a951200ebe1a42ba57ef331d94f8e2",
-          "sha256": null,
-          "status": "metadata-locked",
+          "sha256": "1a5ff668a66e147d9fb795d8407ca67a144a1ca010779a5b8386137a4917a086",
+          "status": "reviewed",
           "cachePath": ".cache/rendering-sources/concrete-wall-007/concrete_wall_007_diff_1k.jpg"
         },
         {
@@ -587,8 +587,8 @@
           "directUrl": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/concrete_wall_007/concrete_wall_007_nor_gl_1k.jpg",
           "bytes": 602349,
           "md5": "7d62088fb4f40833226cdb2a09476a58",
-          "sha256": null,
-          "status": "metadata-locked",
+          "sha256": "cccb1841908ced8b89b65b5de97c1926f717dab63a14559264703a99639c291f",
+          "status": "reviewed",
           "cachePath": ".cache/rendering-sources/concrete-wall-007/concrete_wall_007_nor_gl_1k.jpg"
         },
         {
@@ -597,8 +597,8 @@
           "directUrl": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/concrete_wall_007/concrete_wall_007_rough_1k.jpg",
           "bytes": 563812,
           "md5": "57fc45c0410543a5117bbfab360e040a",
-          "sha256": null,
-          "status": "metadata-locked",
+          "sha256": "5de46a478cbcb4cf4851be9b1dc4a58609c580e498fe758a6959119d45e7a5cb",
+          "status": "reviewed",
           "cachePath": ".cache/rendering-sources/concrete-wall-007/concrete_wall_007_rough_1k.jpg"
         }
       ],
@@ -629,8 +629,8 @@
           "directUrl": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/rusty_metal/rusty_metal_diff_1k.jpg",
           "bytes": 577389,
           "md5": "ba829f953270d3ad87d8e86d840f71d6",
-          "sha256": null,
-          "status": "metadata-locked",
+          "sha256": "b532f22a08a9c36b5adf785373e213cd635a2d3769cb61196bbf5404cce7cd43",
+          "status": "reviewed",
           "cachePath": ".cache/rendering-sources/rusty-metal/rusty_metal_diff_1k.jpg"
         },
         {
@@ -639,8 +639,8 @@
           "directUrl": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/rusty_metal/rusty_metal_nor_gl_1k.jpg",
           "bytes": 420984,
           "md5": "6133cf0df6fd63d0c484ca1669f90935",
-          "sha256": null,
-          "status": "metadata-locked",
+          "sha256": "cf7c8d72c7b5e1923321762d47f91d59b5233cb5b3c456823c54a2403109ff6a",
+          "status": "reviewed",
           "cachePath": ".cache/rendering-sources/rusty-metal/rusty_metal_nor_gl_1k.jpg"
         },
         {
@@ -649,8 +649,8 @@
           "directUrl": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/rusty_metal/rusty_metal_rough_1k.jpg",
           "bytes": 214991,
           "md5": "ec93adbfb6e4d8562a0272be937719dc",
-          "sha256": null,
-          "status": "metadata-locked",
+          "sha256": "a1b382605b896f2ef591e58527747d3ea7f3f73b8c24d3cdd934dcd4111edfe7",
+          "status": "reviewed",
           "cachePath": ".cache/rendering-sources/rusty-metal/rusty_metal_rough_1k.jpg"
         }
       ],
@@ -681,8 +681,8 @@
           "directUrl": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/brick_floor_003/brick_floor_003_diffuse_1k.jpg",
           "bytes": 199347,
           "md5": "a36d1f30f49c5bee4a5d91c86b6cd755",
-          "sha256": null,
-          "status": "metadata-locked",
+          "sha256": "b70de50a5d00d98a5a11d950f905de3aa80cef9a2cb8a9f23c52dd87f50fe688",
+          "status": "reviewed",
           "cachePath": ".cache/rendering-sources/brick-floor-003/brick_floor_003_diffuse_1k.jpg"
         },
         {
@@ -691,8 +691,8 @@
           "directUrl": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/brick_floor_003/brick_floor_003_nor_gl_1k.jpg",
           "bytes": 253840,
           "md5": "eb9692c679503e7b5f7c8bb401956f41",
-          "sha256": null,
-          "status": "metadata-locked",
+          "sha256": "82344f7390581f56cb49530b9bc27d5c1f1ce08d61154b29acefc2e51b0ef820",
+          "status": "reviewed",
           "cachePath": ".cache/rendering-sources/brick-floor-003/brick_floor_003_nor_gl_1k.jpg"
         },
         {
@@ -701,8 +701,8 @@
           "directUrl": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/brick_floor_003/brick_floor_003_rough_1k.jpg",
           "bytes": 159389,
           "md5": "7a039754df03d8ae2e8797fe7824cc92",
-          "sha256": null,
-          "status": "metadata-locked",
+          "sha256": "1ddb530541d06f0e77971bf7c01e6c03eff3c5bc390e5b1b374b37c37b03ee97",
+          "status": "reviewed",
           "cachePath": ".cache/rendering-sources/brick-floor-003/brick_floor_003_rough_1k.jpg"
         }
       ],
@@ -732,12 +732,19 @@
           "directUrl": "https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/1k/courtyard_1k.hdr",
           "bytes": 1716791,
           "md5": "c9f92690f97deab491c5f97dd652cee2",
-          "sha256": null,
-          "status": "metadata-locked",
+          "sha256": "aa4197f6136a70ea01eca5dadb0cca70633557f1ed98e2599917019e03d94526",
+          "status": "reviewed",
           "cachePath": ".cache/rendering-sources/courtyard-hdri-1k/courtyard_1k.hdr"
         }
       ],
       "usedBy": ["material-lighting", "clustered-lighting"]
     }
-  ]
+  ],
+  "review": {
+    "reviewId": "20260901-research-courtyard-v3b",
+    "reviewer": "yzscodehub",
+    "reviewedAt": "2026-09-02T04:52:22.926Z",
+    "evidencePath": "public/assets/rendering/reviews/20260901-research-courtyard-v3b.json",
+    "evidenceSha256": "10c864a17094d802d866aef262ce8042fdb65c966578af817331ef390a93fb9c"
+  }
 }
