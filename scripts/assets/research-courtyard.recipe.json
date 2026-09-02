@@ -11,7 +11,7 @@
     "seed": 20260901,
     "floatRoundingDigits": 7,
     "cleanBuildsRequired": 2,
-    "sortOrder": ["sourceId", "partId", "primitiveIndex", "instanceId"]
+    "sortOrder": ["sourceId", "partId", "nodeName", "primitiveIndex", "materialName", "instanceId"]
   },
   "budgets": {
     "publicRenderingBytes": 20971520,

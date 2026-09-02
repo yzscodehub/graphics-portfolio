@@ -33,6 +33,12 @@ export interface ResearchCourtyardRuntimeManifestV2 {
     indirect: HashedResourceV2;
   };
   textures: Record<string, ResearchCourtyardRuntimeTextureV2>;
+  environment: {
+    diffuseSh: HashedResourceV2;
+    reviewPreview: HashedResourceV2 | null;
+    specularIbl: false;
+    runtimeHdr: false;
+  };
 }
 
 export class RuntimeManifestV2ValidationError extends Error {
@@ -105,6 +111,7 @@ export function parseResearchCourtyardRuntimeManifestV2(
     fail("version", `must equal ${RESEARCH_COURTYARD_RUNTIME_MANIFEST_V2}`);
   const bufferSource = object(source.buffers, "buffers");
   const textureSource = object(source.textures, "textures");
+  const environmentSource = object(source.environment, "environment");
   const textures: Record<string, ResearchCourtyardRuntimeTextureV2> = {};
   Object.entries(textureSource).forEach(([id, value]) => {
     if (!/^[a-z0-9][a-z0-9-]*$/.test(id)) fail(`textures.${id}`, "must use a stable lowercase id");
@@ -124,12 +131,31 @@ export function parseResearchCourtyardRuntimeManifestV2(
       indirect: resource(bufferSource.indirect, "buffers.indirect"),
     },
     textures,
+    environment: {
+      diffuseSh: resource(environmentSource.diffuseSh, "environment.diffuseSh"),
+      reviewPreview:
+        environmentSource.reviewPreview === null
+          ? null
+          : resource(environmentSource.reviewPreview, "environment.reviewPreview"),
+      specularIbl:
+        environmentSource.specularIbl === false
+          ? false
+          : fail("environment.specularIbl", "must remain false"),
+      runtimeHdr:
+        environmentSource.runtimeHdr === false
+          ? false
+          : fail("environment.runtimeHdr", "must remain false"),
+    },
   };
 }
 
 function matches(resource: HashedResourceV2, buffer: PackedSceneV2Buffer, path: string): void {
-  if (resource.uri !== buffer.uri || resource.bytes !== buffer.bytes)
-    fail(path, "must match the Pack v2 transport URI and bytes");
+  if (
+    resource.uri !== buffer.uri ||
+    resource.bytes !== buffer.encoding.encodedBytes ||
+    resource.sha256 !== buffer.encoding.encodedSha256
+  )
+    fail(path, "must match the Pack v2 encoded transport URI, bytes, and hash");
 }
 
 function matchesTexture(

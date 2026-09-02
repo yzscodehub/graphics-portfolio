@@ -39,6 +39,10 @@ The local development server uses the `/graphics-portfolio/` base path required 
 | `pnpm assets:materialize-reviewed`   | Atomically copy the exact approved quarantine bytes into raw cache.     |
 | `pnpm assets:fetch`                  | Reproduce reviewed downloads; never substitute for materialization.     |
 | `pnpm assets:preflight:reviewed`     | Check reviewed per-file hashes and locked conversion tools.             |
+| `pnpm run assets:build:lods`         | Build ignored three-level GLB + normalized-geometry LOD candidates.     |
+| `pnpm run assets:build:hdri`         | Build ignored diffuse-irradiance SH9 and review-preview candidates.     |
+| `pnpm run assets:build:ktx2`         | Transcode a texture candidate to paired KTX2/WebP runtime assets.       |
+| `pnpm run assets:compile:courtyard`  | Assemble reviewed inputs into a complete ignored Pack/Manifest v2.      |
 | `pnpm run toolchain:verify`          | Validate the fixed conversion-tool lock without downloading anything.   |
 | `pnpm run toolchain:install`         | Explicitly install verified tools into ignored `.tools/rendering/`.     |
 | `pnpm verify:preview`                | Verify preview privacy, noindex, robots, model, and deferred artifacts. |
@@ -94,6 +98,37 @@ resolveSiteFeatures("release"); // indexable, sitemap + RSS, still GitHub-only
 `pnpm verify:preview` rejects public-email placeholders, phone and salary data, mail or telephone links, resume routes, PDF artifacts in `dist`, tracked PDF drafts anywhere in the repository, missing or oversize neural models, missing `noindex,nofollow` metadata, and an unblocked `robots.txt`.
 
 The former resume implementation is preserved under `deferred/resume/` and remains outside Astro routes and Pages artifacts in both Preview and Release. Publishing a resume or email requires a separate future product decision.
+
+## Reviewed Research Courtyard candidates
+
+The approved Poly Haven source set is currently `sources-reviewed`, not
+`integrated`. The production site therefore continues to use the public v1
+placeholder until a complete candidate passes deterministic, budget, visual,
+runtime, and hardware review. Candidate tools write only below ignored
+`.cache/rendering-builds/`; none of these commands updates `public/`,
+`dist/`, or the source-lock stage.
+
+The candidate pipeline is intentionally explicit:
+
+```text
+reviewed source bytes + recipe + locked tools
+  -> LOD0/1/2 normalized geometry
+  -> 512px architecture/model texture sets
+  -> ETC1S or UASTC-RDO KTX2 + WebP fallback
+  -> Radiance decode + Lambertian diffuse SH9
+  -> architecture, materials, instances, animation, and pass assembly
+  -> Pack v2 fixed buffers
+  -> Meshopt v1 transport + Runtime Manifest v2
+  -> ignored complete candidate
+```
+
+Each complete build must be repeated from independently generated LOD, texture,
+KTX2, and HDRI candidates. Promotion remains blocked unless every file receipt
+and final manifest hash is identical across both builds. The fixed limits are
+20 MiB for all rendering assets, 3.5 MiB for Meshopt geometry buffers, 5 MiB
+for KTX2, 3 MiB for WebP fallback, and 10 MiB for either initial runtime branch.
+The HDRI candidate publishes diffuse irradiance SH9 only; its tone-mapped WebP
+is review evidence, not a runtime HDR environment or specular IBL substitute.
 
 ## Reviewed neural model
 

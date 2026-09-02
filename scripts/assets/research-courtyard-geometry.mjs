@@ -152,8 +152,10 @@ function materialMetadata(material, transform) {
       alphaCutoff: 0.5,
       doubleSided: false,
       baseColorFactor: [1, 1, 1, 1],
+      emissiveFactor: [0, 0, 0],
       metallicFactor: 1,
       roughnessFactor: 1,
+      normalScale: 1,
       textureTransform,
     };
   return {
@@ -162,8 +164,10 @@ function materialMetadata(material, transform) {
     alphaCutoff: round(material.getAlphaCutoff()),
     doubleSided: material.getDoubleSided(),
     baseColorFactor: rounded(Array.from(material.getBaseColorFactor())),
+    emissiveFactor: rounded(Array.from(material.getEmissiveFactor())),
     metallicFactor: round(material.getMetallicFactor()),
     roughnessFactor: round(material.getRoughnessFactor()),
+    normalScale: round(material.getNormalScale()),
     textureTransform,
   };
 }

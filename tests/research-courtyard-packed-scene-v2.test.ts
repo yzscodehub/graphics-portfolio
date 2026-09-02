@@ -14,6 +14,29 @@ const layout = (strideBytes: number, attributes: readonly unknown[]) => ({
   attributes,
 });
 const transform = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0];
+const hash = "a".repeat(64);
+const transportBuffer = (
+  uri: string,
+  bytes: number,
+  mode: "ATTRIBUTES" | "TRIANGLES",
+  stride: number,
+) => ({
+  uri,
+  bytes,
+  encoding: {
+    codec: "meshopt",
+    codecVersion: 1,
+    encoderLevel: mode === "ATTRIBUTES" ? 3 : null,
+    mode,
+    count: bytes / stride,
+    stride,
+    encodedBytes: Math.max(1, Math.floor(bytes / 2)),
+    encodedSha256: hash,
+    sourceSha256: hash,
+    decodedSha256: hash,
+    parity: mode === "ATTRIBUTES" ? "byte-exact" : "cyclic-triangle",
+  },
+});
 
 function pack(fence = false): Record<string, unknown> {
   const meshes = [
@@ -166,24 +189,24 @@ function pack(fence = false): Record<string, unknown> {
     },
     transport: {
       vertices: {
-        uri: "courtyard/vertices.bin",
-        bytes: (fence ? 34 : 17) * 32,
+        ...transportBuffer("courtyard/vertices.meshopt", (fence ? 34 : 17) * 32, "ATTRIBUTES", 32),
       },
       indices: {
-        uri: "courtyard/indices.bin",
-        bytes: (fence ? 42 : 21) * 4,
+        ...transportBuffer("courtyard/indices.meshopt", (fence ? 42 : 21) * 4, "TRIANGLES", 4),
       },
       materials: {
-        uri: "courtyard/materials.bin",
-        bytes: materials.length * 64,
+        ...transportBuffer("courtyard/materials.meshopt", materials.length * 64, "ATTRIBUTES", 64),
       },
       instances: {
-        uri: "courtyard/instances.bin",
-        bytes: instances.length * 128,
+        ...transportBuffer(
+          "courtyard/instances.meshopt",
+          instances.length * 128,
+          "ATTRIBUTES",
+          128,
+        ),
       },
       indirect: {
-        uri: "courtyard/indirect.bin",
-        bytes: meshCount * 3 * 32,
+        ...transportBuffer("courtyard/indirect.meshopt", meshCount * 3 * 32, "ATTRIBUTES", 32),
       },
       textures: [
         {
@@ -242,6 +265,8 @@ describe("Research Courtyard Pack v2", () => {
     const transport = preserved.transport as Record<string, unknown>;
     (transport.vertices as Record<string, unknown>).bytes = 9 * 32;
     (transport.indices as Record<string, unknown>).bytes = 9 * 4;
+    ((transport.vertices as Record<string, unknown>).encoding as Record<string, unknown>).count = 9;
+    ((transport.indices as Record<string, unknown>).encoding as Record<string, unknown>).count = 9;
     expect(parsePackedSceneV2(preserved).meshes[0]).toMatchObject({
       lodPolicy: "preserved",
     });
@@ -263,6 +288,9 @@ describe("Research Courtyard Pack v2", () => {
     const transport = culled.transport as Record<string, unknown>;
     (transport.vertices as Record<string, unknown>).bytes = 14 * 32;
     (transport.indices as Record<string, unknown>).bytes = 18 * 4;
+    ((transport.vertices as Record<string, unknown>).encoding as Record<string, unknown>).count =
+      14;
+    ((transport.indices as Record<string, unknown>).encoding as Record<string, unknown>).count = 18;
     expect(parsePackedSceneV2(culled).meshes[0]).toMatchObject({
       lodPolicy: "culled-at-lod2",
       lods: [{ state: "draw" }, { state: "draw" }, { state: "culled" }],
@@ -279,7 +307,7 @@ describe("Research Courtyard Pack v2", () => {
     const misaligned = pack();
     ((misaligned.transport as Record<string, unknown>).materials as Record<string, unknown>).bytes =
       65;
-    expect(() => parsePackedSceneV2(misaligned)).toThrow("aligned to 64 bytes");
+    expect(() => parsePackedSceneV2(misaligned)).toThrow(/decoded byte capacity|aligned to 64/);
 
     const invalid = pack();
     (invalid.instances as Array<Record<string, unknown>>)[0].meshIndex = 4;
@@ -298,7 +326,7 @@ describe("Research Courtyard Pack v2", () => {
   });
 
   it("accepts only portable asset URIs", () => {
-    expect(isPortableResourceUri("courtyard/vertices.bin")).toBe(true);
+    expect(isPortableResourceUri("courtyard/vertices.meshopt")).toBe(true);
     [
       "../vertices.bin",
       "/vertices.bin",

@@ -16,6 +16,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { calculateSourceSetSha256 } from "../scripts/assets/manifest.mjs";
 import {
   decodeRadianceRgbe,
+  loadResearchCourtyardHdriCandidate,
   preprocessResearchCourtyardHdri,
   projectEquirectangularDiffuseSh9,
   ResearchCourtyardHdriError,
@@ -210,6 +211,11 @@ describe("Research Courtyard HDRI preprocessing", () => {
         outputDir: first.outputDir,
       }),
     ).rejects.toMatchObject({ code: "output-path" });
+    expect(loadResearchCourtyardHdriCandidate(first.outputDir).manifest).toEqual(first.manifest);
+    writeFileSync(path.join(first.outputDir, preview.path), "tampered");
+    expect(() => loadResearchCourtyardHdriCandidate(first.outputDir)).toThrow(
+      /preview does not match/,
+    );
   });
 
   it("optionally smoke-decodes the locally reviewed HDRI", () => {

@@ -26,15 +26,15 @@ export const researchCourtyardTextureVersion = 1;
 export const requiredSharpVersion = "0.35.4";
 
 export const texturePreprocessContract = Object.freeze({
-  width: 1024,
-  height: 1024,
+  width: 512,
+  height: 512,
   png: Object.freeze({
     compressionLevel: 9,
     adaptiveFiltering: false,
     palette: false,
   }),
   webp: Object.freeze({
-    quality: 90,
+    quality: 84,
     effort: 4,
     smartSubsample: false,
     alphaQuality: 100,
@@ -215,6 +215,159 @@ function mapInput({ sourceLock, source, cacheRoot, map, role, colorSpace, encodi
   });
 }
 
+function gltfTextureUri(gltf, textureIndex, pathname) {
+  const texture = gltf.textures?.[textureIndex];
+  const image = texture && gltf.images?.[texture.source];
+  if (!image || typeof image.uri !== "string" || !isSafePortablePath(image.uri))
+    fail("model-texture", `${pathname}: missing a portable image URI`);
+  return image.uri;
+}
+
+function modelInput({ sourceLock, source, cacheRoot, uri, colorSpace }) {
+  const matches = (source.files ?? []).filter(
+    (file) =>
+      file.role === "gltf-include" && file.relativePath === uri && file.status === "reviewed",
+  );
+  if (matches.length !== 1)
+    fail("model-texture", `${source.id}/${uri}: reviewed source is ambiguous or missing`);
+  return assertInputFile({
+    cacheRoot,
+    sourceLock,
+    source,
+    file: matches[0],
+    colorSpace,
+  });
+}
+
+function modelTexturePlan({ sourceLock, recipe, cacheRoot }) {
+  const sets = [];
+  for (const meshSource of recipe.meshSources ?? []) {
+    if (!meshSource.gltf) continue;
+    const source = sourceById(sourceLock, meshSource.sourceId, "mesh");
+    const gltfFiles = (source.files ?? []).filter(
+      (file) =>
+        file.role === "gltf" &&
+        file.cachePath === meshSource.gltf.path &&
+        file.sha256 === meshSource.gltf.sha256 &&
+        file.status === "reviewed",
+    );
+    if (gltfFiles.length !== 1)
+      fail("model-gltf", `${meshSource.sourceId}: reviewed glTF is missing`);
+    const gltfInput = assertInputFile({
+      cacheRoot,
+      sourceLock,
+      source,
+      file: gltfFiles[0],
+      colorSpace: "metadata",
+    });
+    let gltf;
+    try {
+      gltf = JSON.parse(readFileSync(gltfInput.filePath, "utf8"));
+    } catch (error) {
+      fail(
+        "model-gltf",
+        `${meshSource.sourceId}: ${error instanceof Error ? error.message : "invalid JSON"}`,
+      );
+    }
+    const selectedNodes = new Set(meshSource.parts.flatMap((part) => part.nodeNames));
+    const materials = new Map();
+    for (const node of gltf.nodes ?? []) {
+      if (!selectedNodes.has(node.name) || !Number.isInteger(node.mesh)) continue;
+      const mesh = gltf.meshes?.[node.mesh];
+      for (const primitive of mesh?.primitives ?? []) {
+        const material = gltf.materials?.[primitive.material];
+        const name = material?.name;
+        if (typeof name !== "string" || !name)
+          fail("model-material", `${meshSource.sourceId}: selected primitive is unnamed`);
+        const pbr = material.pbrMetallicRoughness;
+        const descriptor = {
+          name,
+          baseColorUri: gltfTextureUri(
+            gltf,
+            pbr?.baseColorTexture?.index,
+            `${meshSource.sourceId}:${name}.baseColor`,
+          ),
+          normalUri: gltfTextureUri(
+            gltf,
+            material.normalTexture?.index,
+            `${meshSource.sourceId}:${name}.normal`,
+          ),
+          metallicRoughnessUri: gltfTextureUri(
+            gltf,
+            pbr?.metallicRoughnessTexture?.index,
+            `${meshSource.sourceId}:${name}.metallicRoughness`,
+          ),
+        };
+        const existing = materials.get(name);
+        if (existing && JSON.stringify(existing) !== JSON.stringify(descriptor))
+          fail("model-material", `${meshSource.sourceId}:${name} changed texture bindings`);
+        materials.set(name, descriptor);
+      }
+    }
+    if (materials.size === 0)
+      fail("model-material", `${meshSource.sourceId}: selected nodes use no materials`);
+    const byImages = new Map();
+    for (const material of [...materials.values()].sort((left, right) =>
+      left.name.localeCompare(right.name),
+    )) {
+      const alphaFromMaxRgb =
+        meshSource.materialOverrides.find((override) => override.materialName === material.name)
+          ?.alphaSource?.kind === "max-rgb";
+      const imageKey = [
+        material.baseColorUri,
+        material.normalUri,
+        material.metallicRoughnessUri,
+        alphaFromMaxRgb ? "alpha" : "opaque",
+      ].join("\u0000");
+      let set = byImages.get(imageKey);
+      if (!set) {
+        const id = `${meshSource.sourceId}-${material.name}`
+          .toLowerCase()
+          .replaceAll("_", "-")
+          .replace(/[^a-z0-9-]/g, "-")
+          .replace(/-+/g, "-");
+        set = {
+          id,
+          materialKeys: [],
+          alphaFromMaxRgb,
+          inputs: {
+            baseColor: modelInput({
+              sourceLock,
+              source,
+              cacheRoot,
+              uri: material.baseColorUri,
+              colorSpace: "srgb",
+            }),
+            normal: modelInput({
+              sourceLock,
+              source,
+              cacheRoot,
+              uri: material.normalUri,
+              colorSpace: "linear",
+            }),
+            metallicRoughness: modelInput({
+              sourceLock,
+              source,
+              cacheRoot,
+              uri: material.metallicRoughnessUri,
+              colorSpace: "linear",
+            }),
+          },
+        };
+        byImages.set(imageKey, set);
+        sets.push(set);
+      }
+      set.materialKeys.push(`${meshSource.sourceId}:${material.name}`);
+    }
+  }
+  return sets
+    .map((set) => ({
+      ...set,
+      materialKeys: [...set.materialKeys].sort(),
+    }))
+    .sort((left, right) => left.id.localeCompare(right.id));
+}
+
 function buildPlan({ sourceLock, recipe, cacheRoot }) {
   if (!recipe || recipe.sourceSetSha256 !== sourceLock.sourceSetSha256)
     fail("recipe", "recipe must bind the reviewed source-set digest");
@@ -311,6 +464,7 @@ function buildPlan({ sourceLock, recipe, cacheRoot }) {
         colorSpace: "srgb",
       }),
     }),
+    modelMaterials: Object.freeze(modelTexturePlan({ sourceLock, recipe, cacheRoot })),
   });
 }
 
@@ -377,6 +531,19 @@ function toktxCommand({ id, encoding, colorSpace, normalMap = false }) {
   const inputPath = `intermediate/${id}.png`;
   const outputPath = `ktx2/${id}.ktx2`;
   const args = ["--t2", "--encode", encoding, "--assign_oetf", colorSpace, "--genmipmap"];
+  if (encoding === "etc1s") args.push("--clevel", "4", "--qlevel", "128", "--threads", "1");
+  else
+    args.push(
+      "--uastc_quality",
+      "2",
+      "--uastc_rdo_l",
+      normalMap ? "0.5" : "1.0",
+      "--uastc_rdo_m",
+      "--zcmp",
+      "18",
+      "--threads",
+      "1",
+    );
   if (normalMap) args.push("--normal_mode");
   args.push(outputPath, inputPath);
   return Object.freeze({
@@ -420,6 +587,31 @@ async function writeOrmPng(input, metallicFactor, output) {
     orm[target] = 255;
     orm[target + 1] = data[source];
     orm[target + 2] = metallic;
+    orm[target + 3] = 255;
+  }
+  await sharp(orm, {
+    raw: { width: info.width, height: info.height, channels: 4 },
+  })
+    .png(texturePreprocessContract.png)
+    .toFile(output);
+}
+
+async function writeModelOrmPng(input, output) {
+  const { data, info } = await raster(input)
+    .removeAlpha()
+    .raw()
+    .toBuffer({ resolveWithObject: true });
+  if (
+    info.width !== texturePreprocessContract.width ||
+    info.height !== texturePreprocessContract.height ||
+    info.channels !== 3
+  )
+    fail("model-orm-raster", "expected a three-channel metallic-roughness image");
+  const orm = Buffer.alloc(info.width * info.height * 4);
+  for (let source = 0, target = 0; source < data.length; source += 3, target += 4) {
+    orm[target] = 255;
+    orm[target + 1] = data[source + 1];
+    orm[target + 2] = data[source + 2];
     orm[target + 3] = 255;
   }
   await sharp(orm, {
@@ -540,32 +732,182 @@ async function buildFence(stagingRoot, fence) {
   });
 }
 
-function createManifest({ sourceLock, sharpVersion, materials, fence }) {
+async function buildModelMaterial(stagingRoot, material) {
+  const paths = {
+    base: outputPath(stagingRoot, `intermediate/${material.id}-basecolor.png`),
+    normal: outputPath(stagingRoot, `intermediate/${material.id}-normal.png`),
+    orm: outputPath(stagingRoot, `intermediate/${material.id}-orm.png`),
+    baseWebp: outputPath(stagingRoot, `fallback/${material.id}-basecolor.webp`),
+    normalWebp: outputPath(stagingRoot, `fallback/${material.id}-normal.webp`),
+    ormWebp: outputPath(stagingRoot, `fallback/${material.id}-orm.webp`),
+  };
+  if (material.alphaFromMaxRgb)
+    await writeFenceAlphaPng(material.inputs.baseColor.filePath, paths.base);
+  else await writeRgbPng(material.inputs.baseColor.filePath, paths.base);
+  await writeRgbPng(material.inputs.normal.filePath, paths.normal);
+  await writeModelOrmPng(material.inputs.metallicRoughness.filePath, paths.orm);
+  await writeWebp(paths.base, paths.baseWebp, material.alphaFromMaxRgb);
+  await writeWebp(paths.normal, paths.normalWebp, false);
+  await writeWebp(paths.orm, paths.ormWebp, false);
+  return Object.freeze({
+    id: material.id,
+    materialKeys: Object.freeze([...material.materialKeys]),
+    alphaFromMaxRgb: material.alphaFromMaxRgb,
+    maps: Object.freeze([
+      Object.freeze({
+        id: "basecolor",
+        input: inputReceipt(material.inputs.baseColor),
+        intermediate: await outputArtifact(
+          stagingRoot,
+          paths.base,
+          "srgb",
+          material.alphaFromMaxRgb ? 4 : 3,
+        ),
+        fallback: await outputArtifact(
+          stagingRoot,
+          paths.baseWebp,
+          "srgb",
+          material.alphaFromMaxRgb ? 4 : 3,
+        ),
+        transcode: toktxCommand({
+          id: `${material.id}-basecolor`,
+          encoding: material.alphaFromMaxRgb
+            ? texturePreprocessContract.toktx.alphaEncoding
+            : texturePreprocessContract.toktx.baseColorEncoding,
+          colorSpace: "srgb",
+        }),
+      }),
+      Object.freeze({
+        id: "normal",
+        input: inputReceipt(material.inputs.normal),
+        intermediate: await outputArtifact(stagingRoot, paths.normal, "linear", 3),
+        fallback: await outputArtifact(stagingRoot, paths.normalWebp, "linear", 3),
+        transcode: toktxCommand({
+          id: `${material.id}-normal`,
+          encoding: texturePreprocessContract.toktx.normalEncoding,
+          colorSpace: "linear",
+          normalMap: true,
+        }),
+      }),
+      Object.freeze({
+        id: "orm",
+        inputs: Object.freeze([inputReceipt(material.inputs.metallicRoughness)]),
+        occlusionConstant: 1,
+        roughnessChannel: "g",
+        metallicChannel: "b",
+        intermediate: await outputArtifact(stagingRoot, paths.orm, "linear", 4),
+        fallback: await outputArtifact(stagingRoot, paths.ormWebp, "linear", 3),
+        transcode: toktxCommand({
+          id: `${material.id}-orm`,
+          encoding: texturePreprocessContract.toktx.ormEncoding,
+          colorSpace: "linear",
+        }),
+      }),
+    ]),
+  });
+}
+
+function createManifest({
+  sourceLock,
+  sourceLockSha256,
+  recipeSha256,
+  sharpVersion,
+  materials,
+  modelMaterials,
+  fence,
+}) {
   return Object.freeze({
     format: researchCourtyardTextureFormat,
     version: researchCourtyardTextureVersion,
     status: "candidate",
     publishable: false,
     sourceSetSha256: sourceLock.sourceSetSha256,
+    sourceLockSha256,
+    recipeSha256,
     toolchain: Object.freeze({
       sharp: sharpVersion,
       toktx: texturePreprocessContract.toktx.version,
     }),
     contract: texturePreprocessContract,
     materials,
+    modelMaterials,
     fence,
     currentLimit:
-      "PNG intermediates and WebP fallbacks are generated here; KTX2 command descriptors are recorded but toktx is intentionally not executed.",
+      "512px PNG intermediates and WebP fallbacks cover architecture and selected model materials; KTX2 command descriptors are recorded but toktx is intentionally not executed.",
+  });
+}
+
+export function textureCatalogFromManifest(manifest) {
+  if (
+    manifest?.format !== researchCourtyardTextureFormat ||
+    manifest.version !== researchCourtyardTextureVersion ||
+    manifest.status !== "candidate" ||
+    manifest.publishable !== false ||
+    !Array.isArray(manifest.materials) ||
+    !Array.isArray(manifest.modelMaterials)
+  )
+    fail("texture-catalog", "requires a candidate texture manifest");
+  const textures = [];
+  const bindings = {};
+  const addMaterial = (material, materialKeys) => {
+    if (!Array.isArray(material.maps) || material.maps.length !== 3)
+      fail("texture-catalog", `${material.id}: requires basecolor, normal, and ORM`);
+    const byId = new Map(material.maps.map((map) => [map.id, map]));
+    const binding = {};
+    for (const [role, colorSpace] of [
+      ["basecolor", "srgb"],
+      ["normal", "linear"],
+      ["orm", "linear"],
+    ]) {
+      const map = byId.get(role);
+      if (
+        !map ||
+        map.fallback?.colorSpace !== colorSpace ||
+        map.transcode?.colorSpace !== colorSpace
+      )
+        fail("texture-catalog", `${material.id}/${role}: color-space mismatch`);
+      const id = `${material.id}-${role}`;
+      if (textures.some((texture) => texture.id === id))
+        fail("texture-catalog", `${id}: duplicate texture ID`);
+      textures.push({
+        id,
+        colorSpace,
+        ktx2: `textures/${id}.ktx2`,
+        webp: `textures/${id}.webp`,
+      });
+      binding[role === "basecolor" ? "baseColor" : role] = id;
+    }
+    for (const key of materialKeys) {
+      if (bindings[key]) fail("texture-catalog", `${key}: duplicate material binding`);
+      bindings[key] = { ...binding };
+    }
+  };
+  for (const material of manifest.materials) addMaterial(material, [`architecture:${material.id}`]);
+  for (const material of manifest.modelMaterials) addMaterial(material, material.materialKeys);
+  textures.sort((left, right) => left.id.localeCompare(right.id));
+  return Object.freeze({
+    textures: Object.freeze(textures.map(Object.freeze)),
+    materials: Object.freeze(
+      Object.fromEntries(
+        Object.entries(bindings)
+          .sort(([left], [right]) => left.localeCompare(right))
+          .map(([key, value]) => [key, Object.freeze(value)]),
+      ),
+    ),
   });
 }
 
 export async function preprocessResearchCourtyardTextures({
   sourceLock,
+  sourceLockSha256,
   recipe,
+  recipeSha256,
   cacheRoot,
   buildRoot,
   outputDir,
 }) {
+  if (!sha256Pattern.test(sourceLockSha256 ?? "") || !sha256Pattern.test(recipeSha256 ?? ""))
+    fail("input-hash", "source lock and recipe SHA-256 bindings are required");
   const sharpVersion = assertSharpVersion();
   const reviewedLock = assertReviewedSourceLock(sourceLock);
   const cache = assertExistingDirectory(cacheRoot, "cacheRoot");
@@ -584,11 +926,17 @@ export async function preprocessResearchCourtyardTextures({
   try {
     const materials = [];
     for (const material of plan.materials) materials.push(await buildMaterial(staging, material));
+    const modelMaterials = [];
+    for (const material of plan.modelMaterials)
+      modelMaterials.push(await buildModelMaterial(staging, material));
     const fence = await buildFence(staging, plan.fence);
     const manifest = createManifest({
       sourceLock: reviewedLock,
+      sourceLockSha256,
+      recipeSha256,
       sharpVersion,
       materials,
+      modelMaterials,
       fence,
     });
     writeFileSync(
@@ -660,7 +1008,9 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
     const args = parseResearchCourtyardTextureArgs(process.argv.slice(2));
     const result = await preprocessResearchCourtyardTextures({
       sourceLock: readJson(args.sourceLockPath, "source lock"),
+      sourceLockSha256: sha256(args.sourceLockPath),
       recipe: readJson(args.recipePath, "recipe"),
+      recipeSha256: sha256(args.recipePath),
       cacheRoot: args.cacheRoot,
       buildRoot: args.buildRoot,
       outputDir: args.outputDir,

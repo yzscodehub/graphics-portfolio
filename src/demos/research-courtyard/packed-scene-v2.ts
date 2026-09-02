@@ -29,7 +29,21 @@ export type WorldSphere = readonly [number, number, number, number];
 
 export interface PackedSceneV2Buffer {
   uri: string;
+  /** Decoded GPU upload size. */
   bytes: number;
+  encoding: {
+    codec: "meshopt";
+    codecVersion: 1;
+    encoderLevel: 3 | null;
+    mode: "ATTRIBUTES" | "TRIANGLES";
+    count: number;
+    stride: number;
+    encodedBytes: number;
+    encodedSha256: string;
+    sourceSha256: string;
+    decodedSha256: string;
+    parity: "byte-exact" | "cyclic-triangle";
+  };
 }
 
 export interface PackedSceneV2Texture {
@@ -252,11 +266,64 @@ function exactLayout(
   });
 }
 
-function buffer(value: unknown, path: string): PackedSceneV2Buffer {
+function buffer(
+  value: unknown,
+  path: string,
+  mode: "ATTRIBUTES" | "TRIANGLES",
+  stride: number,
+): PackedSceneV2Buffer {
   const source = object(value, path);
+  const resourceUri = uri(source.uri, `${path}.uri`);
+  if (!resourceUri.endsWith(".meshopt")) fail(`${path}.uri`, "must identify a Meshopt payload");
+  const decodedBytes = integer(source.bytes, `${path}.bytes`, 1);
+  const encoding = object(source.encoding, `${path}.encoding`);
+  const encodedSha256 = text(encoding.encodedSha256, `${path}.encoding.encodedSha256`);
+  const sourceSha256 = text(encoding.sourceSha256, `${path}.encoding.sourceSha256`);
+  const decodedSha256 = text(encoding.decodedSha256, `${path}.encoding.decodedSha256`);
+  if (
+    !/^[a-f0-9]{64}$/.test(encodedSha256) ||
+    !/^[a-f0-9]{64}$/.test(sourceSha256) ||
+    !/^[a-f0-9]{64}$/.test(decodedSha256)
+  )
+    fail(`${path}.encoding`, "requires lowercase SHA-256 digests");
+  if (
+    text(encoding.codec, `${path}.encoding.codec`) !== "meshopt" ||
+    integer(encoding.codecVersion, `${path}.encoding.codecVersion`) !== 1 ||
+    text(encoding.mode, `${path}.encoding.mode`) !== mode ||
+    integer(encoding.stride, `${path}.encoding.stride`) !== stride
+  )
+    fail(`${path}.encoding`, "does not match the fixed Meshopt v1 contract");
+  const count = integer(encoding.count, `${path}.encoding.count`, 1);
+  if (count * stride !== decodedBytes)
+    fail(`${path}.encoding.count`, "does not match decoded byte capacity");
+  const encoderLevel = encoding.encoderLevel;
+  const parity = text(encoding.parity, `${path}.encoding.parity`);
+  if (
+    (mode === "ATTRIBUTES" && encoderLevel !== 3) ||
+    (mode === "TRIANGLES" && encoderLevel !== null)
+  )
+    fail(`${path}.encoding.encoderLevel`, "does not match the fixed codec mode");
+  if (
+    (mode === "ATTRIBUTES" && parity !== "byte-exact") ||
+    (mode === "TRIANGLES" && parity !== "cyclic-triangle")
+  )
+    fail(`${path}.encoding.parity`, "does not match the fixed codec mode");
   return {
-    uri: uri(source.uri, `${path}.uri`),
-    bytes: integer(source.bytes, `${path}.bytes`, 1),
+    uri: resourceUri,
+    bytes: decodedBytes,
+    encoding: {
+      codec: "meshopt",
+      codecVersion: 1,
+      encoderLevel: mode === "ATTRIBUTES" ? 3 : null,
+      mode,
+      count,
+      stride,
+      encodedBytes: integer(encoding.encodedBytes, `${path}.encoding.encodedBytes`, 1),
+      encodedSha256,
+      sourceSha256,
+      decodedSha256,
+      parity: mode === "ATTRIBUTES" ? "byte-exact" : "cyclic-triangle",
+    },
   };
 }
 
@@ -280,11 +347,11 @@ function parseTransport(value: unknown): PackedSceneV2Transport {
   if (new Set(textures.map((texture) => texture.id)).size !== textures.length)
     fail("transport.textures", "ids must be unique");
   const parsed = {
-    vertices: buffer(source.vertices, "transport.vertices"),
-    indices: buffer(source.indices, "transport.indices"),
-    materials: buffer(source.materials, "transport.materials"),
-    instances: buffer(source.instances, "transport.instances"),
-    indirect: buffer(source.indirect, "transport.indirect"),
+    vertices: buffer(source.vertices, "transport.vertices", "ATTRIBUTES", 32),
+    indices: buffer(source.indices, "transport.indices", "TRIANGLES", 4),
+    materials: buffer(source.materials, "transport.materials", "ATTRIBUTES", 64),
+    instances: buffer(source.instances, "transport.instances", "ATTRIBUTES", 128),
+    indirect: buffer(source.indirect, "transport.indirect", "ATTRIBUTES", 32),
     textures,
   };
   const resourceUris = [

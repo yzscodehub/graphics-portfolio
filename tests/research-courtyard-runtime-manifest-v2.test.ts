@@ -19,6 +19,29 @@ const layout = (strideBytes: number, attributes: readonly unknown[]) => ({
   attributes,
 });
 const transform = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0];
+const packBuffer = (
+  uri: string,
+  decodedBytes: number,
+  mode: "ATTRIBUTES" | "TRIANGLES",
+  stride: number,
+  encodedBytes = decodedBytes,
+) => ({
+  uri,
+  bytes: decodedBytes,
+  encoding: {
+    codec: "meshopt",
+    codecVersion: 1,
+    encoderLevel: mode === "ATTRIBUTES" ? 3 : null,
+    mode,
+    count: decodedBytes / stride,
+    stride,
+    encodedBytes,
+    encodedSha256: hash,
+    sourceSha256: hash,
+    decodedSha256: hash,
+    parity: mode === "ATTRIBUTES" ? "byte-exact" : "cyclic-triangle",
+  },
+});
 
 function minimalPack(): Record<string, unknown> {
   return {
@@ -102,11 +125,11 @@ function minimalPack(): Record<string, unknown> {
     ],
     renderPasses: { deferredOpaque: [0], alphaMaskForward: [] },
     transport: {
-      vertices: { uri: "courtyard/vertices.bin", bytes: 17 * 32 },
-      indices: { uri: "courtyard/indices.bin", bytes: 21 * 4 },
-      materials: { uri: "courtyard/materials.bin", bytes: 64 },
-      instances: { uri: "courtyard/instances.bin", bytes: 128 },
-      indirect: { uri: "courtyard/indirect.bin", bytes: 96 },
+      vertices: packBuffer("courtyard/vertices.meshopt", 17 * 32, "ATTRIBUTES", 32),
+      indices: packBuffer("courtyard/indices.meshopt", 21 * 4, "TRIANGLES", 4),
+      materials: packBuffer("courtyard/materials.meshopt", 64, "ATTRIBUTES", 64),
+      instances: packBuffer("courtyard/instances.meshopt", 128, "ATTRIBUTES", 128),
+      indirect: packBuffer("courtyard/indirect.meshopt", 96, "ATTRIBUTES", 32),
       textures: [
         {
           id: "base",
@@ -127,11 +150,11 @@ function manifest(): Record<string, unknown> {
     toolchainLockSha256: hash,
     pack: resource("courtyard/research-courtyard.pack.json", 123),
     buffers: {
-      vertices: resource("courtyard/vertices.bin", 544),
-      indices: resource("courtyard/indices.bin", 84),
-      materials: resource("courtyard/materials.bin", 64),
-      instances: resource("courtyard/instances.bin", 128),
-      indirect: resource("courtyard/indirect.bin", 96),
+      vertices: resource("courtyard/vertices.meshopt", 544),
+      indices: resource("courtyard/indices.meshopt", 84),
+      materials: resource("courtyard/materials.meshopt", 64),
+      instances: resource("courtyard/instances.meshopt", 128),
+      indirect: resource("courtyard/indirect.meshopt", 96),
     },
     textures: {
       base: {
@@ -139,6 +162,12 @@ function manifest(): Record<string, unknown> {
         ktx2: resource("textures/base.ktx2", 100),
         webp: resource("textures/base.webp", 80),
       },
+    },
+    environment: {
+      diffuseSh: resource("courtyard/diffuse-sh9.json", 512),
+      reviewPreview: resource("evidence/courtyard-tonemapped-1k.webp", 1024),
+      specularIbl: false,
+      runtimeHdr: false,
     },
   };
 }
@@ -150,6 +179,10 @@ describe("Research Courtyard Runtime Manifest v2", () => {
       assertRuntimeManifestV2MatchesPack(runtime, parsePackedSceneV2(minimalPack())),
     ).not.toThrow();
     expect(runtime.buffers).toHaveProperty("indirect");
+    expect(runtime.environment).toMatchObject({
+      specularIbl: false,
+      runtimeHdr: false,
+    });
   });
 
   it("rejects unsafe URIs and incomplete digests", () => {
@@ -170,7 +203,7 @@ describe("Research Courtyard Runtime Manifest v2", () => {
     runtime.buffers.indices.bytes = 4;
     const parsed = parsePackedSceneV2(minimalPack());
     expect(() => assertRuntimeManifestV2MatchesPack(runtime, parsed)).toThrow(
-      "must match the Pack v2 transport",
+      "must match the Pack v2 encoded transport",
     );
 
     const changedTexture = parseResearchCourtyardRuntimeManifestV2(manifest());

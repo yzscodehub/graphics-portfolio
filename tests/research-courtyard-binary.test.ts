@@ -237,6 +237,28 @@ describe("Research Courtyard deterministic binary encoder", () => {
 
   it("feeds encoder metadata directly into the strict Pack v2 parser", () => {
     const encoded = encodeResearchCourtyardBinary(sourceScene());
+    const packBuffer = (
+      uri: string,
+      decodedBytes: number,
+      mode: "ATTRIBUTES" | "TRIANGLES",
+      stride: number,
+    ) => ({
+      uri,
+      bytes: decodedBytes,
+      encoding: {
+        codec: "meshopt",
+        codecVersion: 1,
+        encoderLevel: mode === "ATTRIBUTES" ? 3 : null,
+        mode,
+        count: decodedBytes / stride,
+        stride,
+        encodedBytes: decodedBytes,
+        encodedSha256: "a".repeat(64),
+        sourceSha256: "b".repeat(64),
+        decodedSha256: "b".repeat(64),
+        parity: mode === "ATTRIBUTES" ? "byte-exact" : "cyclic-triangle",
+      },
+    });
     const meshes = encoded.metadata.meshes.map(
       (
         mesh: {
@@ -324,26 +346,36 @@ describe("Research Courtyard deterministic binary encoder", () => {
       ],
       renderPasses: { deferredOpaque: [], alphaMaskForward: [0] },
       transport: {
-        vertices: {
-          uri: "courtyard/vertices.bin",
-          bytes: encoded.buffers.vertices.byteLength,
-        },
-        indices: {
-          uri: "courtyard/indices.bin",
-          bytes: encoded.buffers.indices.byteLength,
-        },
-        materials: {
-          uri: "courtyard/materials.bin",
-          bytes: encoded.buffers.materials.byteLength,
-        },
-        instances: {
-          uri: "courtyard/instances.bin",
-          bytes: encoded.buffers.instances.byteLength,
-        },
-        indirect: {
-          uri: "courtyard/indirect.bin",
-          bytes: encoded.buffers.indirect.byteLength,
-        },
+        vertices: packBuffer(
+          "courtyard/vertices.meshopt",
+          encoded.buffers.vertices.byteLength,
+          "ATTRIBUTES",
+          32,
+        ),
+        indices: packBuffer(
+          "courtyard/indices.meshopt",
+          encoded.buffers.indices.byteLength,
+          "TRIANGLES",
+          4,
+        ),
+        materials: packBuffer(
+          "courtyard/materials.meshopt",
+          encoded.buffers.materials.byteLength,
+          "ATTRIBUTES",
+          64,
+        ),
+        instances: packBuffer(
+          "courtyard/instances.meshopt",
+          encoded.buffers.instances.byteLength,
+          "ATTRIBUTES",
+          128,
+        ),
+        indirect: packBuffer(
+          "courtyard/indirect.meshopt",
+          encoded.buffers.indirect.byteLength,
+          "ATTRIBUTES",
+          32,
+        ),
         textures: [
           {
             id: "base",

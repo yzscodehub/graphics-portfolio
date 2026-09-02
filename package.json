@@ -28,6 +28,8 @@
     "assets:preflight:toolchain": "pnpm run toolchain:verify:local",
     "assets:build:lods": "node scripts/assets/research-courtyard-lods.mjs",
     "assets:build:hdri": "node scripts/assets/research-courtyard-hdri.mjs",
+    "assets:build:ktx2": "node scripts/assets/research-courtyard-ktx2.mjs",
+    "assets:compile:courtyard": "node scripts/assets/compile-research-courtyard-v2.mjs",
     "toolchain:install": "node scripts/assets/install-rendering-toolchain.mjs",
     "toolchain:verify": "node scripts/assets/verify-rendering-toolchain.mjs --schema-only",
     "toolchain:verify:local": "node scripts/assets/verify-rendering-toolchain.mjs",
@@ -54,6 +56,7 @@
     "@astrojs/mdx": "^7.0.6",
     "@astrojs/sitemap": "^3.7.3",
     "astro": "^7.2.9",
+    "meshoptimizer": "1.1.1",
     "onnxruntime-web": "^1.29.0",
     "three": "^0.185.1"
   },

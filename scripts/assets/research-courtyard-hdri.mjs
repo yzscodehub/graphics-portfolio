@@ -608,6 +608,62 @@ function artifactDigest(artifacts) {
     .digest("hex");
 }
 
+export function loadResearchCourtyardHdriCandidate(directory) {
+  directory = path.resolve(directory);
+  if (
+    !existsSync(directory) ||
+    !lstatSync(directory).isDirectory() ||
+    lstatSync(directory).isSymbolicLink()
+  )
+    fail("hdri-candidate", "directory is missing or unsafe");
+  const manifestPath = path.join(directory, "hdri-candidate.manifest.json");
+  const manifest = json(manifestPath, "HDRI candidate manifest");
+  if (
+    manifest.format !== researchCourtyardHdriFormat ||
+    manifest.version !== researchCourtyardHdriVersion ||
+    manifest.status !== "candidate" ||
+    manifest.publishable !== false ||
+    !sha256Pattern.test(manifest.sourceSetSha256 ?? "") ||
+    !sha256Pattern.test(manifest.sourceLockSha256 ?? "") ||
+    !sha256Pattern.test(manifest.recipeSha256 ?? "") ||
+    manifest.specularIbl !== false ||
+    manifest.runtimeHdr !== false ||
+    manifest.diffuseSh?.coefficients?.length !== 9
+  )
+    fail("hdri-candidate", "identity, status, or SH9 contract mismatch");
+  const artifacts = [];
+  if (manifest.preview) {
+    const relative = manifest.preview.path;
+    if (!safePortable(relative)) fail("hdri-candidate", "preview path is unsafe");
+    const file = path.resolve(directory, relative);
+    if (
+      !within(directory, file) ||
+      !existsSync(file) ||
+      !lstatSync(file).isFile() ||
+      lstatSync(file).isSymbolicLink() ||
+      statSync(file).size !== manifest.preview.bytes ||
+      digest(file) !== manifest.preview.sha256
+    )
+      fail("hdri-candidate", "preview does not match its receipt");
+    artifacts.push({
+      path: manifest.preview.path,
+      bytes: manifest.preview.bytes,
+      sha256: manifest.preview.sha256,
+      width: manifest.preview.width,
+      height: manifest.preview.height,
+      colorSpace: manifest.preview.colorSpace,
+    });
+  }
+  if (artifactDigest(artifacts) !== manifest.candidateArtifactsSha256)
+    fail("hdri-candidate", "artifact digest mismatch");
+  return {
+    directory,
+    manifestPath,
+    manifestSha256: digest(manifestPath),
+    manifest,
+  };
+}
+
 export async function preprocessResearchCourtyardHdri({
   sourceLock,
   sourceLockSha256,

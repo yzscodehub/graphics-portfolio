@@ -379,7 +379,14 @@ export function assertResearchCourtyardRecipe(recipe, sourceLock, options = {}) 
     determinism.floatRoundingDigits !== 7 ||
     determinism.cleanBuildsRequired !== 2 ||
     JSON.stringify(determinism.sortOrder) !==
-      JSON.stringify(["sourceId", "partId", "primitiveIndex", "instanceId"])
+      JSON.stringify([
+        "sourceId",
+        "partId",
+        "nodeName",
+        "primitiveIndex",
+        "materialName",
+        "instanceId",
+      ])
   )
     fail("determinism", "fixed seed, rounding, two clean builds, and sort order are required");
   validateBudgets(recipe);

@@ -17,6 +17,7 @@ import {
   ResearchCourtyardTextureError,
   parseResearchCourtyardTextureArgs,
   preprocessResearchCourtyardTextures,
+  textureCatalogFromManifest,
   texturePreprocessContract,
 } from "../scripts/assets/research-courtyard-textures.mjs";
 
@@ -37,7 +38,7 @@ async function writeRgb(file: string, sample: Uint8Array, alternate?: Uint8Array
   const data = Buffer.alloc(1024 * 1024 * 3);
   for (let index = 0; index < data.length; index += 3) {
     const pixel = index / 3;
-    data.set(alternate && pixel % 2 === 1 ? alternate : sample, index);
+    data.set(alternate && pixel % 1024 >= 512 ? alternate : sample, index);
   }
   await sharp(data, {
     raw: { width: 1024, height: 1024, channels: 3 },
@@ -77,6 +78,50 @@ async function fixture() {
     new Uint8Array([128, 0, 0]),
     new Uint8Array([0, 0, 0]),
   );
+  await writeRgb(
+    path.join(
+      cacheRoot,
+      "modular-chainlink-fence",
+      "textures",
+      "modular_chainlink_fence_wire_nor_gl_1k.jpg",
+    ),
+    new Uint8Array([128, 128, 255]),
+  );
+  await writeRgb(
+    path.join(
+      cacheRoot,
+      "modular-chainlink-fence",
+      "textures",
+      "modular_chainlink_fence_wire_arm_1k.jpg",
+    ),
+    new Uint8Array([12, 64, 200]),
+  );
+  const gltfRelative = "modular_chainlink_fence_1k.gltf";
+  const gltfPath = path.join(cacheRoot, "modular-chainlink-fence", gltfRelative);
+  writeFileSync(
+    gltfPath,
+    JSON.stringify({
+      nodes: [{ name: "modular_chainlink_fence", mesh: 0 }],
+      meshes: [{ primitives: [{ material: 0 }] }],
+      materials: [
+        {
+          name: "modular_chainlink_fence_wire",
+          pbrMetallicRoughness: {
+            baseColorTexture: { index: 0 },
+            metallicRoughnessTexture: { index: 2 },
+          },
+          normalTexture: { index: 1 },
+          alphaMode: "BLEND",
+        },
+      ],
+      textures: [{ source: 0 }, { source: 1 }, { source: 2 }],
+      images: [
+        { uri: "textures/modular_chainlink_fence_wire_diff_1k.jpg" },
+        { uri: "textures/modular_chainlink_fence_wire_nor_gl_1k.jpg" },
+        { uri: "textures/modular_chainlink_fence_wire_arm_1k.jpg" },
+      ],
+    }),
+  );
   const sourceFiles = [
     descriptor(root, materialId, "base.png", "base-color"),
     descriptor(root, materialId, "normal.png", "normal"),
@@ -88,6 +133,19 @@ async function fixture() {
     "textures/modular_chainlink_fence_wire_diff_1k.jpg",
     "gltf-include",
   );
+  const wireNormal = descriptor(
+    root,
+    "modular-chainlink-fence",
+    "textures/modular_chainlink_fence_wire_nor_gl_1k.jpg",
+    "gltf-include",
+  );
+  const wireArm = descriptor(
+    root,
+    "modular-chainlink-fence",
+    "textures/modular_chainlink_fence_wire_arm_1k.jpg",
+    "gltf-include",
+  );
+  const gltfFile = descriptor(root, "modular-chainlink-fence", gltfRelative, "gltf");
   const sources = [
     {
       id: materialId,
@@ -118,7 +176,7 @@ async function fixture() {
         filesHash: "2".repeat(40),
       },
       selection: { format: "gltf", resolution: "1k", include: true },
-      files: [wireFile],
+      files: [gltfFile, wireFile, wireNormal, wireArm],
       usedBy: ["clustered-lighting"],
     },
   ];
@@ -172,6 +230,16 @@ async function fixture() {
     meshSources: [
       {
         sourceId: "modular-chainlink-fence",
+        gltf: {
+          path: gltfFile.cachePath,
+          sha256: gltfFile.sha256,
+        },
+        parts: [
+          {
+            partId: "single",
+            nodeNames: ["modular_chainlink_fence"],
+          },
+        ],
         materialOverrides: [
           {
             materialName: "modular_chainlink_fence_wire",
@@ -191,7 +259,15 @@ async function fixture() {
   };
   const buildRoot = path.join(root, "build");
   mkdirSync(buildRoot);
-  return { root, cacheRoot, buildRoot, sourceLock, recipe };
+  return {
+    root,
+    cacheRoot,
+    buildRoot,
+    sourceLock,
+    sourceLockSha256: "a".repeat(64),
+    recipe,
+    recipeSha256: "b".repeat(64),
+  };
 }
 
 afterEach(() => {
@@ -214,6 +290,12 @@ describe("Research Courtyard deterministic texture preprocessing", () => {
     expect(result.manifest.status).toBe("candidate");
     expect(result.manifest.publishable).toBe(false);
     expect(result.manifest.materials).toHaveLength(1);
+    expect(result.manifest.modelMaterials).toHaveLength(1);
+    expect(result.manifest.modelMaterials[0]).toMatchObject({
+      id: "modular-chainlink-fence-modular-chainlink-fence-wire",
+      materialKeys: ["modular-chainlink-fence:modular_chainlink_fence_wire"],
+      alphaFromMaxRgb: true,
+    });
     expect(result.manifest.contract.webp).toEqual(texturePreprocessContract.webp);
     expect(result.manifest.materials[0].maps[0].transcode.encoding).toBe("etc1s");
     expect(result.manifest.materials[0].maps[1].transcode.args).toContain("--normal_mode");
@@ -226,23 +308,65 @@ describe("Research Courtyard deterministic texture preprocessing", () => {
       .raw()
       .toBuffer({ resolveWithObject: true });
     expect(orm.info).toMatchObject({
-      width: 1024,
-      height: 1024,
+      width: texturePreprocessContract.width,
+      height: texturePreprocessContract.height,
       channels: 4,
     });
     expect([...orm.data.subarray(0, 4)]).toEqual([255, 64, 128, 255]);
+    const modelOrm = await sharp(
+      path.join(
+        result.outputDir,
+        "intermediate",
+        "modular-chainlink-fence-modular-chainlink-fence-wire-orm.png",
+      ),
+    )
+      .raw()
+      .toBuffer({ resolveWithObject: true });
+    expect([...modelOrm.data.subarray(0, 4)]).toEqual([255, 64, 200, 255]);
     const fence = await sharp(
       path.join(result.outputDir, "intermediate", "fence-wire-basecolor-alpha.png"),
     )
       .raw()
       .toBuffer({ resolveWithObject: true });
     expect(fence.info).toMatchObject({
-      width: 1024,
-      height: 1024,
+      width: texturePreprocessContract.width,
+      height: texturePreprocessContract.height,
       channels: 4,
     });
     expect([...fence.data.subarray(0, 4)]).toEqual([128, 0, 0, 255]);
-    expect([...fence.data.subarray(4, 8)]).toEqual([0, 0, 0, 0]);
+    expect([...fence.data.subarray(fence.data.length - 4)]).toEqual([0, 0, 0, 0]);
+    const catalog = textureCatalogFromManifest(result.manifest);
+    expect(catalog).toMatchObject({
+      textures: [
+        {
+          id: "modular-chainlink-fence-modular-chainlink-fence-wire-basecolor",
+          colorSpace: "srgb",
+        },
+        {
+          id: "modular-chainlink-fence-modular-chainlink-fence-wire-normal",
+          colorSpace: "linear",
+        },
+        {
+          id: "modular-chainlink-fence-modular-chainlink-fence-wire-orm",
+          colorSpace: "linear",
+        },
+        { id: "test-material-basecolor", colorSpace: "srgb" },
+        { id: "test-material-normal", colorSpace: "linear" },
+        { id: "test-material-orm", colorSpace: "linear" },
+      ],
+      materials: {
+        "architecture:test-material": {
+          baseColor: "test-material-basecolor",
+          normal: "test-material-normal",
+          orm: "test-material-orm",
+        },
+        "modular-chainlink-fence:modular_chainlink_fence_wire": {
+          baseColor: "modular-chainlink-fence-modular-chainlink-fence-wire-basecolor",
+          normal: "modular-chainlink-fence-modular-chainlink-fence-wire-normal",
+          orm: "modular-chainlink-fence-modular-chainlink-fence-wire-orm",
+        },
+      },
+    });
     expect(JSON.parse(readFileSync(result.manifestPath, "utf8"))).toEqual(result.manifest);
   });
 
