@@ -35,6 +35,15 @@ importers:
       "@eslint/js":
         specifier: ^10.0.1
         version: 10.0.1(eslint@10.9.1)
+      "@gltf-transform/core":
+        specifier: 4.4.2
+        version: 4.4.2
+      "@gltf-transform/extensions":
+        specifier: 4.4.2
+        version: 4.4.2
+      "@gltf-transform/functions":
+        specifier: 4.4.2
+        version: 4.4.2(@types/node@24.13.3)
       "@playwright/test":
         specifier: ^1.62.1
         version: 1.62.1
@@ -761,6 +770,24 @@ packages:
       }
     engines: { node: ^20.19.0 || ^22.13.0 || >=24 }
 
+  "@gltf-transform/core@4.4.2":
+    resolution:
+      {
+        integrity: sha512-qsWKwNSwK+2s834Mt4xbYcyHqCrgNFP7hIv5s487JxebngRfDgelpghNF+kSswGb2/NuapasfK3UViFoSJJoMg==,
+      }
+
+  "@gltf-transform/extensions@4.4.2":
+    resolution:
+      {
+        integrity: sha512-HJH1FM+edC5eNvl6xO0SOXJ/j/3oDoIpSu150OTdJaLBoM3TgCCGIfh4wyhgWAqZrkvgHKVGiZKxcKV5LkgPCQ==,
+      }
+
+  "@gltf-transform/functions@4.4.2":
+    resolution:
+      {
+        integrity: sha512-dclXgv9TshMaWBqPDUYd4xTwBQ2PpuR8p0Y9pokrRzGQDUPXRP6lTDzbqT0UmEmxFSvRyPJjvOWUmzeiRafpvw==,
+      }
+
   "@humanfs/core@0.19.2":
     resolution:
       {
@@ -1421,6 +1448,12 @@ packages:
         integrity: sha512-GsCCIZDE/p3i96vtEqx+7dBUGXrc7zeSK3wwPHIaRThS+9OhWIXRqzs4d6k1SVU8g91DrNRWxWUGhp5KXQb2VA==,
       }
 
+  "@types/ndarray@1.1.0":
+    resolution:
+      {
+        integrity: sha512-go+C6vHBUuO9jH6Tj6qEZ63JEGoMSxFdmd+6QAtthGD6xumBfIz3RbNDDs2aoRVLf9naH8lk5jnWy2UHHKgYQQ==,
+      }
+
   "@types/nlcst@2.0.3":
     resolution:
       {
@@ -2030,6 +2063,12 @@ packages:
         integrity: sha512-0LrrStPOdJj+SPCCrGhzryycLjwcgUSHBtxNA8aIDxf0GLsRh1cKYhB00Gd1lDOS4yGH69+SNn13+TWbVHETFQ==,
       }
     engines: { node: ^10 || ^12.20.0 || ^14.13.0 || >=15.0.0, npm: ">=7.0.0" }
+
+  cwise-compiler@1.1.3:
+    resolution:
+      {
+        integrity: sha512-WXlK/m+Di8DMMcCjcWr4i+XzcQra9eCdXIJrgh4TUgh0pIS/yJduLxS9JgefsHJ/YVLdgPtXm9r62W92MvanEQ==,
+      }
 
   debug@4.4.3:
     resolution:
@@ -2660,6 +2699,12 @@ packages:
         integrity: sha512-Nb2ctOyNR8DqQoR0OwRG95uNWIC0C1lCgf5Naz5H6Ji72KZ8OcFZLz2P5sNgwlyoJ8Yif11oMuYs5pBQa86csA==,
       }
 
+  iota-array@1.0.0:
+    resolution:
+      {
+        integrity: sha512-pZ2xT+LOHckCatGQ3DcG/a+QuEqvoxqkiL7tvE8nn3uuu+f6i1TtpB5/FtWFbxUuVr5PZCx8KskuGatbJDXOWA==,
+      }
+
   iron-webcrypto@1.2.1:
     resolution:
       {
@@ -2676,6 +2721,12 @@ packages:
     resolution:
       {
         integrity: sha512-hmbYhX/9MUMF5uh7tOXyK/n0ZvWpad5caBA17GsC6vyuCqaWliRG5K1qS9inmUhEMaOBIW7/whAnSwveW/LtZw==,
+      }
+
+  is-buffer@1.1.6:
+    resolution:
+      {
+        integrity: sha512-NcdALwpXkTm5Zvvbk7owOUSvVvBKDgKP5/ewfXEznmQFfs4ZRmanOeKBTjRVjka3QFoN6XJ+9F3USqfHqTaU5w==,
       }
 
   is-decimal@2.0.1:
@@ -2780,6 +2831,12 @@ packages:
         integrity: sha512-o+NO+8WrRiQEE4/7nwRJhN1HWpVmJm511pBHUxPLtp0BUISzlBplORYSmTclCnJvQq2tKu/sgl3xVpkc7ZWuQQ==,
       }
     engines: { node: ">=6" }
+
+  ktx-parse@1.1.0:
+    resolution:
+      {
+        integrity: sha512-mKp3y+FaYgR7mXWAbyyzpa/r1zDWeaunH+INJO4fou3hb45XuNSwar+7llrRyvpMWafxSIi99RNFJ05MHedaJQ==,
+      }
 
   levn@0.4.1:
     resolution:
@@ -3325,6 +3382,30 @@ packages:
         integrity: sha512-OWND8ei3VtNC9h7V60qff3SVobHr996CTwgxubgyQYEpg290h9J0buyECNNJexkFm5sOajh5G116RYA1c8ZMSw==,
       }
 
+  ndarray-lanczos@0.3.0:
+    resolution:
+      {
+        integrity: sha512-5kBmmG3Zvyj77qxIAC4QFLKuYdDIBJwCG+DukT6jQHNa1Ft74/hPH1z5mbQXeHBt8yvGPBGVrr3wEOdJPYYZYg==,
+      }
+
+  ndarray-ops@1.2.2:
+    resolution:
+      {
+        integrity: sha512-BppWAFRjMYF7N/r6Ie51q6D4fs0iiGmeXIACKY66fLpnwIui3Wc3CXiD/30mgLbDjPpSLrsqcp3Z62+IcHZsDw==,
+      }
+
+  ndarray-pixels@5.2.0:
+    resolution:
+      {
+        integrity: sha512-lTh4tFKziAatVTa9crIsidUyn+lqujVOQpzfdBWvdFu2wo9Uo6z261lVX7SgMyP89xGmj3TMTPbbxl9YDnV4SA==,
+      }
+
+  ndarray@1.1.1:
+    resolution:
+      {
+        integrity: sha512-AsE8w/M2MS+0pD3nP5qbRRtJFeJJJaJ+qXZaZr0XjVGXhy6LIj2TERTlkpdK2AI3WufoOP+pwPk3q2ilAJcZ9g==,
+      }
+
   neotraverse@1.0.1:
     resolution:
       {
@@ -3595,6 +3676,12 @@ packages:
         integrity: sha512-tGqJW/UnclpYASFcM6Xh8D8l/BMtaQ9+CSG0vlJSJTcdMM4lDRv4c6H0Pdcsfted+bVczdYSfk2fdukg2gQkZg==,
       }
     engines: { node: ">=18.0.0" }
+
+  property-graph@4.1.0:
+    resolution:
+      {
+        integrity: sha512-AvPcP7XECNWy4LGmFQ77k7un4lSKM4eS29PTvW4ck95uYeLxXPWJM7hLuBqK91FaHqCcgJvIUCuNJjjxKE7VKQ==,
+      }
 
   property-information@7.2.0:
     resolution:
@@ -4127,6 +4214,12 @@ packages:
     resolution:
       {
         integrity: sha512-ULe/Cs+ZIsq+dcFofNkhqielCrUJnb5mr+Yc4EBM2VlL+6OZR6+cjtI2mT1bJvRBrVncqHAbLURxmPLcCXzWMg==,
+      }
+
+  uniq@1.0.1:
+    resolution:
+      {
+        integrity: sha512-Gw+zz50YNKPDKXs+9d+aKAjVwpjNwqzvNpLigIruT4HA9lMZNdMqs9x07kKHB/L9WRzqp4+DlTU5s4wG2esdoA==,
       }
 
   unist-util-find-after@5.0.0:
@@ -5065,6 +5158,26 @@ snapshots:
       "@eslint/core": 1.2.1
       levn: 0.4.1
 
+  "@gltf-transform/core@4.4.2":
+    dependencies:
+      property-graph: 4.1.0
+
+  "@gltf-transform/extensions@4.4.2":
+    dependencies:
+      "@gltf-transform/core": 4.4.2
+      ktx-parse: 1.1.0
+
+  "@gltf-transform/functions@4.4.2(@types/node@24.13.3)":
+    dependencies:
+      "@gltf-transform/core": 4.4.2
+      "@gltf-transform/extensions": 4.4.2
+      ktx-parse: 1.1.0
+      ndarray: 1.1.1
+      ndarray-lanczos: 0.3.0
+      ndarray-pixels: 5.2.0(@types/node@24.13.3)
+    transitivePeerDependencies:
+      - "@types/node"
+
   "@humanfs/core@0.19.2":
     dependencies:
       "@humanfs/types": 0.15.0
@@ -5389,6 +5502,8 @@ snapshots:
   "@types/mdx@2.0.14": {}
 
   "@types/ms@2.1.0": {}
+
+  "@types/ndarray@1.1.0": {}
 
   "@types/nlcst@2.0.3":
     dependencies:
@@ -5866,6 +5981,10 @@ snapshots:
     dependencies:
       css-tree: 2.2.1
 
+  cwise-compiler@1.1.3:
+    dependencies:
+      uniq: 1.0.1
+
   debug@4.4.3:
     dependencies:
       ms: 2.1.3
@@ -6328,6 +6447,8 @@ snapshots:
 
   inline-style-parser@0.2.7: {}
 
+  iota-array@1.0.0: {}
+
   iron-webcrypto@1.2.1: {}
 
   is-alphabetical@2.0.1: {}
@@ -6336,6 +6457,8 @@ snapshots:
     dependencies:
       is-alphabetical: 2.0.1
       is-decimal: 2.0.1
+
+  is-buffer@1.1.6: {}
 
   is-decimal@2.0.1: {}
 
@@ -6374,6 +6497,8 @@ snapshots:
       json-buffer: 3.0.1
 
   kleur@4.1.5: {}
+
+  ktx-parse@1.1.0: {}
 
   levn@0.4.1:
     dependencies:
@@ -6910,6 +7035,29 @@ snapshots:
 
   natural-compare@1.4.0: {}
 
+  ndarray-lanczos@0.3.0:
+    dependencies:
+      "@types/ndarray": 1.1.0
+      ndarray: 1.1.1
+
+  ndarray-ops@1.2.2:
+    dependencies:
+      cwise-compiler: 1.1.3
+
+  ndarray-pixels@5.2.0(@types/node@24.13.3):
+    dependencies:
+      "@types/ndarray": 1.1.0
+      ndarray: 1.1.1
+      ndarray-ops: 1.2.2
+      sharp: 0.35.4(@types/node@24.13.3)
+    transitivePeerDependencies:
+      - "@types/node"
+
+  ndarray@1.1.1:
+    dependencies:
+      iota-array: 1.0.0
+      is-buffer: 1.1.6
+
   neotraverse@1.0.1: {}
 
   nlcst-to-string@4.0.0:
@@ -7058,6 +7206,8 @@ snapshots:
   prismjs@1.30.0: {}
 
   process-ancestry@0.1.0: {}
+
+  property-graph@4.1.0: {}
 
   property-information@7.2.0: {}
 
@@ -7464,6 +7614,8 @@ snapshots:
       css-tree: 3.2.1
       ohash: 2.0.12
       undici: 8.10.0
+
+  uniq@1.0.1: {}
 
   unist-util-find-after@5.0.0:
     dependencies:

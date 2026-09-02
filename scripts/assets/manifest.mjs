@@ -32,6 +32,7 @@ const requiredLogicalAssetIds = [
 ];
 const neuralManifestReferencePath = "public/models/neural-denoiser.manifest.json";
 const courtyardRuntimeManifestPath = `${renderingRoot}/manifests/research-courtyard.json`;
+const courtyardRecipePath = "scripts/assets/research-courtyard.recipe.json";
 
 function fromRoot(root, relative) {
   return path.resolve(root, relative);
@@ -493,6 +494,18 @@ export function validateRenderingAssets(root = projectRoot) {
     );
   if (sourceStage === "integrated" && validIntegration) {
     try {
+      const recipe = resolvePortablePathWithinRoot(
+        root,
+        courtyardRecipePath,
+        "Research Courtyard recipe path",
+      );
+      if (!existsSync(recipe) || sha256(recipe) !== integration.recipeSha256)
+        add(
+          violations,
+          "rendering-source-integration",
+          sourceLockRelativePath,
+          "recipe receipt does not match the tracked Research Courtyard recipe",
+        );
       const toolchainLock = resolvePortablePathWithinRoot(
         root,
         "scripts/assets/toolchain.lock.json",

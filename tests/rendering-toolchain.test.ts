@@ -7,6 +7,7 @@ import {
   installRenderingToolchain,
   loadToolchainLock,
   projectRoot,
+  resolveInstalledToolCommands,
   validateToolchainLock,
   verifyInstalledToolchain,
   verifyRuntimeVersions,
@@ -260,6 +261,24 @@ describe("transactional local rendering toolchain", () => {
         versionProbe: value.versionProbe,
       }),
     ).toEqual([]);
+    const resolved = resolveInstalledToolCommands(value.root, {
+      lock: value.lock,
+      lockSha256,
+      platform: "win32-x64",
+      runtimeVersions: { nodeVersion: "24.0.0", pnpmVersion: "11.0.0" },
+      versionProbe: value.versionProbe,
+    });
+    expect(resolved.commands["gltf-transform-cli"]).toMatchObject({
+      version: "4.4.2",
+      commandPath: process.execPath,
+      commandArgs: [npmTool.executablePath],
+    });
+    expect(resolved.commands.gltfpack.commandArgs).toEqual([]);
+    expect(
+      resolved.commands["ktx-software-toktx"].supportArtifacts.map(
+        (support: { id: string }) => support.id,
+      ),
+    ).toEqual(["libktx-web", "libktx-read-web"]);
 
     const support = ktxTool.supportArtifacts[0];
     writeFileSync(path.join(support.rootPath, support.files[0].path), "tampered support module");
@@ -276,6 +295,15 @@ describe("transactional local rendering toolchain", () => {
         expect.stringContaining("libktx-web extracted support files changed"),
       ]),
     );
+    expect(() =>
+      resolveInstalledToolCommands(value.root, {
+        lock: value.lock,
+        lockSha256,
+        platform: "win32-x64",
+        runtimeVersions: { nodeVersion: "24.0.0", pnpmVersion: "11.0.0" },
+        versionProbe: value.versionProbe,
+      }),
+    ).toThrow(/not trusted/);
   });
 
   it("keeps the previous installation when an archive fails verification", async () => {

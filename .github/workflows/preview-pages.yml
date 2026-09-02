@@ -61,6 +61,9 @@ jobs:
       - name: Verify rendering toolchain lock
         run: pnpm run toolchain:verify
 
+      - name: Verify Research Courtyard recipe
+        run: pnpm run assets:verify:recipe
+
       - name: Type-check Astro and TypeScript
         run: pnpm run check
 

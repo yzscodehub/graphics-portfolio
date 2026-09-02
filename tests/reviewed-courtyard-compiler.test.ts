@@ -10,6 +10,7 @@ import {
   createReviewedCourtyardCommandPlan,
   sharpWebpHelperPath,
 } from "../scripts/assets/compile-reviewed-courtyard.mjs";
+import { calculateSourceSetSha256 } from "../scripts/assets/manifest.mjs";
 
 function sha256(bytes: Buffer) {
   return createHash("sha256").update(bytes).digest("hex");
@@ -38,40 +39,91 @@ function fixture() {
       kind,
       role,
       relativePath: relative,
+      directUrl: `https://dl.polyhaven.org/file/fixture/${relative}`,
+      bytes: bytes.length,
+      md5: createHash("md5").update(bytes).digest("hex"),
       cachePath: `.cache/rendering-sources/${kind}/${relative}`,
       sha256: sha256(bytes),
       status: "reviewed",
     };
   });
-  const sourceLock = {
-    version: 2,
-    policy: {
-      downloaded: false,
-      stage: "sources-reviewed",
-      rawCache: ".cache/rendering-sources",
+  const sources = [
+    {
+      id: "mesh",
+      kind: "mesh",
+      page: "mesh",
+      sourceUrl: "https://polyhaven.com/a/mesh",
+      license: "CC0",
+      authors: ["Fixture"],
+      api: {},
+      selection: {},
+      files: [sourceFiles[0]],
+      usedBy: ["clustered-lighting"],
     },
-    sources: [
-      { id: "mesh", kind: "mesh", files: [sourceFiles[0]] },
-      { id: "texture", kind: "texture", files: [sourceFiles[1], sourceFiles[2]] },
-      { id: "hdri", kind: "hdri", files: [sourceFiles[3]] },
-    ],
+    {
+      id: "texture",
+      kind: "texture",
+      page: "texture",
+      sourceUrl: "https://polyhaven.com/a/texture",
+      license: "CC0",
+      authors: ["Fixture"],
+      api: {},
+      selection: {},
+      files: [sourceFiles[1], sourceFiles[2]],
+      usedBy: ["clustered-lighting"],
+    },
+    {
+      id: "hdri",
+      kind: "hdri",
+      page: "hdri",
+      sourceUrl: "https://polyhaven.com/a/hdri",
+      license: "CC0",
+      authors: ["Fixture"],
+      api: {},
+      selection: {},
+      files: [sourceFiles[3]],
+      usedBy: ["clustered-lighting"],
+    },
+  ];
+  const sourceLock = {
+    version: 3,
+    policy: {
+      stage: "sources-reviewed",
+      license: "CC0",
+      rawCache: ".cache/rendering-sources",
+      disallowedExtensions: [".zip"],
+    },
+    sourceSetSha256: calculateSourceSetSha256(sources),
+    review: { reviewId: "fixture-review" },
+    sources,
   };
-  const tools: Record<
+  const commands: Record<
     string,
-    { nodePath?: string; packageJsonPath?: string; path?: string; version: string }
+    {
+      version: string;
+      commandPath: string;
+      commandArgs: string[];
+    }
   > = {};
-  for (const [key, version] of Object.entries({
-    gltfTransform: "4.4.2",
+  for (const [id, version] of Object.entries({
+    "gltf-transform-cli": "4.4.2",
     gltfpack: "1.1",
-    toktx: "4.4.2",
+    "ktx-software-toktx": "4.4.2",
   })) {
-    const executable = path.join(toolsRoot, key + ".tool");
-    writeFileSync(executable, key);
-    tools[key] = { path: executable, version };
+    const executable = path.join(toolsRoot, id + ".tool");
+    writeFileSync(executable, id);
+    const prefix =
+      id === "gltf-transform-cli" ? [path.join(toolsRoot, "gltf-transform-cli.js")] : [];
+    if (prefix.length) writeFileSync(prefix[0], "fixture cli");
+    commands[id] = {
+      commandPath: executable,
+      commandArgs: prefix,
+      version,
+    };
   }
   const sharpPackageJson = path.join(toolsRoot, "sharp-package.json");
   writeFileSync(sharpPackageJson, JSON.stringify({ version: "0.35.4" }));
-  tools.sharp = {
+  const sharp = {
     nodePath: process.execPath,
     packageJsonPath: sharpPackageJson,
     version: "0.35.4",
@@ -81,7 +133,11 @@ function fixture() {
     cacheRoot,
     buildRoot,
     sourceLock,
-    toolPaths: { tools },
+    toolPaths: {
+      lockSha256: "a".repeat(64),
+      commands,
+      sharp,
+    },
     dispose: () => rmSync(root, { recursive: true, force: true }),
   };
 }
@@ -166,6 +222,7 @@ describe("courtyard candidate-foundation compiler transaction", () => {
 
       reviewedFile.sha256 = originalSha;
       reviewedFile.cachePath = ".cache/rendering-sources/mesh/other.gltf";
+      state.sourceLock.sourceSetSha256 = calculateSourceSetSha256(state.sourceLock.sources);
       const misbound = path.join(state.buildRoot, "misbound-input");
       expect(() =>
         compileReviewedCourtyard({
@@ -227,9 +284,14 @@ describe("courtyard candidate-foundation compiler transaction", () => {
         toolPaths: state.toolPaths,
         stagingRoot: path.join(state.buildRoot, "plan"),
       });
-      expect(plan.commands.map((entry) => entry.args[0])).toEqual(
+      expect(plan.commands.flatMap((entry) => entry.args)).toEqual(
         expect.arrayContaining(["prune", "dedup", "-i", "--t2"]),
       );
+      const gltfCommands = plan.commands.filter(
+        (entry) => entry.args.includes("prune") || entry.args.includes("dedup"),
+      );
+      expect(gltfCommands).toHaveLength(2);
+      expect(gltfCommands.every((entry) => entry.args[0].endsWith(".js"))).toBe(true);
       const webpCommands = plan.commands.filter((entry) => entry.executor === "node-sharp-helper");
       expect(webpCommands).toHaveLength(2);
       for (const command of webpCommands) {

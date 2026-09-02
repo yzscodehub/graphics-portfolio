@@ -244,6 +244,10 @@ describe("rendering asset pipeline", () => {
         path.join(projectRoot, "scripts", "assets", "toolchain.lock.json"),
         path.join(fixtureScripts, "toolchain.lock.json"),
       );
+      cpSync(
+        path.join(projectRoot, "scripts", "assets", "research-courtyard.recipe.json"),
+        path.join(fixtureScripts, "research-courtyard.recipe.json"),
+      );
 
       const renderingRoot = path.join(fixtureAssets, "rendering");
       const manifestPath = path.join(renderingRoot, "manifest.json");
@@ -282,7 +286,9 @@ describe("rendering asset pipeline", () => {
       }));
       writeFileSync(sourceLockPath, `${JSON.stringify(sourceLock, null, 2)}\n`);
       sourceLock.integration = {
-        recipeSha256: "b".repeat(64),
+        recipeSha256: createHash("sha256")
+          .update(readFileSync(path.join(fixtureScripts, "research-courtyard.recipe.json")))
+          .digest("hex"),
         toolchainLockSha256: createHash("sha256")
           .update(readFileSync(path.join(fixtureScripts, "toolchain.lock.json")))
           .digest("hex"),

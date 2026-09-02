@@ -484,6 +484,67 @@ export function verifyInstalledToolchain(root = projectRoot, options = {}) {
   return issues;
 }
 
+/**
+ * Returns executable commands only after the complete local receipt has passed
+ * verification. Callers must prepend commandArgs before their own subcommand
+ * arguments; this is required for the Node-hosted glTF Transform CLI.
+ */
+export function resolveInstalledToolCommands(root = projectRoot, options = {}) {
+  const lock = options.lock ?? loadToolchainLock(root);
+  const issues = verifyInstalledToolchain(root, { ...options, lock });
+  if (issues.length)
+    throw new Error(`Rendering toolchain is not trusted:\n- ${issues.join("\n- ")}`);
+  const local = readJson(localManifestPath(root, lock));
+  const localById = new Map(local.tools.map((tool) => [tool.id, tool]));
+  /** @type {Record<string, Readonly<{
+   * id: string;
+   * version: string;
+   * commandPath: string;
+   * commandArgs: readonly string[];
+   * executablePath: string;
+   * executableSha256: string;
+   * supportArtifacts: readonly Readonly<{
+   *   id: string;
+   *   rootPath: string;
+   *   files: readonly Readonly<{path: string; bytes: number; sha256: string}>[];
+   * }>[];
+   * }>>} */
+  const commands = {};
+  for (const tool of lock.tools) {
+    const installed = localById.get(tool.id);
+    commands[tool.id] = Object.freeze({
+      id: tool.id,
+      version: tool.version,
+      commandPath: installed.commandPath,
+      commandArgs: Object.freeze([...(installed.commandArgs ?? [])]),
+      executablePath: installed.executablePath,
+      executableSha256: installed.executableSha256,
+      supportArtifacts: Object.freeze(
+        (installed.supportArtifacts ?? []).map((support) =>
+          Object.freeze({
+            id: support.id,
+            rootPath: support.rootPath,
+            files: Object.freeze(support.files.map((file) => Object.freeze({ ...file }))),
+          }),
+        ),
+      ),
+    });
+  }
+  return Object.freeze({
+    lockSha256: options.lockSha256 ?? toolchainLockSha256(root),
+    commands: Object.freeze(commands),
+    sharp: Object.freeze({
+      version: lock.sharp.version,
+      nodePath: process.execPath,
+      packageJsonPath: resolvePortablePath(
+        root,
+        lock.sharp.artifact.file,
+        "Sharp package manifest",
+      ),
+    }),
+  });
+}
+
 function extension(archive) {
   return archive === "raw" ? "bin" : archive === "zip" ? "zip" : archive === "nsis" ? "exe" : "tgz";
 }

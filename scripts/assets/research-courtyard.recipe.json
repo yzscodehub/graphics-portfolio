@@ -1,0 +1,568 @@
+{
+  "format": "graphics-portfolio-research-courtyard-recipe",
+  "version": 1,
+  "sourceSetSha256": "db58e17d1190d4b4059e9b8af07cb4dc78edbc534b26bcf092e60a1461324aeb",
+  "coordinateSystem": {
+    "handedness": "right",
+    "upAxis": "Y",
+    "units": "meters"
+  },
+  "determinism": {
+    "seed": 20260901,
+    "floatRoundingDigits": 7,
+    "cleanBuildsRequired": 2,
+    "sortOrder": ["sourceId", "partId", "primitiveIndex", "instanceId"]
+  },
+  "budgets": {
+    "publicRenderingBytes": 20971520,
+    "courtyardGeometryBytes": 3670016,
+    "ktx2Bytes": 5242880,
+    "webpFallbackBytes": 3145728,
+    "demoInitialBytes": 10485760,
+    "heroBytes": 2097152
+  },
+  "camera": {
+    "position": [10.5, 6.2, -7.5],
+    "target": [0, 1.6, 6],
+    "verticalFovDegrees": 45,
+    "near": 0.1,
+    "far": 100
+  },
+  "architecture": [
+    {
+      "id": "courtyard-floor",
+      "primitive": "box",
+      "center": [0, -0.125, 6],
+      "size": [16, 0.25, 16],
+      "materialId": "concrete-floor-worn-001",
+      "uvMetersPerRepeat": 2
+    },
+    {
+      "id": "courtyard-rear-wall",
+      "primitive": "box",
+      "center": [0, 3.5, 13.825],
+      "size": [16, 7, 0.35],
+      "materialId": "concrete-wall-007",
+      "uvMetersPerRepeat": 2
+    },
+    {
+      "id": "courtyard-left-wall",
+      "primitive": "box",
+      "center": [-7.825, 3.5, 6],
+      "size": [0.35, 7, 16],
+      "materialId": "concrete-wall-007",
+      "uvMetersPerRepeat": 2
+    },
+    {
+      "id": "courtyard-right-wall",
+      "primitive": "box",
+      "center": [7.825, 3.5, 6],
+      "size": [0.35, 7, 16],
+      "materialId": "concrete-wall-007",
+      "uvMetersPerRepeat": 2
+    },
+    {
+      "id": "brick-inset",
+      "primitive": "box",
+      "center": [0, 0.015, 6],
+      "size": [4, 0.03, 11],
+      "materialId": "brick-floor-003",
+      "uvMetersPerRepeat": 1.5
+    },
+    {
+      "id": "cat-plinth",
+      "primitive": "box",
+      "center": [0, 0.65, 7.2],
+      "size": [2.2, 1.3, 2.2],
+      "materialId": "rusty-metal",
+      "uvMetersPerRepeat": 1
+    }
+  ],
+  "meshSources": [
+    {
+      "sourceId": "concrete-road-barrier",
+      "gltf": {
+        "path": ".cache/rendering-sources/concrete-road-barrier/concrete_road_barrier_1k.gltf",
+        "sha256": "c371e87d303fff3f0c9fbe88520f7837514364e5c66aac3244e115ffa673d061"
+      },
+      "parts": [
+        {
+          "partId": "main",
+          "nodeNames": ["concrete_road_barrier"]
+        }
+      ],
+      "normalization": "ground-center",
+      "lod": {
+        "ratios": [1, 0.4, 0.1],
+        "maxErrors": [0, 0.01, 0.04],
+        "requireStrictDecrease": true
+      },
+      "materialOverrides": []
+    },
+    {
+      "sourceId": "fire-hydrant",
+      "gltf": {
+        "path": ".cache/rendering-sources/fire-hydrant/fire_hydrant_1k.gltf",
+        "sha256": "aaca81b2904e6e5f1fb10a854c7b9a921232624387d1f8757b5c6bdaedcd9eb0"
+      },
+      "parts": [
+        {
+          "partId": "aged",
+          "nodeNames": [
+            "fire_hydrant_aged",
+            "fire_hydrant_cap_01_aged",
+            "fire_hydrant_cap_02_aged",
+            "fire_hydrant_cap_03_aged",
+            "fire_hydrant_chain_aged"
+          ]
+        }
+      ],
+      "normalization": "ground-center",
+      "lod": {
+        "ratios": [1, 0.42, 0.12],
+        "maxErrors": [0, 0.012, 0.05],
+        "requireStrictDecrease": true,
+        "lod2DropNodeNames": ["fire_hydrant_chain_aged"]
+      },
+      "materialOverrides": []
+    },
+    {
+      "sourceId": "plastic-crate-02",
+      "gltf": {
+        "path": ".cache/rendering-sources/plastic-crate-02/plastic_crate_02_1k.gltf",
+        "sha256": "531f7ba7d4b501759b04fb704db1948bcaab34d8342e71e3f5877d9f0340dba7"
+      },
+      "parts": [
+        {
+          "partId": "main",
+          "nodeNames": ["plastic_crate_02"]
+        }
+      ],
+      "normalization": "ground-center",
+      "lod": {
+        "ratios": [1, 0.35, 0.08],
+        "maxErrors": [0, 0.015, 0.08],
+        "requireStrictDecrease": true
+      },
+      "materialOverrides": [
+        {
+          "materialName": "plastic_crate_02",
+          "sourceAlphaMode": "BLEND",
+          "alphaMode": "OPAQUE",
+          "doubleSided": false,
+          "renderPass": "deferred-opaque",
+          "reason": "Source JPEG and factor contain no meaningful alpha; visibility instances must remain opaque."
+        }
+      ]
+    },
+    {
+      "sourceId": "street-lamp-02",
+      "gltf": {
+        "path": ".cache/rendering-sources/street-lamp-02/street_lamp_02_1k.gltf",
+        "sha256": "3a8a42486c5dc4538a8b44aeeef502c64a1c9d0d42fa5610e37886c355337ff8"
+      },
+      "parts": [
+        {
+          "partId": "main",
+          "nodeNames": ["street_lamp_02"]
+        }
+      ],
+      "normalization": "ground-center",
+      "lod": {
+        "ratios": [1, 0.42, 0.12],
+        "maxErrors": [0, 0.012, 0.06],
+        "requireStrictDecrease": true,
+        "lod2DropMaterialNames": ["street_lamp_02_glass"]
+      },
+      "materialOverrides": [
+        {
+          "materialName": "street_lamp_02_glass",
+          "sourceAlphaMode": "BLEND",
+          "alphaMode": "OPAQUE",
+          "doubleSided": false,
+          "renderPass": "deferred-opaque",
+          "reason": "The reviewed JPEG has no transmission or meaningful alpha; v1 does not claim glass transmission."
+        }
+      ]
+    },
+    {
+      "sourceId": "modular-chainlink-fence",
+      "gltf": {
+        "path": ".cache/rendering-sources/modular-chainlink-fence/modular_chainlink_fence_1k.gltf",
+        "sha256": "4204f151f809b4abd41ea0b18b1b6a5d9c23e6bcc0b6a81e44d03690f26604e9"
+      },
+      "parts": [
+        {
+          "partId": "door-latch",
+          "nodeNames": ["modular_chainlink_fence_door_latch"]
+        },
+        {
+          "partId": "door-gate",
+          "nodeNames": ["modular_chainlink_fence_door_gate"]
+        },
+        {
+          "partId": "door-frame",
+          "nodeNames": ["modular_chainlink_fence_door_frame"]
+        },
+        {
+          "partId": "double",
+          "nodeNames": ["modular_chainlink_fence_double"]
+        },
+        {
+          "partId": "single",
+          "nodeNames": ["modular_chainlink_fence"]
+        },
+        {
+          "partId": "post",
+          "nodeNames": ["modular_chainlink_fence_post"]
+        }
+      ],
+      "normalization": "ground-center",
+      "lod": {
+        "ratios": [1, 0.5, 0.2],
+        "maxErrors": [0, 0.01, 0.05],
+        "requireStrictDecrease": true,
+        "preserveWireCards": true,
+        "lod2DropPartIds": ["door-latch"]
+      },
+      "materialOverrides": [
+        {
+          "materialName": "modular_chainlink_fence_posts",
+          "sourceAlphaMode": "OPAQUE",
+          "alphaMode": "MASK",
+          "alphaCutoff": 0.5,
+          "alphaSource": {
+            "kind": "constant",
+            "value": 1
+          },
+          "doubleSided": true,
+          "renderPass": "alpha-mask-forward"
+        },
+        {
+          "materialName": "modular_chainlink_fence_wire",
+          "sourceAlphaMode": "BLEND",
+          "alphaMode": "MASK",
+          "alphaCutoff": 0.5,
+          "alphaSource": {
+            "kind": "max-rgb",
+            "threshold": 0.5,
+            "sourceRole": "base-color"
+          },
+          "textureTransform": {
+            "offset": [-3.999999999999996, 1.00000017484556],
+            "rotation": 1.5707963705062866,
+            "scale": [4, 4],
+            "bakeIntoUv": true
+          },
+          "doubleSided": true,
+          "renderPass": "alpha-mask-forward"
+        }
+      ]
+    },
+    {
+      "sourceId": "concrete-cat-statue",
+      "gltf": {
+        "path": ".cache/rendering-sources/concrete-cat-statue/concrete_cat_statue_1k.gltf",
+        "sha256": "898110387c632808e6c6ffe818f48eaf32fcf1c8817de939bef428abb659e813"
+      },
+      "parts": [
+        {
+          "partId": "main",
+          "nodeNames": ["concrete_cat_statue"]
+        }
+      ],
+      "normalization": "ground-center",
+      "lod": {
+        "ratios": [1, 0.45, 0.15],
+        "maxErrors": [0, 0.01, 0.04],
+        "requireStrictDecrease": true
+      },
+      "materialOverrides": []
+    }
+  ],
+  "materialSources": [
+    {
+      "materialId": "concrete-floor-worn-001",
+      "sourceId": "concrete-floor-worn-001",
+      "metallicFactor": 0,
+      "maps": {
+        "baseColor": {
+          "path": ".cache/rendering-sources/concrete-floor-worn-001/concrete_floor_worn_001_diff_1k.jpg",
+          "sha256": "6e40c0fc908f4d66431836f5abe203f3a4eb064e88824378a91a46a26e2f464c",
+          "colorSpace": "srgb",
+          "encoding": "etc1s"
+        },
+        "normal": {
+          "path": ".cache/rendering-sources/concrete-floor-worn-001/concrete_floor_worn_001_nor_gl_1k.jpg",
+          "sha256": "523bd94a1be5dd2f11c2ae2b7d7c77445cf5bd9e41604db515a7c8364dcba067",
+          "colorSpace": "linear",
+          "encoding": "uastc",
+          "normalConvention": "opengl-positive-y"
+        },
+        "roughness": {
+          "path": ".cache/rendering-sources/concrete-floor-worn-001/concrete_floor_worn_001_rough_1k.jpg",
+          "sha256": "069efe4ca018e0ef61fd8cc9964395ba8272284ae239da68d7f87988e2e9f488",
+          "colorSpace": "linear",
+          "encoding": "etc1s"
+        }
+      },
+      "orm": {
+        "occlusionConstant": 1,
+        "roughnessSource": "roughness",
+        "metallicSource": "metallicFactor"
+      }
+    },
+    {
+      "materialId": "concrete-wall-007",
+      "sourceId": "concrete-wall-007",
+      "metallicFactor": 0,
+      "maps": {
+        "baseColor": {
+          "path": ".cache/rendering-sources/concrete-wall-007/concrete_wall_007_diff_1k.jpg",
+          "sha256": "1a5ff668a66e147d9fb795d8407ca67a144a1ca010779a5b8386137a4917a086",
+          "colorSpace": "srgb",
+          "encoding": "etc1s"
+        },
+        "normal": {
+          "path": ".cache/rendering-sources/concrete-wall-007/concrete_wall_007_nor_gl_1k.jpg",
+          "sha256": "cccb1841908ced8b89b65b5de97c1926f717dab63a14559264703a99639c291f",
+          "colorSpace": "linear",
+          "encoding": "uastc",
+          "normalConvention": "opengl-positive-y"
+        },
+        "roughness": {
+          "path": ".cache/rendering-sources/concrete-wall-007/concrete_wall_007_rough_1k.jpg",
+          "sha256": "5de46a478cbcb4cf4851be9b1dc4a58609c580e498fe758a6959119d45e7a5cb",
+          "colorSpace": "linear",
+          "encoding": "etc1s"
+        }
+      },
+      "orm": {
+        "occlusionConstant": 1,
+        "roughnessSource": "roughness",
+        "metallicSource": "metallicFactor"
+      }
+    },
+    {
+      "materialId": "rusty-metal",
+      "sourceId": "rusty-metal",
+      "metallicFactor": 0.82,
+      "maps": {
+        "baseColor": {
+          "path": ".cache/rendering-sources/rusty-metal/rusty_metal_diff_1k.jpg",
+          "sha256": "b532f22a08a9c36b5adf785373e213cd635a2d3769cb61196bbf5404cce7cd43",
+          "colorSpace": "srgb",
+          "encoding": "etc1s"
+        },
+        "normal": {
+          "path": ".cache/rendering-sources/rusty-metal/rusty_metal_nor_gl_1k.jpg",
+          "sha256": "cf7c8d72c7b5e1923321762d47f91d59b5233cb5b3c456823c54a2403109ff6a",
+          "colorSpace": "linear",
+          "encoding": "uastc",
+          "normalConvention": "opengl-positive-y"
+        },
+        "roughness": {
+          "path": ".cache/rendering-sources/rusty-metal/rusty_metal_rough_1k.jpg",
+          "sha256": "a1b382605b896f2ef591e58527747d3ea7f3f73b8c24d3cdd934dcd4111edfe7",
+          "colorSpace": "linear",
+          "encoding": "etc1s"
+        }
+      },
+      "orm": {
+        "occlusionConstant": 1,
+        "roughnessSource": "roughness",
+        "metallicSource": "metallicFactor"
+      }
+    },
+    {
+      "materialId": "brick-floor-003",
+      "sourceId": "brick-floor-003",
+      "metallicFactor": 0,
+      "maps": {
+        "baseColor": {
+          "path": ".cache/rendering-sources/brick-floor-003/brick_floor_003_diffuse_1k.jpg",
+          "sha256": "b70de50a5d00d98a5a11d950f905de3aa80cef9a2cb8a9f23c52dd87f50fe688",
+          "colorSpace": "srgb",
+          "encoding": "etc1s"
+        },
+        "normal": {
+          "path": ".cache/rendering-sources/brick-floor-003/brick_floor_003_nor_gl_1k.jpg",
+          "sha256": "82344f7390581f56cb49530b9bc27d5c1f1ce08d61154b29acefc2e51b0ef820",
+          "colorSpace": "linear",
+          "encoding": "uastc",
+          "normalConvention": "opengl-positive-y"
+        },
+        "roughness": {
+          "path": ".cache/rendering-sources/brick-floor-003/brick_floor_003_rough_1k.jpg",
+          "sha256": "1ddb530541d06f0e77971bf7c01e6c03eff3c5bc390e5b1b374b37c37b03ee97",
+          "colorSpace": "linear",
+          "encoding": "etc1s"
+        }
+      },
+      "orm": {
+        "occlusionConstant": 1,
+        "roughnessSource": "roughness",
+        "metallicSource": "metallicFactor"
+      }
+    }
+  ],
+  "environment": {
+    "sourceId": "courtyard-hdri-1k",
+    "path": ".cache/rendering-sources/courtyard-hdri-1k/courtyard_1k.hdr",
+    "sha256": "aa4197f6136a70ea01eca5dadb0cca70633557f1ed98e2599917019e03d94526",
+    "width": 1024,
+    "height": 512,
+    "colorSpace": "linear",
+    "diffuseShCoefficients": 9,
+    "publishEnvironmentResolution": 1024,
+    "specularIbl": false
+  },
+  "instances": [
+    {
+      "instanceId": "barrier-left",
+      "sourceId": "concrete-road-barrier",
+      "partId": "main",
+      "translation": [-3.5, 0, 1.5],
+      "rotationYDegrees": 12,
+      "scale": [1, 1, 1]
+    },
+    {
+      "instanceId": "barrier-right",
+      "sourceId": "concrete-road-barrier",
+      "partId": "main",
+      "translation": [3.5, 0, 1.5],
+      "rotationYDegrees": -12,
+      "scale": [1, 1, 1]
+    },
+    {
+      "instanceId": "hydrant-aged",
+      "sourceId": "fire-hydrant",
+      "partId": "aged",
+      "translation": [-6.2, 0, 5.5],
+      "rotationYDegrees": 18,
+      "scale": [1, 1, 1]
+    },
+    {
+      "instanceId": "lamp-left",
+      "sourceId": "street-lamp-02",
+      "partId": "main",
+      "translation": [-5.8, 0, 3],
+      "rotationYDegrees": 35,
+      "scale": [1, 1, 1]
+    },
+    {
+      "instanceId": "lamp-right",
+      "sourceId": "street-lamp-02",
+      "partId": "main",
+      "translation": [5.8, 0, 9],
+      "rotationYDegrees": -145,
+      "scale": [1, 1, 1]
+    },
+    {
+      "instanceId": "cat-plinth",
+      "sourceId": "concrete-cat-statue",
+      "partId": "main",
+      "translation": [0, 1.3, 7.2],
+      "rotationYDegrees": -15,
+      "scale": [1.4, 1.4, 1.4]
+    },
+    {
+      "instanceId": "crate-static-a",
+      "sourceId": "plastic-crate-02",
+      "partId": "main",
+      "translation": [2.8, 0, 6.2],
+      "rotationYDegrees": 8,
+      "scale": [1, 1, 1]
+    },
+    {
+      "instanceId": "crate-static-b",
+      "sourceId": "plastic-crate-02",
+      "partId": "main",
+      "translation": [3.35, 0, 6.5],
+      "rotationYDegrees": -12,
+      "scale": [1, 1, 1]
+    },
+    {
+      "instanceId": "crate-animated",
+      "sourceId": "plastic-crate-02",
+      "partId": "main",
+      "translation": [2.55, 0.28, 5.75],
+      "rotationYDegrees": 0,
+      "scale": [1, 1, 1],
+      "animation": {
+        "kind": "spin-y",
+        "radiansPerSecond": 0.35,
+        "phaseRadians": 0,
+        "writesPreviousTransform": true
+      }
+    },
+    {
+      "instanceId": "fence-double-left",
+      "sourceId": "modular-chainlink-fence",
+      "partId": "double",
+      "translation": [-4.4, 0, -1.2],
+      "rotationYDegrees": 0,
+      "scale": [1, 1, 1]
+    },
+    {
+      "instanceId": "fence-single-right",
+      "sourceId": "modular-chainlink-fence",
+      "partId": "single",
+      "translation": [4.25, 0, -1.2],
+      "rotationYDegrees": 0,
+      "scale": [1, 1, 1]
+    },
+    {
+      "instanceId": "fence-door-frame",
+      "sourceId": "modular-chainlink-fence",
+      "partId": "door-frame",
+      "translation": [0, 0, -1.2],
+      "rotationYDegrees": 0,
+      "scale": [1, 1, 1]
+    },
+    {
+      "instanceId": "fence-door-gate",
+      "sourceId": "modular-chainlink-fence",
+      "partId": "door-gate",
+      "translation": [0, 0, -1.18],
+      "rotationYDegrees": 0,
+      "scale": [1, 1, 1]
+    },
+    {
+      "instanceId": "fence-door-latch",
+      "sourceId": "modular-chainlink-fence",
+      "partId": "door-latch",
+      "translation": [0.75, 1.05, -1.12],
+      "rotationYDegrees": 0,
+      "scale": [1, 1, 1]
+    },
+    {
+      "instanceId": "fence-post-left",
+      "sourceId": "modular-chainlink-fence",
+      "partId": "post",
+      "translation": [-7.2, 0, -1.2],
+      "rotationYDegrees": 0,
+      "scale": [1, 1, 1]
+    },
+    {
+      "instanceId": "fence-post-right",
+      "sourceId": "modular-chainlink-fence",
+      "partId": "post",
+      "translation": [7.2, 0, -1.2],
+      "rotationYDegrees": 0,
+      "scale": [1, 1, 1]
+    }
+  ],
+  "publication": {
+    "heroEligible": false,
+    "requiresVisualReview": true,
+    "requiresTwoCleanBuilds": true,
+    "allowProceduralFallbackAfterReviewedManifestFailure": false
+  },
+  "currentLimits": [
+    "The environment produces diffuse SH9 only and does not claim prefiltered specular IBL.",
+    "Street-lamp glass is normalized to opaque because the reviewed source contains no transmission data.",
+    "Fence alpha is derived deterministically from the reviewed wire base-color JPEG.",
+    "MIS, ReSTIR, Hi-Z, Meshlets, volumetrics, SDF, SSR/SSGI, Gaussian splatting, and virtual texturing are out of scope."
+  ]
+}

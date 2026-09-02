@@ -13,7 +13,8 @@ import {
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
-import { assertExactSourceCachePath } from "./manifest.mjs";
+import { assertExactSourceCachePath, calculateSourceSetSha256 } from "./manifest.mjs";
+import { resolveInstalledToolCommands } from "./toolchain.mjs";
 
 export const reviewedCompilerToolchain = Object.freeze({
   gltfTransform: "4.4.2",
@@ -84,10 +85,13 @@ function outputPath(stagingRoot, relative) {
 function sourceEntries(sourceLock, cacheRoot) {
   if (
     !sourceLock ||
-    sourceLock.version !== 2 ||
-    !["sources-reviewed", "integrated"].includes(sourceLock.policy?.stage)
+    sourceLock.version !== 3 ||
+    !["sources-reviewed", "integrated"].includes(sourceLock.policy?.stage) ||
+    sourceLock.policy?.license !== "CC0" ||
+    sourceLock.sourceSetSha256 !== calculateSourceSetSha256(sourceLock.sources) ||
+    !sourceLock.review
   ) {
-    fail("source-lock", "sources-reviewed or integrated source lock is required");
+    fail("source-lock", "a reviewed v3 source-set receipt is required");
   }
   if (!Array.isArray(sourceLock.sources) || sourceLock.sources.length === 0) {
     fail("source-lock", "sources are required");
@@ -127,7 +131,11 @@ function sourceEntries(sourceLock, cacheRoot) {
       const resolved = path.resolve(cacheRoot, relativeCacheFile);
       if (!isWithin(cacheRoot, resolved))
         fail("cache-path", file.cachePath + " escaped cache root");
-      if (!existsSync(resolved) || !lstatSync(resolved).isFile()) {
+      if (
+        !existsSync(resolved) ||
+        !lstatSync(resolved).isFile() ||
+        lstatSync(resolved).isSymbolicLink()
+      ) {
         fail("cache-missing", source.id + "/" + file.relativePath);
       }
       if (sha256(resolved) !== file.sha256) fail("cache-hash", source.id + "/" + file.relativePath);
@@ -137,25 +145,39 @@ function sourceEntries(sourceLock, cacheRoot) {
 }
 
 function preflightTools(toolPaths) {
-  const tools = toolPaths?.tools;
-  if (!tools || typeof tools !== "object") fail("tool-manifest", "tools are required");
-  for (const [key, version] of Object.entries(reviewedCompilerToolchain)) {
-    const descriptor = tools[key];
-    if (!descriptor || descriptor.version !== version) {
-      fail("tool-manifest", key + "@" + version + " is required");
-    }
-    if (key === "sharp") continue;
-    if (typeof descriptor.path !== "string") {
-      fail("tool-manifest", key + " executable path is required");
-    }
-    if (!existsSync(descriptor.path) || !lstatSync(descriptor.path).isFile()) {
-      fail("tool-missing", key + ": " + descriptor.path);
-    }
+  const commands = toolPaths?.commands;
+  if (!commands || typeof commands !== "object")
+    fail("tool-manifest", "verified commands are required");
+  const expected = {
+    gltfTransform: ["gltf-transform-cli", reviewedCompilerToolchain.gltfTransform],
+    gltfpack: ["gltfpack", reviewedCompilerToolchain.gltfpack],
+    toktx: ["ktx-software-toktx", reviewedCompilerToolchain.toktx],
+  };
+  const tools = {};
+  for (const [key, [id, version]] of Object.entries(expected)) {
+    const descriptor = commands[id];
+    if (
+      !descriptor ||
+      descriptor.version !== version ||
+      typeof descriptor.commandPath !== "string" ||
+      !Array.isArray(descriptor.commandArgs) ||
+      descriptor.commandArgs.some((argument) => typeof argument !== "string")
+    )
+      fail("tool-manifest", id + "@" + version + " command receipt is required");
+    if (
+      !existsSync(descriptor.commandPath) ||
+      !lstatSync(descriptor.commandPath).isFile() ||
+      lstatSync(descriptor.commandPath).isSymbolicLink()
+    )
+      fail("tool-missing", id + ": " + descriptor.commandPath);
+    tools[key] = descriptor;
   }
   if (!existsSync(sharpWebpHelperPath) || !lstatSync(sharpWebpHelperPath).isFile()) {
     fail("sharp-helper", "convert-webp.mjs is required");
   }
-  const sharpDescriptor = tools.sharp;
+  const sharpDescriptor = toolPaths?.sharp;
+  if (!sharpDescriptor || sharpDescriptor.version !== reviewedCompilerToolchain.sharp)
+    fail("tool-manifest", "sharp@" + reviewedCompilerToolchain.sharp + " is required");
   const nodePath = sharpDescriptor.nodePath ?? process.execPath;
   if (typeof nodePath !== "string" || !existsSync(nodePath) || !lstatSync(nodePath).isFile()) {
     fail("tool-missing", "sharp Node executable: " + String(nodePath));
@@ -187,14 +209,23 @@ function preflightTools(toolPaths) {
   };
 }
 
+export function loadReviewedCompilerToolchain(root = moduleRoot, options = {}) {
+  return resolveInstalledToolCommands(root, options);
+}
+
 function selectInput(entries, kind, role) {
   const entry = entries.find(({ source, file }) => source.kind === kind && file.role === role);
   if (!entry) fail("source-selection", kind + "/" + role + " is required");
   return entry.path;
 }
 
-function command(tool, args, output, executor = "cli") {
-  return Object.freeze({ tool, args: Object.freeze(args), output, executor });
+function command(descriptor, args, output, executor = "cli") {
+  return Object.freeze({
+    tool: descriptor.commandPath,
+    args: Object.freeze([...descriptor.commandArgs, ...args]),
+    output,
+    executor,
+  });
 }
 
 export function createReviewedCourtyardCommandPlan({
@@ -218,15 +249,15 @@ export function createReviewedCourtyardCommandPlan({
   const albedoWebp = outputPath(stagingRoot, "textures/courtyard-basecolor.webp");
   const normalWebp = outputPath(stagingRoot, "textures/courtyard-normal.webp");
   const commands = [
-    command(tools.gltfTransform.path, ["prune", mesh, pruned], pruned),
-    command(tools.gltfTransform.path, ["dedup", pruned, deduped], deduped),
-    command(tools.gltfpack.path, ["-i", deduped, "-o", lod0, "-si", "1"], lod0),
-    command(tools.gltfpack.path, ["-i", deduped, "-o", lod1, "-si", "0.5"], lod1),
-    command(tools.gltfpack.path, ["-i", deduped, "-o", lod2, "-si", "0.25"], lod2),
-    command(tools.toktx.path, ["--t2", "--encode", "etc1s", albedoKtx2, baseColor], albedoKtx2),
-    command(tools.toktx.path, ["--t2", "--encode", "uastc", normalKtx2, normal], normalKtx2),
+    command(tools.gltfTransform, ["prune", mesh, pruned], pruned),
+    command(tools.gltfTransform, ["dedup", pruned, deduped], deduped),
+    command(tools.gltfpack, ["-i", deduped, "-o", lod0, "-si", "1"], lod0),
+    command(tools.gltfpack, ["-i", deduped, "-o", lod1, "-si", "0.5"], lod1),
+    command(tools.gltfpack, ["-i", deduped, "-o", lod2, "-si", "0.25"], lod2),
+    command(tools.toktx, ["--t2", "--encode", "etc1s", albedoKtx2, baseColor], albedoKtx2),
+    command(tools.toktx, ["--t2", "--encode", "uastc", normalKtx2, normal], normalKtx2),
     command(
-      tools.sharp.nodePath,
+      { commandPath: tools.sharp.nodePath, commandArgs: [] },
       [
         sharpWebpHelperPath,
         "--input",
@@ -240,7 +271,7 @@ export function createReviewedCourtyardCommandPlan({
       "node-sharp-helper",
     ),
     command(
-      tools.sharp.nodePath,
+      { commandPath: tools.sharp.nodePath, commandArgs: [] },
       [
         sharpWebpHelperPath,
         "--input",
