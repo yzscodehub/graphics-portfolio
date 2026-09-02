@@ -306,6 +306,14 @@ export function validatePreviewArtifacts(root = projectRoot) {
       });
     }
   }
+  if (existsSync(path.join(outputRoot, "review"))) {
+    violations.push({
+      code: "local-review-route",
+      file: "dist/review",
+      line: 0,
+      value: "local candidate review routes must not enter public Preview artifacts",
+    });
+  }
 
   for (const file of walkAll(outputRoot)) {
     const relativePath = path.relative(root, file).replaceAll(path.sep, "/");

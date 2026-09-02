@@ -17,6 +17,7 @@ export interface ResearchCourtyardGpuDraw {
 
 export interface ResearchCourtyardGpuTexture {
   id: string;
+  sourceKind: "ktx2" | "webp";
   texture: GPUTexture;
   view: GPUTextureView;
   format: GPUTextureFormat;
@@ -28,6 +29,13 @@ export interface ResearchCourtyardGpuScene {
   readonly opaqueDraws: readonly ResearchCourtyardGpuDraw[];
   readonly alphaMaskDraws: readonly ResearchCourtyardGpuDraw[];
   readonly textures: ReadonlyMap<string, ResearchCourtyardGpuTexture>;
+  readonly buffers: {
+    vertex: GPUBuffer;
+    index: GPUBuffer;
+    material: GPUBuffer;
+    instance: GPUBuffer;
+    indirect: GPUBuffer;
+  };
   updateInstances(time: number, previousTime: number): void;
   encodeOpaque(
     pass: GPURenderPassEncoder,
@@ -200,6 +208,7 @@ function uploadTexture(
       );
     return {
       id: loaded.id,
+      sourceKind: "ktx2",
       texture,
       view: texture.createView(),
       format: source.format,
@@ -228,6 +237,7 @@ function uploadTexture(
   );
   return {
     id: loaded.id,
+    sourceKind: "webp",
     texture,
     view: texture.createView(),
     format: loaded.format,
@@ -324,6 +334,13 @@ export async function createResearchCourtyardGpuScene(
       opaqueDraws: draws.opaqueDraws,
       alphaMaskDraws: draws.alphaMaskDraws,
       textures,
+      buffers: {
+        vertex: vertexBuffer,
+        index: indexBuffer,
+        material: materialBuffer,
+        instance: instanceBuffer,
+        indirect: indirectBuffer,
+      },
       updateInstances(time, previousTime) {
         if (disposed) return;
         updateResearchCourtyardInstanceBytes(payload.pack, instanceBytes, time, previousTime);

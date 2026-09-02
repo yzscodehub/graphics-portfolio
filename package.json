@@ -48,6 +48,7 @@
     "test:links": "node tests/check-links.mjs",
     "test:performance": "node tests/performance-budget.mjs",
     "test:e2e": "node scripts/run-e2e.mjs",
+    "review:courtyard:build": "node scripts/build-courtyard-review.mjs",
     "deferred:resume:pdf": "python deferred/resume/scripts/resume/generate_resumes.py",
     "verify:preview": "node tests/verify-preview.mjs",
     "verify:release": "node tests/verify-production.mjs"
