@@ -75,12 +75,14 @@ function pack(fence = false): Record<string, unknown> {
   ];
   const instances = [
     {
+      id: "crate-0",
       currentTransform: transform,
       previousTransform: transform,
       materialIndex: 0,
       meshIndex: 0,
       flags: 0,
       worldSphere: [0, 0, 0, 1],
+      animation: null,
     },
   ];
   if (fence) {
@@ -139,6 +141,7 @@ function pack(fence = false): Record<string, unknown> {
     });
     instances.push({
       ...instances[0],
+      id: "fence-0",
       materialIndex: 1,
       meshIndex: 1,
     });

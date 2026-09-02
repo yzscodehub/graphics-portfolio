@@ -308,12 +308,18 @@ describe("Research Courtyard deterministic binary encoder", () => {
       ],
       instances: [
         {
+          id: "fixture-mask-0",
           currentTransform: identity,
           previousTransform: identity,
           materialIndex: 0,
           meshIndex: 0,
           flags: 7,
           worldSphere: [0, 0, 0, 2],
+          animation: {
+            kind: "spin-y",
+            radiansPerSecond: 0.35,
+            phaseRadians: 0,
+          },
         },
       ],
       renderPasses: { deferredOpaque: [], alphaMaskForward: [0] },

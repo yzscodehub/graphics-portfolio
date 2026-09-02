@@ -53,7 +53,7 @@ export interface PackedSceneV2Lod {
 
 export interface PackedSceneV2Mesh {
   id: string;
-  lodPolicy: "simplified" | "preserved" | "culled-at-lod2";
+  lodPolicy: "simplified" | "preserved" | "mixed" | "culled-at-lod2";
   lods: readonly [PackedSceneV2Lod, PackedSceneV2Lod, PackedSceneV2Lod];
 }
 
@@ -73,12 +73,18 @@ export interface PackedSceneV2Material {
 }
 
 export interface PackedSceneV2Instance {
+  id: string;
   currentTransform: Matrix3x4;
   previousTransform: Matrix3x4;
   materialIndex: number;
   meshIndex: number;
   flags: number;
   worldSphere: WorldSphere;
+  animation: null | {
+    kind: "spin-y";
+    radiansPerSecond: number;
+    phaseRadians: number;
+  };
 }
 
 export interface PackedSceneV2Transport {
@@ -303,8 +309,13 @@ function parseMeshes(value: unknown): PackedSceneV2Mesh[] {
     if (ids.has(id)) fail(`${path}.id`, "must be unique");
     ids.add(id);
     const lodPolicy = text(source.lodPolicy, `${path}.lodPolicy`);
-    if (lodPolicy !== "simplified" && lodPolicy !== "preserved" && lodPolicy !== "culled-at-lod2")
-      fail(`${path}.lodPolicy`, "must be simplified, preserved, or culled-at-lod2");
+    if (
+      lodPolicy !== "simplified" &&
+      lodPolicy !== "preserved" &&
+      lodPolicy !== "mixed" &&
+      lodPolicy !== "culled-at-lod2"
+    )
+      fail(`${path}.lodPolicy`, "must be simplified, preserved, mixed, or culled-at-lod2");
     const entries = list(source.lods, `${path}.lods`);
     if (entries.length !== 3) fail(`${path}.lods`, "must contain LOD0, LOD1, and LOD2");
     const parsed = entries.map((lod, lodIndex) => {
@@ -357,6 +368,24 @@ function parseMeshes(value: unknown): PackedSceneV2Mesh[] {
         parsed.some((lod) => lod.relativeError !== 0)
       )
         fail(`${path}.lods`, "preserved LODs must retain identical geometry and zero error");
+    } else if (lodPolicy === "mixed") {
+      if (
+        parsed.some((lod) => lod.state !== "draw") ||
+        lod0.indexCount < lod1.indexCount ||
+        lod1.indexCount < lod2.indexCount ||
+        lod0.vertexCount < lod1.vertexCount ||
+        lod1.vertexCount < lod2.vertexCount ||
+        lod0.relativeError > lod1.relativeError ||
+        lod1.relativeError > lod2.relativeError ||
+        (lod0.indexCount === lod1.indexCount &&
+          lod1.indexCount === lod2.indexCount &&
+          lod0.vertexCount === lod1.vertexCount &&
+          lod1.vertexCount === lod2.vertexCount)
+      )
+        fail(
+          `${path}.lods`,
+          "mixed LODs must draw non-increasing geometry with at least one reduction",
+        );
     } else if (
       lod0.state !== "draw" ||
       lod1.state !== "draw" ||
@@ -437,12 +466,34 @@ function parseInstances(
   meshCount: number,
   materialCount: number,
 ): PackedSceneV2Instance[] {
+  const ids = new Set<string>();
   return list(value, "instances").map((entry, index) => {
     const path = `instances[${index}]`;
     const source = object(entry, path);
+    const id = text(source.id, `${path}.id`);
+    if (!/^[a-z0-9][a-z0-9:/-]*$/.test(id) || ids.has(id))
+      fail(`${path}.id`, "must be safe and unique");
+    ids.add(id);
     const sphere = tuple(source.worldSphere, `${path}.worldSphere`, 4) as WorldSphere;
     if (sphere[3] <= 0) fail(`${path}.worldSphere[3]`, "radius must be > 0");
+    const flags = integer(source.flags, `${path}.flags`, 0, 0xffffffff);
+    let animation: PackedSceneV2Instance["animation"] = null;
+    if (source.animation !== null) {
+      const value = object(source.animation, `${path}.animation`);
+      if (text(value.kind, `${path}.animation.kind`) !== "spin-y")
+        fail(`${path}.animation.kind`, "must be spin-y");
+      animation = {
+        kind: "spin-y",
+        radiansPerSecond: finite(value.radiansPerSecond, `${path}.animation.radiansPerSecond`),
+        phaseRadians: finite(value.phaseRadians, `${path}.animation.phaseRadians`),
+      };
+      if (animation.radiansPerSecond === 0)
+        fail(`${path}.animation.radiansPerSecond`, "must be non-zero");
+    }
+    if (((flags & 1) !== 0) !== (animation !== null))
+      fail(`${path}.flags`, "bit 0 must identify animated instances");
     return {
+      id,
       currentTransform: tuple(source.currentTransform, `${path}.currentTransform`, 12) as Matrix3x4,
       previousTransform: tuple(
         source.previousTransform,
@@ -451,8 +502,9 @@ function parseInstances(
       ) as Matrix3x4,
       materialIndex: integer(source.materialIndex, `${path}.materialIndex`, 0, materialCount - 1),
       meshIndex: integer(source.meshIndex, `${path}.meshIndex`, 0, meshCount - 1),
-      flags: integer(source.flags, `${path}.flags`, 0, 0xffffffff),
+      flags,
       worldSphere: sphere,
+      animation,
     };
   });
 }

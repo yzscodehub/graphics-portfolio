@@ -90,12 +90,14 @@ function minimalPack(): Record<string, unknown> {
     ],
     instances: [
       {
+        id: "crate-0",
         currentTransform: transform,
         previousTransform: transform,
         materialIndex: 0,
         meshIndex: 0,
         flags: 0,
         worldSphere: [0, 0, 0, 1],
+        animation: null,
       },
     ],
     renderPasses: { deferredOpaque: [0], alphaMaskForward: [] },
