@@ -43,8 +43,8 @@ jobs:
             exit 1
           fi
           git fetch origin +refs/heads/main:refs/remotes/origin/main --no-tags
-          if ! git merge-base --is-ancestor "${GITHUB_SHA}" origin/main; then
-            echo "The release tag must point to a commit contained in origin/main." >&2
+          if [[ "$(git rev-parse origin/main)" != "${GITHUB_SHA}" ]]; then
+            echo "The release tag must point exactly to the current origin/main HEAD." >&2
             exit 1
           fi
 
@@ -59,6 +59,9 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+
+      - name: Verify rendering toolchain lock
+        run: pnpm run toolchain:verify
 
       - name: Type-check, lint, and unit-test
         run: |

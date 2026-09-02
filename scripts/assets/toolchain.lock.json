@@ -1,10 +1,128 @@
 {
-  "version": 1,
-  "node": "24",
-  "pnpm": "11",
-  "sharp": "0.35.4",
-  "gltfTransformCli": "4.4.2",
-  "gltfpack": "1.1",
-  "ktxSoftware": "4.4.2",
-  "notes": "External conversion tools are recorded but intentionally not installed by the website package. They are needed only by an explicit local external-asset rebuild."
+  "version": 2,
+  "policy": {
+    "installRoot": ".tools/rendering",
+    "localManifest": ".tools/rendering/toolchain.local.json",
+    "ciVerification": "schema-only",
+    "installation": "explicit-local-command-only"
+  },
+  "node": {
+    "version": "24"
+  },
+  "pnpm": {
+    "version": "11"
+  },
+  "tools": [
+    {
+      "id": "gltf-transform-cli",
+      "displayName": "glTF Transform CLI",
+      "version": "4.4.2",
+      "command": "gltf-transform",
+      "versionArgs": ["--version"],
+      "versionPattern": "(?:^|\\D)4\\.4\\.2(?:\\D|$)",
+      "source": {
+        "publisher": "donmccurdy",
+        "url": "https://registry.npmjs.org/@gltf-transform/cli/-/cli-4.4.2.tgz",
+        "sha1": "8ac3cbabf6dc1424d7217008a8825ad17e034106",
+        "integrity": "sha512-DBez2yawK9uXjefRBOJfFxkeTl2Jr4BZG8oOtHZd8if5KQaIdGN99ombzjf2ugjC7Lms9QSpY2pTBANE3H+kGQ=="
+      },
+      "artifacts": [
+        {
+          "platform": "any",
+          "url": "https://registry.npmjs.org/@gltf-transform/cli/-/cli-4.4.2.tgz",
+          "archive": "npm-tgz",
+          "bytes": 66611,
+          "sha256": "0d8476b5a6abf1454c1ec670f745628147300b4756efdd12de599c0689fd0b82",
+          "entry": "gltf-transform"
+        }
+      ]
+    },
+    {
+      "id": "gltfpack",
+      "displayName": "meshoptimizer gltfpack",
+      "version": "1.1",
+      "command": "gltfpack",
+      "versionArgs": ["-v"],
+      "versionPattern": "(?:^|\\D)1\\.1(?:\\D|$)",
+      "source": {
+        "publisher": "zeux",
+        "url": "https://github.com/zeux/meshoptimizer/releases/tag/v1.1"
+      },
+      "artifacts": [
+        {
+          "platform": "win32-x64",
+          "url": "https://github.com/zeux/meshoptimizer/releases/download/v1.1/gltfpack-windows.zip",
+          "archive": "zip",
+          "bytes": 1457402,
+          "sha256": "13e1b00299f9796613adddc6eb21d47b466333ba4d79658f2f98079f2f30fc56",
+          "entry": "gltfpack.exe"
+        }
+      ]
+    },
+    {
+      "id": "ktx-software-toktx",
+      "displayName": "KTX-Software toktx",
+      "version": "4.4.2",
+      "command": "toktx",
+      "versionArgs": ["--version"],
+      "versionPattern": "(?:^|\\D)4\\.4\\.2(?:\\D|$)",
+      "source": {
+        "publisher": "KhronosGroup",
+        "url": "https://github.com/KhronosGroup/KTX-Software/releases/tag/v4.4.2"
+      },
+      "artifacts": [
+        {
+          "platform": "win32-x64",
+          "url": "https://github.com/KhronosGroup/KTX-Software/releases/download/v4.4.2/KTX-Software-4.4.2-Windows-x64.exe",
+          "archive": "nsis",
+          "bytes": 6417024,
+          "sha256": "1f323b0fec19794f5e6c0425a61d4b1da396872a10be862d105f4f4b2d2957fe",
+          "entry": "bin/toktx.exe"
+        }
+      ],
+      "supportArtifacts": [
+        {
+          "id": "libktx-web",
+          "url": "https://github.com/KhronosGroup/KTX-Software/releases/download/v4.4.2/KTX-Software-4.4.2-Web-libktx.zip",
+          "archive": "zip",
+          "bytes": 707220,
+          "sha256": "1d4598a290ccb654d6a33c074c4ca96f0c5ccef99e042323eaa4d1230d4de63d"
+        },
+        {
+          "id": "libktx-read-web",
+          "url": "https://github.com/KhronosGroup/KTX-Software/releases/download/v4.4.2/KTX-Software-4.4.2-Web-libktx_read.zip",
+          "archive": "zip",
+          "bytes": 383090,
+          "sha256": "dbade8edfbbae4a8aa432d98a61b374c906fe062545c43f95ccace78e9af0465"
+        }
+      ]
+    }
+  ],
+  "nodeLibraries": [
+    {
+      "package": "@gltf-transform/core",
+      "version": "4.4.2",
+      "registry": "https://registry.npmjs.org/@gltf-transform/core"
+    },
+    {
+      "package": "@gltf-transform/extensions",
+      "version": "4.4.2",
+      "registry": "https://registry.npmjs.org/@gltf-transform/extensions"
+    },
+    {
+      "package": "@gltf-transform/functions",
+      "version": "4.4.2",
+      "registry": "https://registry.npmjs.org/@gltf-transform/functions"
+    }
+  ],
+  "sharp": {
+    "package": "sharp",
+    "version": "0.35.4",
+    "packageLockIntegrity": "sha512-n++8XWcj+jCOr2IOl7h8LbKnGBDY4aPbmprMONBNFdn0ImXqpGVv5zliDs0V9HbmbCQLpbuo2ej9rAoOQTvMDA==",
+    "artifact": {
+      "file": "node_modules/sharp/package.json",
+      "bytes": 8115,
+      "sha256": "27b5a6c6e1e1f27c527b09a963c932979403837d0f5f013ab5bdfb4a0ef2269a"
+    }
+  }
 }

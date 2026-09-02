@@ -39,6 +39,35 @@ import {
   type RenderingSourceLock,
 } from "../src/data/rendering-assets";
 
+function attachFixtureReviewEvidence(fixtureRoot: string, sourceLock: RenderingSourceLock) {
+  const reviewId = "fixture-review";
+  const reviewer = "fixture-reviewer";
+  const reviewedAt = "2026-09-02T00:00:00.000Z";
+  const relativePath = `public/assets/rendering/reviews/${reviewId}.json`;
+  const descriptor = {
+    version: 1,
+    reviewId,
+    sourceSetSha256: sourceLock.sourceSetSha256,
+    reviewer,
+    reviewedAt,
+    packet: {
+      path: `.cache/rendering-quarantine/${reviewId}/review-packet/machine.json`,
+      sha256: "a".repeat(64),
+    },
+  };
+  const bytes = Buffer.from(`${JSON.stringify(descriptor, null, 2)}\n`);
+  const target = path.join(fixtureRoot, ...relativePath.split("/"));
+  mkdirSync(path.dirname(target), { recursive: true });
+  writeFileSync(target, bytes);
+  sourceLock.review = {
+    reviewId,
+    evidencePath: relativePath,
+    evidenceSha256: createHash("sha256").update(bytes).digest("hex"),
+    reviewer,
+    reviewedAt,
+  };
+}
+
 describe("rendering asset pipeline", () => {
   it("binds the published self-authored assets to exact hashes, budgets, and packed-scene invariants", () => {
     expect(validateRenderingAssets(projectRoot)).toEqual([]);
@@ -133,10 +162,11 @@ describe("rendering asset pipeline", () => {
 
   it("records the six meshes, four materials, and HDRI as CC0 planned sources without claiming they ship", () => {
     const sourceLock = loadRenderingSourceLock(projectRoot) as RenderingSourceLock;
-    expect(sourceLock.version).toBe(2);
-    expect(sourceLock.policy.downloaded).toBe(false);
+    expect(sourceLock.version).toBe(3);
     expect(sourceLock.policy.stage).toBe("metadata-locked");
-    expect(sourceLock.defaults).toMatchObject({ license: "CC0", status: "metadata-locked" });
+    expect(sourceLock.sourceSetSha256).toMatch(/^[a-f0-9]{64}$/);
+    expect(sourceLock.policy).not.toHaveProperty("downloaded");
+    expect(sourceLock).not.toHaveProperty("defaults");
     expect(sourceLock.sources).toHaveLength(11);
     expect(sourceLock.sources.filter((source) => source.kind === "mesh")).toHaveLength(6);
     expect(sourceLock.sources.filter((source) => source.kind === "texture")).toHaveLength(4);
@@ -158,7 +188,7 @@ describe("rendering asset pipeline", () => {
       (total, source) => total + source.files.length,
       0,
     );
-    expect(selectedFileCount).toBeGreaterThan(11);
+    expect(selectedFileCount).toBe(49);
     expect(
       sourceLock.sources.every((source) =>
         source.files.every(
@@ -171,11 +201,16 @@ describe("rendering asset pipeline", () => {
       ),
     ).toBe(true);
     expect(findFetchBlockers(sourceLock)).toHaveLength(selectedFileCount + 1);
-    const expectedVersions = new Map(reviewedToolchain.map((tool) => [tool.command, tool.version]));
+    expect(findReviewedRebuildBlockers(sourceLock, { toolchainIssues: [] })).toHaveLength(
+      selectedFileCount + 1,
+    );
     expect(
-      findReviewedRebuildBlockers(sourceLock, (command) => expectedVersions.get(command) ?? ""),
-    ).toHaveLength(selectedFileCount + 1);
-    expect(findReviewedRebuildBlockers(sourceLock, () => "")).toEqual(
+      findReviewedRebuildBlockers(sourceLock, {
+        toolchainIssues: reviewedToolchain.map(
+          (tool) => `${tool.command}@${tool.version} is unavailable`,
+        ),
+      }),
+    ).toEqual(
       expect.arrayContaining([
         expect.stringContaining("gltf-transform@4.4.2"),
         expect.stringContaining("gltfpack@1.1"),
@@ -198,6 +233,12 @@ describe("rendering asset pipeline", () => {
         path.join(projectRoot, "public", "models"),
         path.join(fixtureRoot, "public", "models"),
         { recursive: true },
+      );
+      const fixtureScripts = path.join(fixtureRoot, "scripts", "assets");
+      mkdirSync(fixtureScripts, { recursive: true });
+      cpSync(
+        path.join(projectRoot, "scripts", "assets", "toolchain.lock.json"),
+        path.join(fixtureScripts, "toolchain.lock.json"),
       );
 
       const renderingRoot = path.join(fixtureAssets, "rendering");
@@ -225,9 +266,8 @@ describe("rendering asset pipeline", () => {
         `${JSON.stringify({ version: 1, assets: [courtyard] }, null, 2)}\n`,
       );
 
-      sourceLock.policy.downloaded = true;
       sourceLock.policy.stage = "integrated";
-      sourceLock.defaults.status = "sources-reviewed";
+      attachFixtureReviewEvidence(fixtureRoot, sourceLock);
       sourceLock.sources = sourceLock.sources.map((source, sourceIndex) => ({
         ...source,
         files: source.files.map((file, fileIndex) => ({
@@ -236,6 +276,17 @@ describe("rendering asset pipeline", () => {
           status: "reviewed" as const,
         })),
       }));
+      writeFileSync(sourceLockPath, `${JSON.stringify(sourceLock, null, 2)}\n`);
+      sourceLock.integration = {
+        recipeSha256: "b".repeat(64),
+        toolchainLockSha256: createHash("sha256")
+          .update(readFileSync(path.join(fixtureScripts, "toolchain.lock.json")))
+          .digest("hex"),
+        runtimeManifestPath: "public/assets/rendering/manifests/research-courtyard.json",
+        runtimeManifestSha256: createHash("sha256")
+          .update(readFileSync(runtimeManifestPath))
+          .digest("hex"),
+      };
       writeFileSync(sourceLockPath, `${JSON.stringify(sourceLock, null, 2)}\n`);
 
       expect(validateRenderingAssets(fixtureRoot)).toEqual([]);
@@ -262,8 +313,7 @@ describe("rendering asset pipeline", () => {
       const sourceLockPath = path.join(fixtureAssets, "rendering", "sources.lock.json");
       const sourceLock = JSON.parse(readFileSync(sourceLockPath, "utf8")) as RenderingSourceLock;
       sourceLock.policy.stage = "sources-reviewed";
-      sourceLock.policy.downloaded = false;
-      sourceLock.defaults.status = "sources-reviewed";
+      attachFixtureReviewEvidence(fixtureRoot, sourceLock);
       sourceLock.sources = sourceLock.sources.map((source, sourceIndex) => ({
         ...source,
         files: source.files.map((file, fileIndex) => ({

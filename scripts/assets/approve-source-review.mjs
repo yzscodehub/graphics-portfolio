@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import {
   existsSync,
+  lstatSync,
   mkdirSync,
   readFileSync,
   renameSync,
@@ -10,19 +11,23 @@ import {
 } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { loadRenderingSourceLock, projectRoot } from "./manifest.mjs";
 import {
   assertExactSourceCachePath,
   assertPathWithinRoot,
+  calculateSourceSetSha256,
   isSafePortableRelativePath,
+  loadRenderingSourceLock,
+  projectRoot,
   resolvePortablePathWithinRoot,
   resolveSourceCachePath,
 } from "./manifest.mjs";
 
 const REVIEW_ROOT = ".cache/rendering-quarantine";
+const PUBLIC_EVIDENCE_ROOT = "public/assets/rendering/reviews";
 const reviewIdPattern = /^[a-z0-9][a-z0-9-]{2,63}$/;
+const sha256Pattern = /^[a-f0-9]{64}$/;
 
-function digest(bytes, algorithm) {
+function digest(bytes, algorithm = "sha256") {
   return createHash(algorithm).update(bytes).digest("hex");
 }
 
@@ -44,18 +49,20 @@ function safeReviewId(value) {
 
 function requireMetadataLocked(sourceLock, operation) {
   if (
+    sourceLock?.version !== 3 ||
     sourceLock?.policy?.stage !== "metadata-locked" ||
-    sourceLock.policy?.downloaded !== false ||
-    sourceLock?.defaults?.status !== "metadata-locked"
+    sourceLock.policy?.license !== "CC0" ||
+    sourceLock.policy?.rawCache !== ".cache/rendering-sources" ||
+    sourceLock.sourceSetSha256 !== calculateSourceSetSha256(sourceLock.sources) ||
+    sourceLock.review !== undefined ||
+    sourceLock.integration !== undefined ||
+    Object.hasOwn(sourceLock.policy ?? {}, "downloaded") ||
+    Object.hasOwn(sourceLock, "defaults")
   )
     throw new Error(
       operation +
-        " requires a metadata-locked source lock; reviewed or integrated locks are immutable.",
+        " requires a v3 metadata-locked source lock; reviewed or integrated locks are immutable.",
     );
-}
-
-function canonicalSourceLockHash(sourceLock) {
-  return digest(Buffer.from(JSON.stringify(sourceLock)), "sha256");
 }
 
 function within(root, target, label) {
@@ -70,14 +77,83 @@ function expectedQuarantinePath(reviewId, sourceId, relativePath) {
   return [REVIEW_ROOT, reviewId, sourceId, relativePath].join("/");
 }
 
+export function reviewEvidencePath(reviewId) {
+  return `${PUBLIC_EVIDENCE_ROOT}/${safeReviewId(reviewId)}.json`;
+}
+
+function expectedPacketPath(reviewId) {
+  return `${REVIEW_ROOT}/${safeReviewId(reviewId)}/review-packet/machine.json`;
+}
+
+export function validateReviewEvidenceDescriptor(sourceLock, review, options = {}) {
+  const root = options.root || projectRoot;
+  const id = safeReviewId(review?.reviewId);
+  const relative = options.evidencePath || reviewEvidencePath(id);
+  if (relative !== reviewEvidencePath(id))
+    throw new Error("review evidence descriptor must use its canonical public path.");
+  const evidenceFile = resolvePortablePathWithinRoot(root, relative, "review evidence descriptor");
+  const evidenceRoot = resolvePortablePathWithinRoot(
+    root,
+    PUBLIC_EVIDENCE_ROOT,
+    "review evidence root",
+  );
+  assertPathWithinRoot(evidenceRoot, evidenceFile, "review evidence descriptor");
+  if (
+    !existsSync(evidenceFile) ||
+    !lstatSync(evidenceFile).isFile() ||
+    lstatSync(evidenceFile).isSymbolicLink()
+  )
+    throw new Error("review evidence descriptor is missing.");
+
+  const bytes = readFileSync(evidenceFile);
+  let descriptor;
+  try {
+    descriptor = JSON.parse(bytes.toString("utf8"));
+  } catch {
+    throw new Error("review evidence descriptor is not valid JSON.");
+  }
+  const packet = descriptor?.packet;
+  if (
+    descriptor?.version !== 1 ||
+    descriptor?.reviewId !== id ||
+    descriptor?.sourceSetSha256 !== sourceLock.sourceSetSha256 ||
+    typeof descriptor?.reviewer !== "string" ||
+    descriptor.reviewer.trim().length === 0 ||
+    descriptor.reviewer !== descriptor.reviewer.trim() ||
+    !Number.isFinite(Date.parse(descriptor?.reviewedAt ?? "")) ||
+    !packet ||
+    packet.path !== expectedPacketPath(id) ||
+    !sha256Pattern.test(packet.sha256 ?? "")
+  )
+    throw new Error("review evidence descriptor does not bind this source set and packet.");
+  const packetFile = resolvePortablePathWithinRoot(root, packet.path, "review packet receipt");
+  const reviewRoot = resolvePortablePathWithinRoot(root, `${REVIEW_ROOT}/${id}`, "review root");
+  assertPathWithinRoot(reviewRoot, packetFile, "review packet receipt");
+  if (
+    !existsSync(packetFile) ||
+    !lstatSync(packetFile).isFile() ||
+    lstatSync(packetFile).isSymbolicLink()
+  )
+    throw new Error("review packet receipt is missing.");
+  if (digest(readFileSync(packetFile)) !== packet.sha256)
+    throw new Error("review packet receipt SHA-256 mismatch.");
+  return {
+    reviewId: id,
+    reviewer: descriptor.reviewer.trim(),
+    reviewedAt: descriptor.reviewedAt,
+    evidencePath: relative,
+    evidenceSha256: digest(bytes),
+  };
+}
+
 export function approveSourceReview(sourceLock, review, options = {}) {
   requireMetadataLocked(sourceLock, "source review approval");
   const root = options.root || projectRoot;
   const reviewId = safeReviewId(review?.reviewId);
-  if (review?.version !== 1 || !Array.isArray(review.files))
+  if (review?.version !== 2 || !Array.isArray(review.files))
     throw new Error("candidate review contract is invalid.");
-  if (review.sourceLockSha256 !== canonicalSourceLockHash(sourceLock))
-    throw new Error("candidate review was not generated from the current source lock.");
+  if (review.sourceSetSha256 !== sourceLock.sourceSetSha256)
+    throw new Error("candidate review was not generated from the current source set.");
 
   const expected = expectedFiles(sourceLock);
   if (review.files.length !== expected.length)
@@ -101,13 +177,13 @@ export function approveSourceReview(sourceLock, review, options = {}) {
       throw new Error(id + ": candidate metadata drifted from the source lock.");
     resolveSourceCachePath(
       root,
-      sourceLock.policy?.rawCache,
+      sourceLock.policy.rawCache,
       source.id,
       file.cachePath,
       id + ": cache path",
     );
     assertExactSourceCachePath(
-      sourceLock.policy?.rawCache,
+      sourceLock.policy.rawCache,
       source.id,
       file.relativePath,
       file.cachePath,
@@ -122,23 +198,28 @@ export function approveSourceReview(sourceLock, review, options = {}) {
       candidate,
       id,
     );
-    if (!existsSync(candidate) || statSync(candidate).size !== file.bytes)
+    if (
+      !existsSync(candidate) ||
+      !lstatSync(candidate).isFile() ||
+      lstatSync(candidate).isSymbolicLink() ||
+      statSync(candidate).size !== file.bytes
+    )
       throw new Error(id + ": quarantine file is missing or has the wrong size.");
     const bytes = readFileSync(candidate);
     if (digest(bytes, "md5") !== file.md5) throw new Error(id + ": quarantine MD5 mismatch.");
-    const sha256 = digest(bytes, "sha256");
-    if (sha256 !== record.sha256 || !/^[a-f0-9]{64}$/.test(sha256))
+    const sha256 = digest(bytes);
+    if (sha256 !== record.sha256 || !sha256Pattern.test(sha256))
       throw new Error(id + ": quarantine SHA-256 mismatch.");
     approvedHashes.set(id, sha256);
   }
 
+  const evidence = validateReviewEvidenceDescriptor(sourceLock, review, {
+    root,
+    evidencePath: options.evidencePath,
+  });
   const approved = globalThis.structuredClone(sourceLock);
-  approved.policy = {
-    ...approved.policy,
-    downloaded: false,
-    stage: "sources-reviewed",
-  };
-  approved.defaults = { ...approved.defaults, status: "sources-reviewed" };
+  approved.policy = { ...approved.policy, stage: "sources-reviewed" };
+  approved.review = evidence;
   for (const source of approved.sources)
     for (const file of source.files) {
       file.sha256 = approvedHashes.get(key(source.id, file.relativePath));
@@ -149,7 +230,10 @@ export function approveSourceReview(sourceLock, review, options = {}) {
 
 export function writeApprovedSourceReview(sourceLock, review, options = {}) {
   const root = options.root || projectRoot;
-  const approved = approveSourceReview(sourceLock, review, { root });
+  const approved = approveSourceReview(sourceLock, review, {
+    root,
+    evidencePath: options.evidencePath,
+  });
   const reviewId = safeReviewId(review.reviewId);
   const output = options.apply
     ? path.resolve(root, "public/assets/rendering/sources.lock.json")
@@ -162,33 +246,54 @@ export function writeApprovedSourceReview(sourceLock, review, options = {}) {
     "approved source lock output",
   );
   mkdirSync(path.dirname(output), { recursive: true });
-  const serialized = JSON.stringify(approved, null, 2) + "\n";
+  writeJsonAtomically(output, JSON.stringify(approved, null, 2) + "\n", options.apply);
+  return { approved, output };
+}
+
+function writeJsonAtomically(output, serialized, replaceExisting) {
   const temporary = `${output}.tmp-${process.pid}-${Date.now()}`;
+  const backup = `${output}.backup-${process.pid}-${Date.now()}`;
+  let movedPrevious = false;
   try {
     writeFileSync(temporary, serialized, { flag: "wx" });
+    if (replaceExisting && existsSync(output)) {
+      renameSync(output, backup);
+      movedPrevious = true;
+    }
     renameSync(temporary, output);
+    if (movedPrevious) rmSync(backup, { force: true });
   } finally {
     if (existsSync(temporary)) rmSync(temporary, { force: true });
+    if (!existsSync(output) && movedPrevious && existsSync(backup)) renameSync(backup, output);
   }
-  return { approved, output };
 }
 
 function cliArguments(argv) {
   if (argv[0] === "--") argv = argv.slice(1);
   const reviewIndex = argv.indexOf("--review");
+  const evidenceIndex = argv.indexOf("--evidence");
   const reviewFile = reviewIndex >= 0 ? argv[reviewIndex + 1] : undefined;
+  const evidencePath = evidenceIndex >= 0 ? argv[evidenceIndex + 1] : undefined;
   const apply = argv.includes("--apply");
-  const expectedLength = apply ? 3 : 2;
-  if (!reviewFile || argv.length !== expectedLength)
-    throw new Error("Usage: approve-source-review.mjs --review <review.json> [--apply]");
-  return { reviewFile, apply };
+  const expectedLength = apply ? 5 : 4;
+  if (
+    !reviewFile ||
+    !evidencePath ||
+    reviewIndex < 0 ||
+    evidenceIndex < 0 ||
+    argv.length !== expectedLength
+  )
+    throw new Error(
+      "Usage: approve-source-review.mjs --review <review.json> --evidence <public-review.json> [--apply]",
+    );
+  return { reviewFile, evidencePath, apply };
 }
 
 export { cliArguments as parseApproveSourceReviewArguments };
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   try {
-    const { reviewFile, apply } = cliArguments(process.argv.slice(2));
+    const { reviewFile, evidencePath, apply } = cliArguments(process.argv.slice(2));
     const approvedReviewPath = resolvePortablePathWithinRoot(
       projectRoot,
       reviewFile,
@@ -199,13 +304,17 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
       approvedReviewPath,
       "review file",
     );
-    const reviewPath = path.resolve(projectRoot, reviewFile);
-    if (reviewPath !== approvedReviewPath) throw new Error("review file escaped its allowed root.");
-    within(path.resolve(projectRoot, REVIEW_ROOT), reviewPath, "review file");
-    const review = JSON.parse(readFileSync(reviewPath, "utf8"));
+    if (
+      !existsSync(approvedReviewPath) ||
+      !lstatSync(approvedReviewPath).isFile() ||
+      lstatSync(approvedReviewPath).isSymbolicLink()
+    )
+      throw new Error("review file is missing or unsafe.");
+    const review = JSON.parse(readFileSync(approvedReviewPath, "utf8"));
     const sourceLock = loadRenderingSourceLock(projectRoot);
     const result = writeApprovedSourceReview(sourceLock, review, {
       root: projectRoot,
+      evidencePath,
       apply,
     });
     console.log(

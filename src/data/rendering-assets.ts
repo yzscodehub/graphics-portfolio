@@ -69,19 +69,26 @@ export interface RenderingSourceFileRecord {
 }
 
 export interface RenderingSourceLock {
-  version: 2;
+  version: 3;
   policy: {
     license: "CC0";
-    downloaded: boolean;
     stage: "metadata-locked" | "sources-reviewed" | "integrated";
     rawCache: string;
-    sourceHashPolicy: string;
     disallowedExtensions: string[];
   };
-  defaults: {
-    license: "CC0";
-    sourceUrl: string;
-    status: "metadata-locked" | "sources-reviewed";
+  sourceSetSha256: string;
+  review?: {
+    reviewId: string;
+    evidencePath: string;
+    evidenceSha256: string;
+    reviewer: string;
+    reviewedAt: string;
+  };
+  integration?: {
+    recipeSha256: string;
+    toolchainLockSha256: string;
+    runtimeManifestPath: string;
+    runtimeManifestSha256: string;
   };
   sources: RenderingSourceRecord[];
 }
@@ -112,11 +119,7 @@ export const renderingSourceLock = readManifest<RenderingSourceLock>(
 export const renderingAssets = renderingAssetManifest.assets;
 export const plannedRenderingSources = renderingSourceLock.sources.map((source) => ({
   ...source,
-  status: source.files.every(
-    (file) => file.status === "reviewed" && typeof file.sha256 === "string",
-  )
-    ? ("sources-reviewed" as const)
-    : renderingSourceLock.defaults.status,
+  status: renderingSourceLock.policy.stage,
   sourceFileCount: source.files.length,
   sourceBytes: source.files.reduce((total, file) => total + file.bytes, 0),
 }));

@@ -1,18 +1,12 @@
 {
-  "version": 2,
+  "version": 3,
   "policy": {
     "license": "CC0",
-    "downloaded": false,
     "stage": "metadata-locked",
     "rawCache": ".cache/rendering-sources",
-    "sourceHashPolicy": "Each selected file needs its own reviewed SHA-256 before cache download or conversion.",
     "disallowedExtensions": [".zip", ".blend", ".exr", ".psd", ".tif", ".tiff"]
   },
-  "defaults": {
-    "license": "CC0",
-    "status": "metadata-locked",
-    "sourceUrl": "https://polyhaven.com/a/"
-  },
+  "sourceSetSha256": "db58e17d1190d4b4059e9b8af07cb4dc78edbc534b26bcf092e60a1461324aeb",
   "sources": [
     {
       "id": "concrete-road-barrier",

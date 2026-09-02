@@ -4,8 +4,8 @@ An Astro-powered static portfolio for a graphics systems engineer. The site is C
 
 ## Requirements
 
-- Node.js 24 or later
-- pnpm 11 or later
+- Node.js 24.x
+- pnpm 11.x
 
 ```powershell
 pnpm install
@@ -16,28 +16,34 @@ The local development server uses the `/graphics-portfolio/` base path required 
 
 ## Commands
 
-| Command                           | Purpose                                                                 |
-| --------------------------------- | ----------------------------------------------------------------------- |
-| `pnpm dev`                        | Start Astro development mode.                                           |
-| `pnpm check`                      | Type-check Astro and TypeScript.                                        |
-| `pnpm lint`                       | Lint source and tests.                                                  |
-| `pnpm format`                     | Check formatting without modifying files.                               |
-| `pnpm test`                       | Run unit tests.                                                         |
-| `pnpm build`                      | Build the static site without preview artifact validation.              |
-| `pnpm build:preview`              | Build the guarded preview, then validate content, links, and output.    |
-| `pnpm test:content`               | Validate the required content inventory and metadata.                   |
-| `pnpm test:links`                 | Validate built internal links and the Pages base path.                  |
-| `pnpm test:e2e`                   | Run Chromium checks against `dist/`.                                    |
-| `pnpm assets:verify`              | Verify rendering asset hashes, licenses, budgets, and Demo bindings.    |
-| `pnpm assets:rebuild`             | Deterministically rebuild the self-authored placeholder scene pack.     |
-| `pnpm assets:refresh-lock`        | Refresh official Poly Haven API metadata for the v2 multi-file lock.    |
-| `pnpm assets:download-candidates` | Download byte/MD5-checked files into an isolated review.                |
-| `pnpm assets:approve-review`      | Revalidate a complete review and emit/apply reviewed per-file SHA.      |
-| `pnpm assets:fetch`               | Fetch only externally reviewed sources with locked SHA-256 values.      |
-| `pnpm assets:preflight:reviewed`  | Check reviewed per-file hashes and locked conversion tools.             |
-| `pnpm verify:preview`             | Verify preview privacy, noindex, robots, model, and deferred artifacts. |
-| `pnpm deferred:resume:pdf`        | Regenerate deferred resume PDFs after release materials return.         |
-| `pnpm build:release`              | Run the future release privacy, content, and link checks.               |
+| Command                              | Purpose                                                                 |
+| ------------------------------------ | ----------------------------------------------------------------------- |
+| `pnpm dev`                           | Start Astro development mode.                                           |
+| `pnpm check`                         | Type-check Astro and TypeScript.                                        |
+| `pnpm lint`                          | Lint source and tests.                                                  |
+| `pnpm format`                        | Check formatting without modifying files.                               |
+| `pnpm test`                          | Run unit tests.                                                         |
+| `pnpm build`                         | Build the static site without preview artifact validation.              |
+| `pnpm build:preview`                 | Build the guarded preview, then validate content, links, and output.    |
+| `pnpm test:content`                  | Validate the required content inventory and metadata.                   |
+| `pnpm test:links`                    | Validate built internal links and the Pages base path.                  |
+| `pnpm test:e2e`                      | Run Chromium checks against `dist/`.                                    |
+| `pnpm assets:verify`                 | Verify rendering asset hashes, licenses, budgets, and Demo bindings.    |
+| `pnpm assets:rebuild`                | Deterministically rebuild the self-authored placeholder scene pack.     |
+| `pnpm assets:refresh-lock`           | Refresh official Poly Haven API metadata for a v3 metadata-only lock.   |
+| `pnpm assets:download-candidates`    | Download byte/MD5-checked files into an isolated review.                |
+| `pnpm assets:rebind-review`          | Rebind prior quarantine bytes to the stable v3 source-set identity.     |
+| `pnpm assets:review-packet`          | Render and hash the local six-model/material/HDRI review packet.        |
+| `pnpm assets:create-review-evidence` | Record explicit human approval without promoting the source lock.       |
+| `pnpm assets:approve-review`         | Revalidate evidence and emit/apply a reviewed-lock proposal.            |
+| `pnpm assets:materialize-reviewed`   | Atomically copy the exact approved quarantine bytes into raw cache.     |
+| `pnpm assets:fetch`                  | Reproduce reviewed downloads; never substitute for materialization.     |
+| `pnpm assets:preflight:reviewed`     | Check reviewed per-file hashes and locked conversion tools.             |
+| `pnpm run toolchain:verify`          | Validate the fixed conversion-tool lock without downloading anything.   |
+| `pnpm run toolchain:install`         | Explicitly install verified tools into ignored `.tools/rendering/`.     |
+| `pnpm verify:preview`                | Verify preview privacy, noindex, robots, model, and deferred artifacts. |
+| `pnpm deferred:resume:pdf`           | Regenerate deferred resume PDFs after release materials return.         |
+| `pnpm build:release`                 | Run the future release privacy, content, and link checks.               |
 
 ## Content contract
 

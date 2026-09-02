@@ -5,8 +5,8 @@
   "type": "module",
   "packageManager": "pnpm@11.19.0",
   "engines": {
-    "node": ">=24.0.0",
-    "pnpm": ">=11.0.0"
+    "node": "24.x",
+    "pnpm": "11.x"
   },
   "scripts": {
     "dev": "astro dev",
@@ -17,9 +17,17 @@
     "assets:verify": "node scripts/assets/verify-rendering-assets.mjs",
     "assets:refresh-lock": "node scripts/assets/refresh-polyhaven-lock.mjs",
     "assets:download-candidates": "node scripts/assets/download-source-candidates.mjs",
+    "assets:rebind-review": "node scripts/assets/rebind-source-review.mjs",
+    "assets:review-packet": "node scripts/assets/source-review-packet.mjs",
+    "assets:create-review-evidence": "node scripts/assets/create-review-evidence.mjs",
     "assets:approve-review": "node scripts/assets/approve-source-review.mjs",
+    "assets:materialize-reviewed": "node scripts/assets/materialize-reviewed-sources.mjs",
     "assets:fetch": "node scripts/assets/fetch-sources.mjs",
     "assets:preflight:reviewed": "node scripts/assets/rebuild-reviewed-assets.mjs",
+    "assets:preflight:toolchain": "pnpm run toolchain:verify:local",
+    "toolchain:install": "node scripts/assets/install-rendering-toolchain.mjs",
+    "toolchain:verify": "node scripts/assets/verify-rendering-toolchain.mjs --schema-only",
+    "toolchain:verify:local": "node scripts/assets/verify-rendering-toolchain.mjs",
     "assets:rebuild:placeholder": "node scripts/assets/build-placeholder-pack.mjs && pnpm run assets:verify",
     "assets:rebuild": "pnpm run assets:rebuild:placeholder",
     "build": "pnpm run generate:assets && pnpm run assets:verify && astro build && pnpm run build:manifest",

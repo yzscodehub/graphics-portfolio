@@ -1,8 +1,8 @@
-import { createHash } from "node:crypto";
-import { existsSync, mkdirSync, writeFileSync } from "node:fs";
+import { createHash, randomUUID } from "node:crypto";
+import { existsSync, mkdirSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { loadRenderingSourceLock, projectRoot } from "./manifest.mjs";
+import { calculateSourceSetSha256, loadRenderingSourceLock, projectRoot } from "./manifest.mjs";
 import {
   assertExactSourceCachePath,
   isSafePortableRelativePath,
@@ -43,9 +43,15 @@ function selectedFiles(source) {
 
 function requireMetadataLocked(sourceLock, operation) {
   if (
+    sourceLock?.version !== 3 ||
     sourceLock?.policy?.stage !== "metadata-locked" ||
-    sourceLock.policy?.downloaded !== false ||
-    sourceLock?.defaults?.status !== "metadata-locked"
+    sourceLock.policy?.license !== "CC0" ||
+    sourceLock.policy?.rawCache !== ".cache/rendering-sources" ||
+    sourceLock.sourceSetSha256 !== calculateSourceSetSha256(sourceLock.sources) ||
+    sourceLock.review !== undefined ||
+    sourceLock.integration !== undefined ||
+    Object.hasOwn(sourceLock.policy ?? {}, "downloaded") ||
+    Object.hasOwn(sourceLock, "defaults")
   )
     throw new Error(
       operation +
@@ -78,67 +84,80 @@ export async function downloadSourceCandidates(sourceLock, options = {}) {
   const directory = candidateRoot(root, reviewId);
   if (existsSync(directory))
     throw new Error("review quarantine already exists; use a new review id");
+  const staging = path.join(path.dirname(directory), `.${reviewId}.staging-${randomUUID()}`);
   const records = [];
-  for (const source of sourceLock.sources) {
-    for (const file of selectedFiles(source)) {
-      if (!officialUrl(file.directUrl))
-        throw new Error("direct URL is outside dl.polyhaven.org allowlist.");
-      const target = quarantineTarget(directory, source.id, file.relativePath);
-      resolveSourceCachePath(
-        root,
-        sourceLock.policy?.rawCache,
-        source.id,
-        file.cachePath,
-        "candidate cache path",
-      );
-      assertExactSourceCachePath(
-        sourceLock.policy?.rawCache,
-        source.id,
-        file.relativePath,
-        file.cachePath,
-        "candidate cache path",
-      );
-      const response = await fetchImpl(file.directUrl, {
-        redirect: "error",
-        signal: options.signal,
-      });
-      if (!response.ok)
-        throw new Error(String(source.id) + "/" + file.relativePath + ": HTTP " + response.status);
-      const bytes = Buffer.from(await response.arrayBuffer());
-      if (bytes.length !== file.bytes)
-        throw new Error(String(source.id) + "/" + file.relativePath + ": byte-size mismatch");
-      if (digest(bytes, "md5") !== file.md5)
-        throw new Error(String(source.id) + "/" + file.relativePath + ": MD5 mismatch");
-      const escaped = path.relative(directory, target);
-      if (escaped.startsWith("..") || path.isAbsolute(escaped))
-        throw new Error("quarantine path escaped review root");
-      mkdirSync(path.dirname(target), { recursive: true });
-      writeFileSync(target, bytes);
-      records.push({
-        sourceId: source.id,
-        relativePath: file.relativePath,
-        directUrl: file.directUrl,
-        bytes: bytes.length,
-        md5: file.md5,
-        sha256: digest(bytes, "sha256"),
-        quarantinePath: path.relative(root, target).replaceAll(path.sep, "/"),
-      });
+  try {
+    mkdirSync(staging, { recursive: true });
+    for (const source of sourceLock.sources) {
+      for (const file of selectedFiles(source)) {
+        if (!officialUrl(file.directUrl))
+          throw new Error("direct URL is outside dl.polyhaven.org allowlist.");
+        const target = quarantineTarget(staging, source.id, file.relativePath);
+        resolveSourceCachePath(
+          root,
+          sourceLock.policy?.rawCache,
+          source.id,
+          file.cachePath,
+          "candidate cache path",
+        );
+        assertExactSourceCachePath(
+          sourceLock.policy?.rawCache,
+          source.id,
+          file.relativePath,
+          file.cachePath,
+          "candidate cache path",
+        );
+        const response = await fetchImpl(file.directUrl, {
+          redirect: "error",
+          signal: options.signal,
+        });
+        if (!response.ok)
+          throw new Error(
+            String(source.id) + "/" + file.relativePath + ": HTTP " + response.status,
+          );
+        const bytes = Buffer.from(await response.arrayBuffer());
+        if (bytes.length !== file.bytes)
+          throw new Error(String(source.id) + "/" + file.relativePath + ": byte-size mismatch");
+        if (digest(bytes, "md5") !== file.md5)
+          throw new Error(String(source.id) + "/" + file.relativePath + ": MD5 mismatch");
+        const escaped = path.relative(staging, target);
+        if (escaped.startsWith("..") || path.isAbsolute(escaped))
+          throw new Error("quarantine path escaped review root");
+        mkdirSync(path.dirname(target), { recursive: true });
+        writeFileSync(target, bytes);
+        records.push({
+          sourceId: source.id,
+          relativePath: file.relativePath,
+          directUrl: file.directUrl,
+          bytes: bytes.length,
+          md5: file.md5,
+          sha256: digest(bytes, "sha256"),
+          quarantinePath: path
+            .relative(root, quarantineTarget(directory, source.id, file.relativePath))
+            .replaceAll(path.sep, "/"),
+        });
+      }
     }
+    records.sort((left, right) =>
+      (left.sourceId + "/" + left.relativePath).localeCompare(
+        right.sourceId + "/" + right.relativePath,
+      ),
+    );
+    const review = {
+      version: 2,
+      reviewId,
+      sourceSetSha256: sourceLock.sourceSetSha256,
+      files: records,
+    };
+    writeFileSync(path.join(staging, REVIEW_FILE), JSON.stringify(review, null, 2) + "\n", {
+      flag: "wx",
+    });
+    renameSync(staging, directory);
+    return { review, reviewPath: path.join(directory, REVIEW_FILE) };
+  } catch (error) {
+    rmSync(staging, { recursive: true, force: true });
+    throw error;
   }
-  records.sort((left, right) =>
-    (left.sourceId + "/" + left.relativePath).localeCompare(
-      right.sourceId + "/" + right.relativePath,
-    ),
-  );
-  const review = {
-    version: 1,
-    reviewId,
-    sourceLockSha256: digest(Buffer.from(JSON.stringify(sourceLock)), "sha256"),
-    files: records,
-  };
-  const reviewPath = path.join(directory, REVIEW_FILE);
-  writeFileSync(reviewPath, JSON.stringify(review, null, 2) + "\n");
-  return { review, reviewPath };
 }
 
 function reviewIdArgument(argv) {

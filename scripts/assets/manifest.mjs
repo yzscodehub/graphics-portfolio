@@ -23,6 +23,7 @@ const expectedSourceIds = [
 ];
 const forbiddenRawExtensions = new Set([".zip", ".blend", ".exr", ".psd", ".tif", ".tiff"]);
 const shaPattern = /^[a-f0-9]{64}$/;
+const expectedSourceFileCount = 49;
 const requiredLogicalAssetIds = [
   "calibration-rig",
   "research-courtyard",
@@ -107,6 +108,60 @@ export function assertExactSourceCachePath(rawCache, sourceId, relativePath, cac
 
 function sha256(file) {
   return createHash("sha256").update(readFileSync(file)).digest("hex");
+}
+function canonicalize(value) {
+  if (Array.isArray(value)) return value.map(canonicalize);
+  if (value && typeof value === "object")
+    return Object.fromEntries(
+      Object.keys(value)
+        .sort()
+        .map((key) => [key, canonicalize(value[key])]),
+    );
+  return value;
+}
+
+/**
+ * The source-set digest excludes mutable review state and API query time. A
+ * human review therefore remains bound while its lock changes stage.
+ */
+export function sourceSetPayload(sources) {
+  return [...(sources ?? [])]
+    .sort((left, right) => String(left.id).localeCompare(String(right.id)))
+    .map((source) => ({
+      id: source.id,
+      kind: source.kind,
+      page: source.page,
+      sourceUrl: source.sourceUrl,
+      license: source.license,
+      authors: [...(source.authors ?? [])].sort(),
+      api: {
+        infoUrl: source.api?.infoUrl,
+        filesUrl: source.api?.filesUrl,
+        filesHash: source.api?.filesHash,
+      },
+      selection: source.selection,
+      files: [...(source.files ?? [])]
+        .sort((left, right) =>
+          (left.relativePath + "\\u0000" + left.role).localeCompare(
+            right.relativePath + "\\u0000" + right.role,
+          ),
+        )
+        .map((file) => ({
+          role: file.role,
+          relativePath: file.relativePath,
+          directUrl: file.directUrl,
+          bytes: file.bytes,
+          md5: file.md5,
+          cachePath: file.cachePath,
+        })),
+      usedBy: [...(source.usedBy ?? [])].sort(),
+    }));
+}
+
+export function calculateSourceSetSha256(sources) {
+  return createHash("sha256")
+    .update(JSON.stringify(canonicalize(sourceSetPayload(sources))))
+    .digest("hex");
 }
 
 function readJson(root, relative) {
@@ -270,29 +325,38 @@ export function validateRenderingAssets(root = projectRoot) {
       manifestRelativePath,
       "budget and assets are required",
     );
-  if (sourceLock.version !== 2 || sourceLock.policy?.license !== "CC0")
+  if (
+    sourceLock.version !== 3 ||
+    sourceLock.policy?.license !== "CC0" ||
+    !shaPattern.test(sourceLock.sourceSetSha256 ?? "") ||
+    sourceLock.sourceSetSha256 !== calculateSourceSetSha256(sourceLock.sources)
+  )
     add(
       violations,
       "rendering-source-policy",
       sourceLockRelativePath,
-      "rendering sources must remain CC0",
+      "rendering sources must remain CC0 and bind the selected source set",
+    );
+  if (Object.hasOwn(sourceLock.policy ?? {}, "downloaded") || Object.hasOwn(sourceLock, "defaults"))
+    add(
+      violations,
+      "rendering-source-legacy-state",
+      sourceLockRelativePath,
+      "v3 source locks must not contain downloaded/defaults state",
     );
   const sourceStage = sourceLock.policy?.stage;
   if (
     (manifest.status === "preview-placeholder" &&
-      (sourceLock.policy?.downloaded !== false ||
-        !["metadata-locked", "sources-reviewed"].includes(sourceStage))) ||
-    (manifest.status === "reviewed" &&
-      (sourceLock.policy?.downloaded !== true || sourceStage !== "integrated"))
+      !["metadata-locked", "sources-reviewed"].includes(sourceStage)) ||
+    (manifest.status === "reviewed" && sourceStage !== "integrated")
   )
     add(
       violations,
       "rendering-source-stage",
       sourceLockRelativePath,
-      "source download state must match the asset manifest status",
+      "source review state must match the asset manifest status",
     );
 
-  const defaults = sourceLock.defaults;
   let validRawCache = false;
   if (sourceLock.policy?.rawCache === ".cache/rendering-sources") {
     try {
@@ -302,22 +366,23 @@ export function validateRenderingAssets(root = projectRoot) {
       validRawCache = false;
     }
   }
+  if (!validRawCache)
+    add(violations, "rendering-source-policy", sourceLockRelativePath, "invalid raw cache root");
+  const requiredDisallowedExtensions = [".zip", ".blend", ".exr", ".psd", ".tif", ".tiff"];
   if (
-    defaults?.license !== "CC0" ||
-    !String(defaults.sourceUrl ?? "").startsWith("https://polyhaven.com/a/") ||
-    !validRawCache
-  )
-    add(violations, "rendering-source-defaults", sourceLockRelativePath, "invalid source defaults");
-  if (
-    manifest.status === "preview-placeholder" &&
-    ((sourceStage === "metadata-locked" && defaults.status !== "metadata-locked") ||
-      (sourceStage === "sources-reviewed" && defaults.status !== "sources-reviewed"))
+    !Array.isArray(sourceLock.policy?.disallowedExtensions) ||
+    sourceLock.policy.disallowedExtensions.length !== requiredDisallowedExtensions.length ||
+    requiredDisallowedExtensions.some(
+      (extension) => !sourceLock.policy.disallowedExtensions.includes(extension),
+    ) ||
+    new Set(sourceLock.policy.disallowedExtensions).size !==
+      sourceLock.policy.disallowedExtensions.length
   )
     add(
       violations,
-      "rendering-source-defaults",
+      "rendering-source-policy",
       sourceLockRelativePath,
-      "preview source defaults must remain metadata-locked",
+      "disallowed raw source extensions are incomplete or duplicated",
     );
 
   const sourceIds = sourceLock.sources?.map((source) => source.id) ?? [];
@@ -332,6 +397,138 @@ export function validateRenderingAssets(root = projectRoot) {
       sourceLockRelativePath,
       "six meshes, four textures, and one HDRI are required",
     );
+  const selectedFileCount = (sourceLock.sources ?? []).reduce(
+    (count, source) => count + (source.files?.length ?? 0),
+    0,
+  );
+  if (selectedFileCount !== expectedSourceFileCount)
+    add(
+      violations,
+      "rendering-source-inventory",
+      sourceLockRelativePath,
+      `expected ${expectedSourceFileCount} selected source files, found ${selectedFileCount}`,
+    );
+
+  const reviewedStage = sourceStage === "sources-reviewed" || sourceStage === "integrated";
+  const review = sourceLock.review;
+  const validReview =
+    review &&
+    /^[a-z0-9][a-z0-9-]{2,63}$/.test(review.reviewId ?? "") &&
+    review.evidencePath === `public/assets/rendering/reviews/${review.reviewId}.json` &&
+    shaPattern.test(review.evidenceSha256 ?? "") &&
+    typeof review.reviewer === "string" &&
+    review.reviewer.trim().length > 0 &&
+    Number.isFinite(Date.parse(review.reviewedAt ?? ""));
+  if ((reviewedStage && !validReview) || (!reviewedStage && review !== undefined))
+    add(
+      violations,
+      "rendering-source-review-evidence",
+      sourceLockRelativePath,
+      reviewedStage
+        ? "sources-reviewed requires a complete human review receipt"
+        : "metadata-locked must not carry review evidence",
+    );
+  if (reviewedStage && validReview) {
+    try {
+      const evidenceFile = resolvePortablePathWithinRoot(
+        root,
+        review.evidencePath,
+        "review evidence descriptor",
+      );
+      if (!existsSync(evidenceFile) || sha256(evidenceFile) !== review.evidenceSha256) {
+        add(
+          violations,
+          "rendering-source-review-evidence",
+          sourceLockRelativePath,
+          "review evidence descriptor is missing or its hash changed",
+        );
+      } else {
+        const descriptor = JSON.parse(readFileSync(evidenceFile, "utf8"));
+        const packet = descriptor.packet;
+        if (
+          descriptor.version !== 1 ||
+          descriptor.reviewId !== review.reviewId ||
+          descriptor.sourceSetSha256 !== sourceLock.sourceSetSha256 ||
+          descriptor.reviewer !== review.reviewer ||
+          descriptor.reviewedAt !== review.reviewedAt ||
+          packet?.path !==
+            `.cache/rendering-quarantine/${review.reviewId}/review-packet/machine.json` ||
+          !shaPattern.test(packet?.sha256 ?? "")
+        )
+          add(
+            violations,
+            "rendering-source-review-evidence",
+            review.evidencePath,
+            "review evidence descriptor does not match the source-lock receipt",
+          );
+      }
+    } catch (error) {
+      add(
+        violations,
+        "rendering-source-review-evidence",
+        review.evidencePath,
+        error instanceof Error ? error.message : "invalid review evidence descriptor",
+      );
+    }
+  }
+
+  const integration = sourceLock.integration;
+  const validIntegration =
+    integration &&
+    shaPattern.test(integration.recipeSha256 ?? "") &&
+    shaPattern.test(integration.toolchainLockSha256 ?? "") &&
+    isSafePortableRelativePath(integration.runtimeManifestPath ?? "") &&
+    shaPattern.test(integration.runtimeManifestSha256 ?? "");
+  if (
+    (sourceStage === "integrated" && !validIntegration) ||
+    (sourceStage !== "integrated" && integration !== undefined)
+  )
+    add(
+      violations,
+      "rendering-source-integration",
+      sourceLockRelativePath,
+      sourceStage === "integrated"
+        ? "integrated requires a recipe, toolchain, and runtime manifest receipt"
+        : "only integrated source locks may carry integration evidence",
+    );
+  if (sourceStage === "integrated" && validIntegration) {
+    try {
+      const toolchainLock = resolvePortablePathWithinRoot(
+        root,
+        "scripts/assets/toolchain.lock.json",
+        "toolchain lock path",
+      );
+      if (!existsSync(toolchainLock) || sha256(toolchainLock) !== integration.toolchainLockSha256)
+        add(
+          violations,
+          "rendering-source-integration",
+          sourceLockRelativePath,
+          "toolchain lock receipt does not match the tracked toolchain lock",
+        );
+      const runtimeManifest = resolvePortablePathWithinRoot(
+        root,
+        integration.runtimeManifestPath,
+        "runtime manifest path",
+      );
+      if (
+        !existsSync(runtimeManifest) ||
+        sha256(runtimeManifest) !== integration.runtimeManifestSha256
+      )
+        add(
+          violations,
+          "rendering-source-integration",
+          sourceLockRelativePath,
+          "runtime manifest receipt does not match the local artifact",
+        );
+    } catch {
+      add(
+        violations,
+        "rendering-source-integration",
+        sourceLockRelativePath,
+        "runtime manifest path is unsafe",
+      );
+    }
+  }
   for (const source of sourceLock.sources ?? []) {
     if (!/^[a-z0-9-]+$/.test(source.id) || !["mesh", "texture", "hdri"].includes(source.kind))
       add(
@@ -427,7 +624,7 @@ export function validateRenderingAssets(root = projectRoot) {
           sourceLockRelativePath,
           `${source.id || "source"}: invalid selected file descriptor`,
         );
-      const reviewed = sourceStage === "sources-reviewed" || sourceStage === "integrated";
+      const reviewed = reviewedStage;
       if (
         (reviewed && (!shaPattern.test(file.sha256 || "") || file.status !== "reviewed")) ||
         (!reviewed && (file.sha256 !== null || file.status !== "metadata-locked"))

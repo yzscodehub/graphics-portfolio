@@ -1,7 +1,13 @@
-import { writeFileSync } from "node:fs";
+import { randomUUID } from "node:crypto";
+import { existsSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { loadRenderingSourceLock, projectRoot, sourceLockRelativePath } from "./manifest.mjs";
+import {
+  calculateSourceSetSha256,
+  loadRenderingSourceLock,
+  projectRoot,
+  sourceLockRelativePath,
+} from "./manifest.mjs";
 
 const API_ROOT = "https://api.polyhaven.com";
 const CACHE_ROOT = ".cache/rendering-sources";
@@ -68,7 +74,16 @@ async function json(url) {
 }
 
 export async function refreshPolyHavenSourceLock(sourceLock) {
-  if (sourceLock?.policy?.stage !== "metadata-locked")
+  if (
+    sourceLock?.version !== 3 ||
+    sourceLock?.policy?.stage !== "metadata-locked" ||
+    sourceLock.policy?.license !== "CC0" ||
+    sourceLock.policy?.rawCache !== CACHE_ROOT ||
+    !Array.isArray(sourceLock.policy?.disallowedExtensions) ||
+    sourceLock.review !== undefined ||
+    sourceLock.integration !== undefined ||
+    sourceLock.sourceSetSha256 !== calculateSourceSetSha256(sourceLock.sources)
+  )
     throw new Error("Refusing to refresh a source lock after candidate approval or integration.");
   const sources = await Promise.all(
     sourceLock.sources.map(async (source) => {
@@ -106,29 +121,45 @@ export async function refreshPolyHavenSourceLock(sourceLock) {
   return { sources };
 }
 
-function nextLock(sources) {
+export function createMetadataSourceLock(sources, previousPolicy) {
   return {
-    version: 2,
+    version: 3,
     policy: {
-      license: "CC0",
-      downloaded: false,
       stage: "metadata-locked",
+      license: "CC0",
       rawCache: CACHE_ROOT,
-      sourceHashPolicy:
-        "Each selected file needs its own reviewed SHA-256 before cache download or conversion.",
-      disallowedExtensions: [".zip", ".blend", ".exr", ".psd", ".tif", ".tiff"],
+      disallowedExtensions: [...previousPolicy.disallowedExtensions],
     },
-    defaults: { license: "CC0", status: "metadata-locked", sourceUrl: "https://polyhaven.com/a/" },
+    sourceSetSha256: calculateSourceSetSha256(sources),
     sources,
   };
+}
+
+function replaceAtomically(target, value) {
+  const temporary = `${target}.tmp-${randomUUID()}`;
+  const backup = `${target}.backup-${randomUUID()}`;
+  let backedUp = false;
+  writeFileSync(temporary, value, { flag: "wx" });
+  try {
+    if (existsSync(target)) {
+      renameSync(target, backup);
+      backedUp = true;
+    }
+    renameSync(temporary, target);
+    if (backedUp) rmSync(backup, { force: true });
+  } catch (error) {
+    rmSync(temporary, { force: true });
+    if (!existsSync(target) && backedUp && existsSync(backup)) renameSync(backup, target);
+    throw error;
+  }
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const current = loadRenderingSourceLock(projectRoot);
   try {
     const result = await refreshPolyHavenSourceLock(current);
-    const refreshed = nextLock(result.sources);
-    writeFileSync(
+    const refreshed = createMetadataSourceLock(result.sources, current.policy);
+    replaceAtomically(
       path.join(projectRoot, sourceLockRelativePath),
       JSON.stringify(refreshed, null, 2) + "\n",
     );

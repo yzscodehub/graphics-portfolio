@@ -37,6 +37,8 @@ describe("Pages deployment policy", () => {
     expect(release).toContain(
       "git fetch origin +refs/heads/main:refs/remotes/origin/main --no-tags",
     );
-    expect(release).toContain('git merge-base --is-ancestor "${GITHUB_SHA}" origin/main');
+    expect(release).toContain('[[ "$(git rev-parse origin/main)" != "${GITHUB_SHA}" ]]');
+    expect(release).toContain("point exactly to the current origin/main HEAD");
+    expect(release).not.toContain("git merge-base --is-ancestor");
   });
 });

@@ -6,6 +6,8 @@ export default tseslint.config(
   {
     ignores: [
       ".astro/",
+      ".cache/",
+      ".tools/",
       ".venv/",
       "dist/",
       "node_modules/",
