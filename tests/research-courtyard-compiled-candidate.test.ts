@@ -14,7 +14,7 @@ const digest = (file: string) => createHash("sha256").update(readFileSync(file))
 
 describe("locally compiled Research Courtyard candidate", () => {
   it("optionally validates every receipt and the Pack/Runtime v2 bridge", () => {
-    const firstRoot = path.resolve(".cache/rendering-builds/research-courtyard-v2/complete-v1");
+    const firstRoot = path.resolve(".cache/rendering-builds/research-courtyard-v2/complete-v3");
     if (!existsSync(firstRoot)) return;
     const manifestPath = path.join(firstRoot, "candidate.manifest.json");
     const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
@@ -52,7 +52,7 @@ describe("locally compiled Research Courtyard candidate", () => {
     });
 
     const secondManifest = path.resolve(
-      ".cache/rendering-builds/research-courtyard-v2/complete-v2/candidate.manifest.json",
+      ".cache/rendering-builds/research-courtyard-v2/complete-v4/candidate.manifest.json",
     );
     if (existsSync(secondManifest))
       expect(readFileSync(manifestPath)).toEqual(readFileSync(secondManifest));

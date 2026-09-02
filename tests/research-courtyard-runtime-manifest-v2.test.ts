@@ -163,6 +163,13 @@ function manifest(): Record<string, unknown> {
         webp: resource("textures/base.webp", 80),
       },
     },
+    transcoders: {
+      ktx: {
+        version: "4.4.2",
+        script: resource("transcoders/ktx/libktx_read.js", 1024),
+        wasm: resource("transcoders/ktx/libktx_read.wasm", 2048),
+      },
+    },
     environment: {
       diffuseSh: resource("courtyard/diffuse-sh9.json", 512),
       reviewPreview: resource("evidence/courtyard-tonemapped-1k.webp", 1024),

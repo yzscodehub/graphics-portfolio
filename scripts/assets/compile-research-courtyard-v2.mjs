@@ -24,7 +24,7 @@ import {
   assembleResearchCourtyardScene,
   loadResearchCourtyardLodCandidate,
 } from "./research-courtyard-scene.mjs";
-import { toolchainLockSha256 } from "./toolchain.mjs";
+import { resolveInstalledToolCommands } from "./toolchain.mjs";
 
 const thisFile = fileURLToPath(import.meta.url);
 const projectRoot = path.resolve(path.dirname(thisFile), "../..");
@@ -152,7 +152,13 @@ export async function compileResearchCourtyardV2Candidate({
   const sourceLockSha256 = fileDigest(sourceLockPath);
   const recipe = loadResearchCourtyardRecipe(root, { verifyFiles: true });
   const recipeSha256 = researchCourtyardRecipeSha256(root);
-  const currentToolchainSha256 = toolchainLockSha256(root);
+  const toolchain = resolveInstalledToolCommands(root);
+  const currentToolchainSha256 = toolchain.lockSha256;
+  const ktxSupport = toolchain.commands["ktx-software-toktx"].supportArtifacts.find(
+    (entry) => entry.id === "libktx-read-web",
+  );
+  if (!ktxSupport || ktxSupport.files.length !== 2)
+    fail("toolchain", "verified libktx-read-web support is required");
   const lod = loadResearchCourtyardLodCandidate(lodCandidateDir, {
     sourceSetSha256: sourceLock.sourceSetSha256,
     recipeSha256,
@@ -215,6 +221,25 @@ export async function compileResearchCourtyardV2Candidate({
       files.push(ktx2, webp);
     }
 
+    const transcoderReceipts = {};
+    for (const descriptor of ktxSupport.files) {
+      const source = path.resolve(ktxSupport.rootPath, descriptor.path);
+      if (
+        !within(ktxSupport.rootPath, source) ||
+        !existsSync(source) ||
+        !lstatSync(source).isFile() ||
+        lstatSync(source).isSymbolicLink() ||
+        statSync(source).size !== descriptor.bytes ||
+        fileDigest(source) !== descriptor.sha256
+      )
+        fail("toolchain", `${descriptor.path} changed after toolchain verification`);
+      const target = outputPath(staging, `transcoders/ktx/${descriptor.path}`);
+      copyFileSync(source, target);
+      const receipt = fileReceipt(staging, target);
+      transcoderReceipts[descriptor.path.endsWith(".wasm") ? "wasm" : "script"] = receipt;
+      files.push(receipt);
+    }
+
     const shFile = outputPath(staging, "courtyard/diffuse-sh9.json");
     writeFileSync(
       shFile,
@@ -257,6 +282,13 @@ export async function compileResearchCourtyardV2Candidate({
       pack: packReceipt,
       buffers: bufferReceipts,
       textures: textureReceipts,
+      transcoders: {
+        ktx: {
+          version: "4.4.2",
+          script: transcoderReceipts.script,
+          wasm: transcoderReceipts.wasm,
+        },
+      },
       environment: {
         diffuseSh: shReceipt,
         reviewPreview: previewReceipt,
@@ -274,9 +306,12 @@ export async function compileResearchCourtyardV2Candidate({
       courtyardGeometryBytes: scene.meshopt.encodedBytes,
       ktx2Bytes: textures.manifest.totals.ktx2Bytes,
       webpFallbackBytes: textures.manifest.totals.webpBytes,
+      ktxTranscoderBytes: transcoderReceipts.script.bytes + transcoderReceipts.wasm.bytes,
       demoInitialKtx2Bytes:
         scene.meshopt.encodedBytes +
         textures.manifest.totals.ktx2Bytes +
+        transcoderReceipts.script.bytes +
+        transcoderReceipts.wasm.bytes +
         packReceipt.bytes +
         shReceipt.bytes,
       demoInitialWebpBytes:

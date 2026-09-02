@@ -33,6 +33,13 @@ export interface ResearchCourtyardRuntimeManifestV2 {
     indirect: HashedResourceV2;
   };
   textures: Record<string, ResearchCourtyardRuntimeTextureV2>;
+  transcoders: {
+    ktx: {
+      version: "4.4.2";
+      script: HashedResourceV2;
+      wasm: HashedResourceV2;
+    };
+  };
   environment: {
     diffuseSh: HashedResourceV2;
     reviewPreview: HashedResourceV2 | null;
@@ -111,6 +118,8 @@ export function parseResearchCourtyardRuntimeManifestV2(
     fail("version", `must equal ${RESEARCH_COURTYARD_RUNTIME_MANIFEST_V2}`);
   const bufferSource = object(source.buffers, "buffers");
   const textureSource = object(source.textures, "textures");
+  const transcoderSource = object(source.transcoders, "transcoders");
+  const ktxSource = object(transcoderSource.ktx, "transcoders.ktx");
   const environmentSource = object(source.environment, "environment");
   const textures: Record<string, ResearchCourtyardRuntimeTextureV2> = {};
   Object.entries(textureSource).forEach(([id, value]) => {
@@ -131,6 +140,16 @@ export function parseResearchCourtyardRuntimeManifestV2(
       indirect: resource(bufferSource.indirect, "buffers.indirect"),
     },
     textures,
+    transcoders: {
+      ktx: {
+        version:
+          ktxSource.version === "4.4.2"
+            ? "4.4.2"
+            : fail("transcoders.ktx.version", "must equal 4.4.2"),
+        script: resource(ktxSource.script, "transcoders.ktx.script"),
+        wasm: resource(ktxSource.wasm, "transcoders.ktx.wasm"),
+      },
+    },
     environment: {
       diffuseSh: resource(environmentSource.diffuseSh, "environment.diffuseSh"),
       reviewPreview:
