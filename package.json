@@ -27,6 +27,7 @@
     "assets:preflight:reviewed": "node scripts/assets/rebuild-reviewed-assets.mjs",
     "assets:preflight:toolchain": "pnpm run toolchain:verify:local",
     "assets:build:lods": "node scripts/assets/research-courtyard-lods.mjs",
+    "assets:build:hdri": "node scripts/assets/research-courtyard-hdri.mjs",
     "toolchain:install": "node scripts/assets/install-rendering-toolchain.mjs",
     "toolchain:verify": "node scripts/assets/verify-rendering-toolchain.mjs --schema-only",
     "toolchain:verify:local": "node scripts/assets/verify-rendering-toolchain.mjs",
