@@ -26,6 +26,7 @@
     "assets:fetch": "node scripts/assets/fetch-sources.mjs",
     "assets:preflight:reviewed": "node scripts/assets/rebuild-reviewed-assets.mjs",
     "assets:preflight:toolchain": "pnpm run toolchain:verify:local",
+    "assets:build:lods": "node scripts/assets/research-courtyard-lods.mjs",
     "toolchain:install": "node scripts/assets/install-rendering-toolchain.mjs",
     "toolchain:verify": "node scripts/assets/verify-rendering-toolchain.mjs --schema-only",
     "toolchain:verify:local": "node scripts/assets/verify-rendering-toolchain.mjs",
